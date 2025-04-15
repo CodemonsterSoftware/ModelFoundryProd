@@ -73,6 +73,94 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
+## Docker Deployment
+
+ModelFoundry can be easily deployed using Docker. Here's how to get started:
+
+1. **Build the Docker image**:
+```bash
+docker build -t modelfoundry .
+```
+
+2. **Create a Docker volume for persistent data**:
+```bash
+docker volume create modelfoundry_data
+```
+
+3. **Run the container**:
+```bash
+docker run -d \
+  --name modelfoundry \
+  -p 8000:8000 \
+  -v modelfoundry_data:/app/data \
+  -e DJANGO_SECRET_KEY=your-secret-key \
+  -e DJANGO_DEBUG=False \
+  -e DJANGO_ALLOWED_HOSTS=your-domain.com \
+  modelfoundry
+```
+
+4. **Create a superuser**:
+```bash
+docker exec -it modelfoundry python manage.py createsuperuser
+```
+
+5. **Run migrations**:
+```bash
+docker exec -it modelfoundry python manage.py migrate
+```
+
+### Environment Variables
+
+The following environment variables can be configured:
+
+- `DJANGO_SECRET_KEY`: Django secret key for security
+- `DJANGO_DEBUG`: Set to False in production
+- `DJANGO_ALLOWED_HOSTS`: Comma-separated list of allowed hostnames
+- `DATABASE_URL`: Database connection URL (if using external database)
+- `MEDIA_ROOT`: Path to store uploaded files (default: /app/data/media)
+- `STATIC_ROOT`: Path to store static files (default: /app/data/static)
+
+### Docker Compose
+
+For a more complete setup with a database, you can use Docker Compose:
+
+```yaml
+version: '3'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - modelfoundry_data:/app/data
+    environment:
+      - DJANGO_SECRET_KEY=your-secret-key
+      - DJANGO_DEBUG=False
+      - DJANGO_ALLOWED_HOSTS=your-domain.com
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=modelfoundry
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+volumes:
+  modelfoundry_data:
+  postgres_data:
+```
+
+To start the services:
+```bash
+docker-compose up -d
+```
+
 ## Project Structure
 
 ```

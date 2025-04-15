@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy, reverse
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions
 from .forms import (
     ProjectForm, PartForm, GroupForm, PurchasedPartForm,
@@ -41,16 +41,50 @@ class ProjectDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['parts'] = self.object.parts.all().order_by('group__name', 'name')
-        context['purchased_parts'] = self.object.purchased_parts.all()
-        context['images'] = self.object.images.all()
-        context['groups'] = self.object.groups.all()
+        project = self.object
+        context['parts'] = project.parts.all().order_by('group__name', 'name')
+        context['purchased_parts'] = project.purchased_parts.all()
+        context['images'] = project.images.all()
+        context['groups'] = project.groups.all()
+        
+        # Calculate material weights and costs
+        material_info = {}
+        for part in project.parts.all():
+            if part.material:
+                material = part.material
+                if material.id not in material_info:
+                    material_info[material.id] = {
+                        'name': material.name,
+                        'color': material.color,
+                        'total_weight': Decimal('0'),
+                        'total_cost': Decimal('0'),
+                        'part_count': 0
+                    }
+                
+                # Calculate weight for this part
+                if part.volume and material.density:
+                    # Convert volume from mm³ to cm³ (divide by 1000)
+                    volume_cm3 = Decimal(str(part.volume)) / Decimal('1000')
+                    # Calculate weight in grams: volume (cm³) × density (g/cm³)
+                    weight_g = volume_cm3 * material.density
+                    # Convert to kg and multiply by quantity
+                    weight_kg = (weight_g / Decimal('1000')) * part.quantity
+                    
+                    material_info[material.id]['total_weight'] += weight_kg
+                    material_info[material.id]['total_cost'] += weight_kg * (material.cost_per_kg or Decimal('0'))
+                material_info[material.id]['part_count'] += part.quantity
+        
+        # Convert to list and sort by material name
+        context['material_info'] = sorted(material_info.values(), key=lambda x: x['name'])
+        
         # Include material colors in the context
         materials = Material.objects.filter(is_active=True).order_by('name')
         context['materials'] = materials
         context['material_colors'] = {str(m.id): m.color for m in materials if m.color}
+        
         # Include instructions in the context
-        context['instructions'] = self.object.instructions.all().order_by('order')
+        context['instructions'] = project.instructions.all().order_by('order')
+        
         # Include PurchasedPart model for status choices
         context['PurchasedPart'] = PurchasedPart
         return context
@@ -202,12 +236,15 @@ def add_part(request, project_id):
         'project': project
     })
 
+@login_required
 def add_group(request, project_id):
     project = get_object_or_404(Project, id=project_id)
     
     if request.method == 'POST':
         try:
+            # Get the group name from form data
             name = request.POST.get('name')
+            
             if not name:
                 return JsonResponse({
                     'status': 'error',
@@ -229,7 +266,8 @@ def add_group(request, project_id):
             
             return JsonResponse({
                 'status': 'success',
-                'group_id': group.id
+                'group_id': group.id,
+                'group_name': group.name
             })
             
         except Exception as e:
@@ -951,19 +989,21 @@ def export_project(request, project_id):
             
             # Handle STL file
             if part.stl_file:
-                stl_path = os.path.join(stl_dir, f"{part.name}.stl")
+                stl_filename = f"{part.name}.stl"
+                stl_path = os.path.join(stl_dir, stl_filename)
                 with default_storage.open(part.stl_file.name, 'rb') as source_file:
                     with open(stl_path, 'wb') as dest_file:
                         dest_file.write(source_file.read())
-                part_data['stl_file'] = f"stl_files/{part.name}.stl"
+                part_data['stl_file'] = f"stl_files/{stl_filename}"
             
             # Handle thumbnail
             if part.thumbnail:
-                thumbnail_path = os.path.join(thumbnail_dir, f"{part.name}.jpg")
+                thumbnail_filename = f"{part.name}.jpg"
+                thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
                 with default_storage.open(part.thumbnail.name, 'rb') as source_file:
                     with open(thumbnail_path, 'wb') as dest_file:
                         dest_file.write(source_file.read())
-                part_data['thumbnail'] = f"thumbnails/{part.name}.jpg"
+                part_data['thumbnail'] = f"thumbnails/{thumbnail_filename}"
             
             project_data['parts'].append(part_data)
         
@@ -989,11 +1029,12 @@ def export_project(request, project_id):
             
             # Handle instruction image
             if instruction.image:
-                image_path = os.path.join(instructions_dir, f"step_{instruction.order}.jpg")
+                image_filename = f"step_{instruction.order}.jpg"
+                image_path = os.path.join(instructions_dir, image_filename)
                 with default_storage.open(instruction.image.name, 'rb') as source_file:
                     with open(image_path, 'wb') as dest_file:
                         dest_file.write(source_file.read())
-                instruction_data['image'] = f"instructions/step_{instruction.order}.jpg"
+                instruction_data['image'] = f"instructions/{image_filename}"
             
             project_data['instructions'].append(instruction_data)
         
@@ -1006,11 +1047,12 @@ def export_project(request, project_id):
             
             # Handle project image
             if image.image:
-                image_path = os.path.join(project_images_dir, f"project_image_{image.id}.jpg")
+                image_filename = f"project_image_{image.id}.jpg"
+                image_path = os.path.join(project_images_dir, image_filename)
                 with default_storage.open(image.image.name, 'rb') as source_file:
                     with open(image_path, 'wb') as dest_file:
                         dest_file.write(source_file.read())
-                image_data['image'] = f"project_images/project_image_{image.id}.jpg"
+                image_data['image'] = f"project_images/{image_filename}"
             
             project_data['project_images'].append(image_data)
         
@@ -1019,12 +1061,15 @@ def export_project(request, project_id):
         with open(manifest_path, 'w') as f:
             json.dump(project_data, f, indent=2)
         
-        # Create zip file
-        zip_path = os.path.join(temp_dir, f"{project.name}.zip")
+        # Create zip file with a safe filename
+        safe_project_name = "".join(c for c in project.name if c.isalnum() or c in (' ', '-', '_')).strip()
+        zip_filename = f"{safe_project_name}.zip"
+        zip_path = os.path.join(temp_dir, zip_filename)
+        
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(temp_dir):
                 for file in files:
-                    if file != f"{project.name}.zip":  # Don't include the zip file itself
+                    if file != zip_filename:  # Don't include the zip file itself
                         file_path = os.path.join(root, file)
                         arcname = os.path.relpath(file_path, temp_dir)
                         zipf.write(file_path, arcname)
@@ -1032,7 +1077,7 @@ def export_project(request, project_id):
         # Serve the zip file
         with open(zip_path, 'rb') as f:
             response = HttpResponse(f.read(), content_type='application/zip')
-            response['Content-Disposition'] = f'attachment; filename="{project.name}.zip"'
+            response['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
             return response
 
 def register(request):
@@ -1202,3 +1247,92 @@ def import_project(request):
             return redirect('projects:index')
 
     return render(request, 'projects/import_project.html')
+
+@login_required
+def material_delete(request, material_id):
+    material = get_object_or_404(Material, id=material_id)
+    if request.method == 'POST':
+        material.delete()
+        messages.success(request, f'Material "{material.name}" was deleted successfully.')
+        return redirect('projects:material_list')
+    return render(request, 'projects/material_confirm_delete.html', {'object': material})
+
+@login_required
+def delete_project_image(request, image_id):
+    if request.method == 'POST':
+        try:
+            image = ProjectImage.objects.get(id=image_id)
+            project = image.project
+            # Check if user has permission to edit this project
+            if project.user != request.user:
+                return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+            
+            # Delete the image file from storage
+            if image.image:
+                if os.path.isfile(image.image.path):
+                    os.remove(image.image.path)
+            
+            # Delete the image record
+            image.delete()
+            
+            return JsonResponse({'status': 'success'})
+        except ProjectImage.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Image not found'}, status=404)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+@login_required
+def update_project(request, pk):
+    project = get_object_or_404(Project, pk=pk)
+    if project.user != request.user:
+        return HttpResponseForbidden()
+    
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, request.FILES, instance=project)
+        if form.is_valid():
+            project = form.save()
+            
+            # Handle image reordering
+            image_order = request.POST.get('image_order')
+            if image_order:
+                order_list = image_order.split(',')
+                for index, image_id in enumerate(order_list):
+                    try:
+                        image = ProjectImage.objects.get(id=image_id, project=project)
+                        image.order = index
+                        image.save()
+                        
+                        # Set the first image as the project thumbnail
+                        if index == 0:
+                            project.thumbnail = image.image
+                            project.save()
+                    except ProjectImage.DoesNotExist:
+                        continue
+            
+            messages.success(request, 'Project updated successfully.')
+            return redirect('projects:project_detail', pk=project.pk)
+    else:
+        form = ProjectForm(instance=project)
+    
+    return render(request, 'projects/project_form.html', {
+        'form': form,
+        'project': project
+    })
+
+@login_required
+def set_project_thumbnail(request, image_id):
+    if request.method == 'POST':
+        try:
+            image = ProjectImage.objects.get(id=image_id)
+            project = image.project
+            # Check if user has permission to edit this project
+            if project.user != request.user:
+                return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+            
+            # Set the image as the project thumbnail
+            project.thumbnail = image.image
+            project.save()
+            
+            return JsonResponse({'status': 'success'})
+        except ProjectImage.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Image not found'}, status=404)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)

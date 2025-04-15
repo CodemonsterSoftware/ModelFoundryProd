@@ -151,8 +151,10 @@
                         <div class="flex-grow-1 ms-3">
                             <h6 class="mb-0">Required Materials</h6>
                             <p class="mb-0">
-                                {% for material, count in project.material_counts.items %}
-                                    <span class="badge" style="background-color: {{ material_colors|get_item:material.id|default:'#6c757d' }}; color: white;">{{ material }}: {{ count }}</span>
+                                {% for material in material_info %}
+                                    <span class="badge" style="background-color: {{ material.color|default:'#6c757d' }}; color: white;">
+                                        {{ material.name }}: {{ material.total_weight|floatformat:2 }} kg
+                                    </span>
                                 {% endfor %}
                             </p>
                         </div>
@@ -635,19 +637,48 @@
         </div>
     </div>
 
-    <div class="card-footer d-flex justify-content-between">
-        <div>
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPartModal">
-                <i class="fas fa-plus"></i> Add Part
-            </button>
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPurchasedPartModal">
-                <i class="fas fa-shopping-cart"></i> Add Purchased Part
-            </button>
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadInstructionsModal">
-                <i class="fas fa-file-upload"></i> Upload Instructions
-            </button>
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Required Materials</h5>
+        </div>
+        <div class="card-body">
+            {% if material_info %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Color</th>
+                                <th>Total Weight (kg)</th>
+                                <th>Estimated Cost</th>
+                                <th>Parts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for material in material_info %}
+                                <tr>
+                                    <td>{{ material.name }}</td>
+                                    <td>
+                                        {% if material.color %}
+                                            <span class="badge" style="background-color: {{ material.color }}">&nbsp;&nbsp;&nbsp;</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ material.total_weight|floatformat:2 }}</td>
+                                    <td>${{ material.total_cost|floatformat:2 }}</td>
+                                    <td>{{ material.part_count }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted">No materials required for this project.</p>
+            {% endif %}
         </div>
     </div>
+
 </div>
 {% endblock %}
 
