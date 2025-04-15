@@ -12,14 +12,14 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Clone the repository
+RUN git clone https://github.com/CodemonsterSoftware/ModelFoundryProd.git /app
 
-# Copy project files
-COPY . .
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Create media and static directories
 RUN mkdir -p /app/media /app/staticfiles
