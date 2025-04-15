@@ -1,0 +1,540 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Add Parts - {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.table-fixed {
+    table-layout: fixed;
+}
+.editable-cell {
+    padding: 0 !important;
+}
+.editable-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    padding: 8px;
+    background: transparent;
+    color: var(--text-light) !important;
+}
+.editable-input:focus {
+    outline: 2px solid #0d6efd;
+    background: var(--bg-grey);
+    color: var(--text-light) !important;
+}
+.editable-select {
+    width: 100%;
+    height: 100%;
+    border: none;
+    padding: 8px;
+    background: transparent;
+    color: var(--text-light) !important;
+}
+.editable-select:focus {
+    background: var(--bg-grey);
+    color: var(--text-light) !important;
+}
+.color-input {
+    width: 100%;
+    height: 36px;
+    padding: 2px;
+    border: none;
+    background: transparent;
+}
+.table-hover tbody tr:hover {
+    background-color: var(--bg-grey) !important;
+}
+.sticky-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+}
+.upload-area {
+    border: 2px dashed #404040;
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    background: #2d2d2d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.upload-area:hover {
+    border-color: #0d6efd;
+    background: #333333;
+}
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background: #333333;
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.3);
+}
+.form-label {
+    color: #e0e0e0 !important;
+}
+.form-control {
+    background-color: #2d2d2d !important;
+    border-color: #404040 !important;
+    color: #e0e0e0 !important;
+}
+.form-control:focus {
+    background-color: #2d2d2d !important;
+    border-color: #404040 !important;
+    color: #e0e0e0 !important;
+}
+.form-select {
+    background-color: #2d2d2d !important;
+    border-color: #404040 !important;
+    color: #e0e0e0 !important;
+}
+.form-select:focus {
+    background-color: #2d2d2d !important;
+    border-color: #404040 !important;
+    color: #e0e0e0 !important;
+}
+.card {
+    background-color: #2d2d2d !important;
+    border-color: #404040 !important;
+}
+.card-header {
+    background-color: #333333 !important;
+    border-bottom-color: #404040 !important;
+    color: #e0e0e0 !important;
+}
+.table {
+    color: var(--text-light) !important;
+}
+.table th {
+    background-color: var(--bg-grey) !important;
+    border-color: var(--border-dark) !important;
+    color: var(--text-light) !important;
+}
+.table td {
+    background-color: var(--bg-darker) !important;
+    border-color: var(--border-dark) !important;
+    color: var(--text-light) !important;
+}
+.table-hover tbody tr:hover {
+    background-color: var(--bg-grey) !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    {% csrf_token %}
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Add Parts</h1>
+            <p class="text-muted">Add multiple parts to {{ project.name }}</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Project
+            </a>
+        </div>
+    </div>
+
+    <!-- Store materials data for JavaScript -->
+    <script>
+        const materialsData = [
+            {% for material in materials %}
+            {
+                id: "{{ material.id }}",
+                name: "{{ material.name }}",
+                color: "{{ material.color|default:'#000000' }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+    </script>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="upload-area" id="uploadArea">
+                <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                <h5>Drag and drop STL files here</h5>
+                <p class="text-muted">or click to browse</p>
+                <input type="file" id="fileInput" multiple accept=".stl" style="display: none;">
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-light">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <button type="button" class="btn btn-success" id="saveAll">
+                        <i class="fas fa-save"></i> Save All
+                    </button>
+                </div>
+                <div class="col-auto">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary" id="copyDown">
+                            <i class="fas fa-arrow-down"></i> Copy Down
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" id="deleteSelected">
+                            <i class="fas fa-trash"></i> Delete Selected
+                        </button>
+                    </div>
+                </div>
+                <div class="col-auto">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label" for="selectAll">Select All</label>
+                    </div>
+                </div>
+                <div class="col-auto ms-auto">
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newGroupModal">
+                        <i class="fas fa-plus"></i> New Group
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-fixed mb-0" id="partsTable">
+                    <thead class="sticky-header">
+                        <tr>
+                            <th style="width: 40px;"><i class="fas fa-check"></i></th>
+                            <th style="width: 250px;">Name</th>
+                            <th style="width: 100px;">Quantity</th>
+                            <th style="width: 150px;">Material</th>
+                            <th style="width: 100px;">Color</th>
+                            <th style="width: 150px;">Group</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Group Modal -->
+<div class="modal fade" id="newGroupModal" tabindex="-1" aria-labelledby="newGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newGroupModalLabel">Create New Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newGroupForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="groupName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createGroup">Create Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const $uploadArea = $('#uploadArea');
+    const $fileInput = $('#fileInput');
+    const $table = $('#partsTable');
+    let rowCount = 0;
+    
+    // Handle click on upload area
+    $uploadArea.on('click', function(e) {
+        e.preventDefault();
+        $fileInput.trigger('click');
+    });
+    
+    // Handle file selection
+    $fileInput.on('change', function(e) {
+        handleFiles(e.target.files);
+    });
+    
+    // Handle drag and drop
+    $uploadArea.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+    
+    $uploadArea.on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+    });
+    
+    $uploadArea.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        handleFiles(e.originalEvent.dataTransfer.files);
+    });
+    
+    // Function to handle uploaded files
+    function handleFiles(files) {
+        Array.from(files).forEach(file => {
+            if (file.name.toLowerCase().endsWith('.stl')) {
+                addRowFromFile(file);
+            }
+        });
+    }
+    
+    // Function to add a new row from a file
+    function addRowFromFile(file) {
+        // Create a new row from the template structure
+        const $newRow = $('<tr class="part-row">').attr('data-id', `new-${rowCount}`);
+        $newRow.html(`
+            <td class="text-center">
+                <input type="checkbox" class="row-select">
+            </td>
+            <td class="editable-cell">
+                <input type="text" class="editable-input" name="name" placeholder="Part name">
+            </td>
+            <td class="editable-cell">
+                <input type="number" class="editable-input" name="quantity" value="1" min="1">
+            </td>
+            <td class="editable-cell">
+                <select class="editable-select" name="material">
+                    <option value="">Select Material</option>
+                    ${materialsData.map(material => `
+                        <option value="${material.id}" data-color="${material.color}">
+                            ${material.name}
+                        </option>
+                    `).join('')}
+                </select>
+            </td>
+            <td class="editable-cell">
+                <input type="color" class="color-input" name="color" value="#000000">
+            </td>
+            <td class="editable-cell">
+                <select class="editable-select" name="group">
+                    <option value="">No Group</option>
+                    {% for group in groups %}
+                        <option value="{{ group.id }}">{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+        `);
+        
+        // Set the filename as the part name (without extension)
+        const fileName = file.name.replace(/\.stl$/i, '');
+        $newRow.find('[name="name"]').val(fileName);
+        
+        // Add file data attribute
+        $newRow.data('file', file);
+        
+        $table.find('tbody').append($newRow);
+        rowCount++;
+
+        // Add event listener for material selection
+        $newRow.find('[name="material"]').change(function() {
+            const selectedOption = $(this).find('option:selected');
+            const color = selectedOption.data('color');
+            if (color) {
+                $newRow.find('[name="color"]').val(color);
+            }
+        });
+    }
+
+    // Select all rows
+    $('#selectAll').change(function() {
+        const isChecked = $(this).prop('checked');
+        $table.find('.row-select').prop('checked', isChecked);
+    });
+
+    // Copy down values
+    $('#copyDown').click(function() {
+        const $selectedRows = $table.find('.row-select:checked').closest('tr');
+        if ($selectedRows.length === 0) return;
+
+        const $firstRow = $selectedRows.first();
+        const values = {
+            material: $firstRow.find('[name="material"]').val(),
+            color: $firstRow.find('[name="color"]').val(),
+            group: $firstRow.find('[name="group"]').val()
+        };
+
+        $selectedRows.each(function() {
+            $(this).find('[name="material"]').val(values.material);
+            $(this).find('[name="color"]').val(values.color);
+            $(this).find('[name="group"]').val(values.group);
+        });
+    });
+
+    // Delete selected rows
+    $('#deleteSelected').click(function() {
+        if ($table.find('tbody tr').length > 1) {
+            $table.find('.row-select:checked').closest('tr').remove();
+        }
+    });
+
+    // Save all parts
+    $('#saveAll').click(function() {
+        const formData = new FormData();
+        const parts = [];
+        
+        $table.find('tbody tr').each(function() {
+            const $row = $(this);
+            const file = $row.data('file');
+            
+            if (file) {
+                formData.append('files', file);
+            }
+            
+            const partData = {
+                name: $row.find('[name="name"]').val(),
+                quantity: parseInt($row.find('[name="quantity"]').val()),
+                material: $row.find('[name="material"]').val(),
+                color: $row.find('[name="color"]').val(),
+                group: $row.find('[name="group"]').val()
+            };
+
+            // Validate required fields
+            if (!partData.name) {
+                alert('Please enter a name for all parts');
+                return false;
+            }
+            if (isNaN(partData.quantity) || partData.quantity < 1) {
+                alert('Please enter a valid quantity (minimum 1) for all parts');
+                return false;
+            }
+            if (!partData.material) {
+                alert('Please select a material for all parts');
+                return false;
+            }
+
+            parts.push(partData);
+        });
+
+        if (parts.length === 0) {
+            alert('Please add at least one part');
+            return false;
+        }
+
+        formData.append('parts', JSON.stringify(parts));
+
+        // Show loading state
+        const $btn = $(this);
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i> Saving...').prop('disabled', true);
+
+        // Send AJAX request
+        $.ajax({
+            url: '{% url "projects:add_multiple_parts" project.pk %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    window.location.href = '{% url "projects:project_detail" project.pk %}';
+                } else {
+                    alert('Error: ' + (response.message || 'Unknown error occurred'));
+                    $btn.html(originalHtml).prop('disabled', false);
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error saving parts. Please try again.';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMessage = response.message;
+                    }
+                } catch (e) {
+                    // If we can't parse the error message, use the default
+                }
+                alert(errorMessage);
+                $btn.html(originalHtml).prop('disabled', false);
+            }
+        });
+    });
+
+    // Keyboard navigation
+    $table.on('keydown', '.editable-input, .editable-select', function(e) {
+        const $current = $(this);
+        const $currentCell = $current.closest('td');
+        const $currentRow = $current.closest('tr');
+        
+        switch(e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                const $nextRow = $currentRow.next('tr');
+                if ($nextRow.length) {
+                    $nextRow.find(`[name="${$current.attr('name')}"]`).focus();
+                }
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                const $prevRow = $currentRow.prev('tr');
+                if ($prevRow.length) {
+                    $prevRow.find(`[name="${$current.attr('name')}"]`).focus();
+                }
+                break;
+        }
+    });
+
+    // Handle new group creation
+    $('#createGroup').click(function() {
+        const groupName = $('#groupName').val().trim();
+        if (!groupName) {
+            alert('Please enter a group name');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i> Creating...').prop('disabled', true);
+
+        $.ajax({
+            url: '{% url "projects:add_group" project.pk %}',
+            type: 'POST',
+            data: {
+                name: groupName,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Add the new group to all group selectors
+                    const $newOption = $('<option>')
+                        .val(response.group_id)
+                        .text(groupName);
+                    
+                    $('select[name="group"]').each(function() {
+                        $(this).append($newOption.clone());
+                    });
+
+                    // Close the modal and reset the form
+                    $('#newGroupModal').modal('hide');
+                    $('#newGroupForm')[0].reset();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to create group'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error creating group. Please try again.');
+            },
+            complete: function() {
+                $btn.html(originalHtml).prop('disabled', false);
+            }
+        });
+    });
+
+    // Reset form when modal is closed
+    $('#newGroupModal').on('hidden.bs.modal', function() {
+        $('#newGroupForm')[0].reset();
+    });
+});
+</script>
+{% endblock %} 

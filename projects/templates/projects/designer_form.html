@@ -1,0 +1,141 @@
+{% extends 'projects/base.html' %}
+
+{% block title %}Edit Designer - ModelFoundry{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card bg-dark text-light">
+                <div class="card-header bg-dark border-secondary">
+                    <h2 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Edit Designer
+                    </h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="text-danger">
+                                    {{ form.name.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.logo.id_for_label }}" class="form-label">Logo</label>
+                            {% if designer.logo %}
+                                <div class="mb-2">
+                                    <img src="{{ designer.logo.url }}" alt="{{ designer.name }} logo" class="img-thumbnail" style="max-height: 100px;">
+                                </div>
+                            {% endif %}
+                            {{ form.logo }}
+                            {% if form.logo.errors %}
+                                <div class="text-danger">
+                                    {{ form.logo.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.mmf_url.id_for_label }}" class="form-label">MMF URL</label>
+                            {{ form.mmf_url }}
+                            {% if form.mmf_url.errors %}
+                                <div class="text-danger">
+                                    {{ form.mmf_url.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.patreon_url.id_for_label }}" class="form-label">Patreon URL</label>
+                            {{ form.patreon_url }}
+                            {% if form.patreon_url.errors %}
+                                <div class="text-danger">
+                                    {{ form.patreon_url.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.cults3d_url.id_for_label }}" class="form-label">Cults3D URL</label>
+                            {{ form.cults3d_url }}
+                            {% if form.cults3d_url.errors %}
+                                <div class="text-danger">
+                                    {{ form.cults3d_url.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.website_url.id_for_label }}" class="form-label">Website URL</label>
+                            {{ form.website_url }}
+                            {% if form.website_url.errors %}
+                                <div class="text-danger">
+                                    {{ form.website_url.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'projects:designer_detail' designer.id %}" class="btn btn-dark">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Designer
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control {
+        background-color: var(--bg-dark);
+        border-color: var(--border-color);
+        color: var(--text-light);
+    }
+    
+    .form-control:focus {
+        background-color: var(--bg-dark);
+        border-color: var(--primary-color);
+        color: var(--text-light);
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .form-label {
+        color: var(--text-light);
+    }
+    
+    .btn-dark {
+        background-color: var(--bg-dark);
+        border-color: var(--border-color);
+        color: var(--text-light);
+    }
+    
+    .btn-dark:hover {
+        background-color: var(--border-color);
+        border-color: var(--border-color);
+        color: var(--text-light);
+    }
+    
+    .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: var(--text-light);
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-color-dark);
+        border-color: var(--primary-color-dark);
+        color: var(--text-light);
+    }
+</style>
+{% endblock %} 

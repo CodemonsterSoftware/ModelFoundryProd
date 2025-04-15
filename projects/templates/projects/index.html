@@ -1,0 +1,101 @@
+{% extends 'projects/base.html' %}
+{% load static %}
+
+{% block title %}ModelFoundry - 3D Printing Project Management{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Hero Section -->
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-8 mx-auto text-center">
+            <h1 class="display-4 fw-bold mb-4">ModelFoundry</h1>
+            <p class="lead mb-4">Streamline your 3D printing projects with our comprehensive management tool. Track parts, materials, and progress all in one place.</p>
+            <div class="d-grid gap-2 d-md-flex justify-content-center">
+                <a href="{% url 'projects:project_create' %}" class="btn btn-primary btn-lg px-4 me-md-2">
+                    <i class="fas fa-plus me-2"></i>Create New Project
+                </a>
+                <a href="{% url 'projects:import_project' %}" class="btn btn-outline-primary btn-lg px-4 me-md-2">
+                    <i class="fas fa-file-import me-2"></i>Import Project
+                </a>
+                <a href="#features" class="btn btn-outline-secondary btn-lg px-4">
+                    <i class="fas fa-info-circle me-2"></i>Learn More
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div id="features" class="row mb-5">
+        <div class="col-12 text-center mb-4">
+            <h2 class="display-5">Features</h2>
+            <p class="lead text-muted">Everything you need to manage your 3D printing projects</p>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-cube fa-3x text-primary mb-3"></i>
+                    <h3 class="h4">Part Management</h3>
+                    <p class="text-muted">Organize and track your 3D printed parts with ease. Group parts, set quantities, and monitor progress.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-box fa-3x text-primary mb-3"></i>
+                    <h3 class="h4">Material Tracking</h3>
+                    <p class="text-muted">Keep track of required materials and their quantities. Plan your printing resources efficiently.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-shopping-cart fa-3x text-primary mb-3"></i>
+                    <h3 class="h4">Purchased Parts</h3>
+                    <p class="text-muted">Manage both printed and purchased components. Track costs and order status in one place.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Projects Section -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h2 class="display-5">Recent Projects</h2>
+            <p class="lead text-muted">Your latest 3D printing projects</p>
+        </div>
+        {% for project in recent_projects %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                {% if project.images.first %}
+                <img src="{{ project.images.first.image.url }}" class="card-img-top" alt="{{ project.name }}">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">{{ project.name }}</h5>
+                    <p class="card-text text-muted">{{ project.description|truncatechars:100 }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-cube me-1"></i>{{ project.total_parts }} parts
+                        </small>
+                        <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
+                            View Project
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                <p class="lead text-muted">No projects yet. Create your first project to get started!</p>
+                <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Create Project
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 

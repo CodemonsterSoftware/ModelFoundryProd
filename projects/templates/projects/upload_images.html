@@ -1,0 +1,220 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Upload Images - {{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 5px;
+    padding: 20px;
+    text-align: center;
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.upload-area:hover {
+    border-color: #0d6efd;
+    background: #f0f7ff;
+}
+.upload-area.dragover {
+    border-color: #0d6efd;
+    background: #e7f1ff;
+}
+.image-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+.preview-item {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border-radius: 5px;
+    overflow: hidden;
+}
+.preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.preview-item .remove-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(255, 255, 255, 0.8);
+    border: none;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Upload Images</h1>
+            <p class="text-muted">Add images to {{ project.name }}</p>
+        </div>
+        <div class="col text-end">
+            <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Project
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+                <div class="upload-area" id="uploadArea">
+                    <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
+                    <h5>Drag and drop images here</h5>
+                    <p class="text-muted">or click to browse</p>
+                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                </div>
+                
+                <div class="image-preview" id="imagePreview"></div>
+                
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>
+                        <i class="fas fa-upload"></i> Upload Images
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const $uploadArea = $('#uploadArea');
+    const $fileInput = $('#fileInput');
+    const $imagePreview = $('#imagePreview');
+    const $uploadBtn = $('#uploadBtn');
+    let files = [];
+    
+    // Handle click on upload area
+    $uploadArea.on('click', function(e) {
+        e.preventDefault();
+        $fileInput.trigger('click');
+    });
+    
+    // Handle file selection
+    $fileInput.on('change', function(e) {
+        handleFiles(e.target.files);
+    });
+    
+    // Handle drag and drop
+    $uploadArea.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+    
+    $uploadArea.on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+    });
+    
+    $uploadArea.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        handleFiles(e.originalEvent.dataTransfer.files);
+    });
+    
+    function handleFiles(newFiles) {
+        // Convert FileList to Array and filter for images
+        const imageFiles = Array.from(newFiles).filter(file => 
+            file.type.startsWith('image/')
+        );
+        
+        if (imageFiles.length === 0) {
+            alert('Please select only image files');
+            return;
+        }
+        
+        // Add new files to our array
+        files = [...files, ...imageFiles];
+        
+        // Update preview
+        updatePreview();
+        
+        // Enable upload button if we have files
+        $uploadBtn.prop('disabled', files.length === 0);
+    }
+    
+    function updatePreview() {
+        $imagePreview.empty();
+        
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const $previewItem = $(`
+                    <div class="preview-item">
+                        <img src="${e.target.result}" alt="Preview">
+                        <button type="button" class="remove-btn" data-index="${index}">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `);
+                
+                $imagePreview.append($previewItem);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    // Handle remove button clicks
+    $imagePreview.on('click', '.remove-btn', function() {
+        const index = $(this).data('index');
+        files.splice(index, 1);
+        updatePreview();
+        $uploadBtn.prop('disabled', files.length === 0);
+    });
+    
+    // Handle form submission
+    $('#uploadForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        // Add each file to the FormData
+        files.forEach((file, index) => {
+            formData.append(`image_${index}`, file);
+        });
+        
+        // Show loading state
+        const $btn = $uploadBtn;
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i> Uploading...').prop('disabled', true);
+        
+        // Submit the form
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                window.location.href = '{% url "projects:project_detail" project.pk %}';
+            },
+            error: function(xhr) {
+                alert('Error uploading images. Please try again.');
+                $btn.html(originalHtml).prop('disabled', false);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 

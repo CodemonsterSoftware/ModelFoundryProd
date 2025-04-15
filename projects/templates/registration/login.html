@@ -1,0 +1,70 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Login - ModelFoundry{% endblock %}
+
+{% block extra_css %}
+<style>
+    .errorlist {
+        color: white;
+        background-color: #dc3545;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        margin-top: 0.5rem;
+    }
+
+    .errorlist li {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .alert-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+        color: white;
+    }
+
+    .alert-danger a {
+        color: white;
+        text-decoration: underline;
+    }
+
+    .alert-danger a:hover {
+        color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-dark text-light border-secondary">
+                <div class="card-header bg-dark border-secondary">
+                    <h3 class="text-center mb-0">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form|crispy }}
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>Login
+                            </button>
+                            <div class="text-center mt-3">
+                                <p class="mb-0">Don't have an account?</p>
+                                <a href="{% url 'register' %}" class="btn btn-outline-primary mt-2">
+                                    <i class="fas fa-user-plus me-2"></i>Register
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

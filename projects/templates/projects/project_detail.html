@@ -1,0 +1,1428 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+{% load project_filters %}
+{% load material_filters %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/online-3d-viewer@0.15.0/dist/online-3d-viewer.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css">
+<style>
+    /* Add specific style for completed rows */
+    .table > tbody > tr.completed-row,
+    .table > tbody > tr.completed-row > td {
+        background-color: rgba(0, 0, 0, 0.125) !important;
+        color: inherit !important;
+    }
+    
+    .table > tbody > tr.completed-row:hover,
+    .table > tbody > tr.completed-row:hover > td {
+        background-color: rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    .splide__slide {
+        padding: 0.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #343a40;
+        min-height: 40vh;
+        height: 40vh;
+    }
+    .splide__slide img {
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 0.5rem;
+        display: block;
+        margin: auto;
+    }
+    .splide__track {
+        background-color: #343a40;
+    }
+    /* Instructions gallery specific styles */
+    #instructionsGallery .splide__slide {
+        flex-direction: column;
+        padding: 0.5rem;
+        min-height: auto;
+        height: auto;
+    }
+    #instructionsGallery .splide__slide img {
+        max-height: 40vh;
+        min-height: auto;
+        height: auto;
+        margin-bottom: 0.5rem;
+    }
+    #instructionsGallery .instruction-description {
+        color: white;
+        text-align: center;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    #instructionsGallery .instruction-description h6 {
+        color: #ffc107;
+        margin-bottom: 0.5rem;
+    }
+    #instructionsGallery .instruction-description p {
+        margin-bottom: 0;
+    }
+    /* Remove hover effect from group header rows */
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Info Card -->
+    <div class="card mb-5">
+        <!-- Gallery Section -->
+        <div class="card-body p-0">
+            {% if images %}
+            <div class="splide" id="project-gallery">
+                <div class="splide__track">
+                    <ul class="splide__list">
+                        {% for image in images %}
+                        <li class="splide__slide">
+                            <img src="{{ image.image.url }}" alt="Project image">
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% else %}
+            <div class="p-4">
+                <p class="text-muted mb-0">No images uploaded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Description Section -->
+        <div class="card-body border-top">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="mb-0">{{ project.name }}</h2>
+                <div>
+                    <a href="{% url 'projects:project_update' project.id %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-edit"></i> Edit Project
+                    </a>
+                    <a href="{% url 'projects:export_project' project.id %}" class="btn btn-outline-success">
+                        <i class="fas fa-file-export"></i> Export Project
+                    </a>
+                </div>
+            </div>
+            <p class="text-muted">{{ project.description }}</p>
+        </div>
+
+        <!-- Project Statistics -->
+
+
+        <!-- Project Info -->
+        <div class="card-body border-top py-3 py-md-4">
+            <h5 class="card-title mb-4">Project Info</h5>
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 my-2 my-md-3">
+                            <i class="fas fa-cubes fa-2x text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-0">Total Parts</h6>
+                            <p class="mb-0 fw-bold fs-5">{{ project.total_parts }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 my-2 my-md-3">
+                            <i class="fas fa-dollar-sign fa-2x text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-0">Total Cost</h6>
+                            <p class="mb-0 fw-bold fs-5">${{ project.total_cost|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 my-2 my-md-3">
+                            <i class="fas fa-box fa-2x text-info"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-0">Required Materials</h6>
+                            <p class="mb-0">
+                                {% for material, count in project.material_counts.items %}
+                                    <span class="badge" style="background-color: {{ material_colors|get_item:material.id|default:'#6c757d' }}; color: white;">{{ material }}: {{ count }}</span>
+                                {% endfor %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 my-2 my-md-3">
+                            <i class="fas fa-user fa-2x text-warning"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-0">Designer</h6>
+                            <p class="mb-0">
+                                {% if project.designer %}
+                                    <a href="{% url 'projects:designer_detail' project.designer.id %}" class="text-decoration-none">
+                                        {{ project.designer.name }}
+                                    </a>
+                                {% else %}
+                                    Not assigned
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parts Section -->
+    <div class="card mb-5">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Parts</h5>
+            <a href="{% url 'projects:add_multiple_parts' project.pk %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus"></i> Add Parts
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr style="background-color: #f8f9fa;">
+                            <th>Part</th>
+                            <th>Material</th>
+                            <th>Color</th>
+                            <th>Cost</th>
+                            <th>Progress</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% regroup parts by group as grouped_parts %}
+                        {% for group in grouped_parts %}
+                            {% if group.grouper %}
+                                <tr class="table-light">
+                                    <td colspan="6"><strong>{{ group.grouper.name }}</strong></td>
+                                </tr>
+                            {% endif %}
+                            {% for part in group.list %}
+                                <tr data-completed="{{ part.completed }}" 
+                                    data-quantity="{{ part.quantity }}" 
+                                    class="{% if part.completed == part.quantity %}completed-row{% endif %}">
+                                    <td>
+                                        {% if part.thumbnail %}
+                                            <img src="{{ part.thumbnail.url }}" width="30" height="30" class="me-2">
+                                        {% endif %}
+                                        {{ part.name }}
+                                    </td>
+                                    <td>{{ part.material }}</td>
+                                    <td>
+                                        {% if part.color %}
+                                            <span class="badge" style="background-color: {{ part.color }}; width: 20px; height: 20px; padding: 0; border-radius: 50%; display: inline-block; border: 1px solid #dee2e6;" title="{{ part.color|color_name }}"></span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if part.material_cost %}
+                                            ${{ part.material_cost|floatformat:2 }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control completion-input" 
+                                                   value="{{ part.completed }}" min="0" max="{{ part.quantity }}"
+                                                   data-part-id="{{ part.id }}">
+                                            <span class="input-group-text">/ {{ part.quantity }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary view-part" 
+                                                data-part-id="{{ part.id }}"
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#partDetailsModal">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">No parts added yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchased Parts Section -->
+    <div class="card mb-5">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Purchased Parts</h5>
+            <a href="{% url 'projects:add_purchased_part' project.pk %}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus"></i> Add Purchased Part
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Part</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Total</th>
+                            <th>Link</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for part in purchased_parts %}
+                            <tr>
+                                <td>{{ part.name }}</td>
+                                <td>${{ part.price }}</td>
+                                <td>{{ part.quantity }}</td>
+                                <td>${{ part.price|multiply:part.quantity }}</td>
+                                <td>
+                                    {% if part.link %}
+                                        <a href="{{ part.link }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-external-link-alt"></i> View
+                                        </a>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm status-select" data-part-id="{{ part.id }}">
+                                        {% for value, label in PurchasedPart.STATUS_CHOICES %}
+                                            <option value="{{ value }}" {% if part.status == value %}selected{% endif %}>
+                                                {{ label }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary view-purchased-part" 
+                                            data-part-id="{{ part.id }}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#purchasedPartDetailsModal">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">No purchased parts added yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purchased Part Details Modal -->
+    <div class="modal fade" id="purchasedPartDetailsModal" tabindex="-1" aria-labelledby="purchasedPartDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="purchasedPartDetailsModalLabel">Purchased Part Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="purchasedPartForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Name</label>
+                            <input type="text" class="form-control" id="purchasedPartName">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Price</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="purchasedPartPrice" step="0.01" min="0">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Quantity</label>
+                            <input type="number" class="form-control" id="purchasedPartQuantity" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Link</label>
+                            <input type="url" class="form-control" id="purchasedPartLink">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Status</label>
+                            <select class="form-select" id="purchasedPartStatus">
+                                {% for value, label in PurchasedPart.STATUS_CHOICES %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger" id="removePurchasedPart">
+                        <i class="fas fa-trash"></i> Remove Part
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="savePurchasedPartChanges">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Part Details Modal -->
+    <div class="modal fade" id="partDetailsModal" tabindex="-1" aria-labelledby="partDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="partDetailsModalLabel">Part Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="partViewer" style="width: 100%; height: 400px; position: relative; background-color: #f8f9fa;">
+                                <div id="viewerPlaceholder" class="position-absolute top-50 start-50 translate-middle text-center" style="display: none;">
+                                    <i class="fas fa-cube fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted">Click "View" to load 3D model</p>
+                                </div>
+                                <div id="viewerLoading" class="position-absolute top-50 start-50 translate-middle text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Loading 3D model...</p>
+                                </div>
+                                <div id="viewerError" class="position-absolute top-50 start-50 translate-middle text-center" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                                    <p class="mt-2">Failed to load 3D model</p>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <label class="form-label mb-0">View Presets</label>
+                                    <div class="d-flex gap-2">
+                                        <select class="form-select form-select-sm" id="viewPreset" style="width: auto;" disabled>
+                                            <option value="default">Default View</option>
+                                            <option value="wireframe">Wireframe</option>
+                                            <option value="flat">Flat Shading</option>
+                                            <option value="smooth">Smooth Shading</option>
+                                            <option value="xray">X-Ray</option>
+                                            <option value="top">Top View</option>
+                                            <option value="front">Front View</option>
+                                            <option value="side">Side View</option>
+                                        </select>
+                                        <select class="form-select form-select-sm" id="zoomPreset" style="width: auto;" disabled>
+                                            <option value="25">25% Zoom</option>
+                                            <option value="50">50% Zoom</option>
+                                            <option value="75" selected>75% Zoom</option>
+                                            <option value="100">100% Zoom</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Name</label>
+                                <input type="text" class="form-control" id="partName" value="">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Quantity</label>
+                                <input type="number" class="form-control" id="partQuantity" value="" min="1">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Material</label>
+                                <div class="dropdown">
+                                    <button class="form-select text-start" type="button" id="materialDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span id="selectedMaterial">Select Material</span>
+                                    </button>
+                                    <ul class="dropdown-menu w-100" aria-labelledby="materialDropdown">
+                                        <li><a class="dropdown-item" href="#" data-value="">Select Material</a></li>
+                                        {% for material in materials %}
+                                            <li>
+                                                <a class="dropdown-item d-flex align-items-center" href="#" data-value="{{ material.id }}" data-color="{{ material.color|default:'#000000' }}">
+                                                    <div class="color-swatch me-2" style="background-color: {{ material.color|default:'#000000' }}; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #ddd;"></div>
+                                                    {{ material.name }} ({{ material.get_type_display }})
+                                                </a>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                <input type="hidden" id="partMaterial" value="">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Color</label>
+                                <input type="color" class="form-control form-control-color" id="partColor" value="#000000">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Group</label>
+                                <select class="form-select" id="partGroup">
+                                    <option value="">No Group</option>
+                                    {% for group in groups %}
+                                        <option value="{{ group.id }}">{{ group.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <!-- Calculated Values Section -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Calculated Values</label>
+                                <div class="card">
+                                    <div class="card-body p-3">
+                                        <div class="row g-3">
+                                            <div class="col-6">
+                                                <small class="text-muted d-block">Volume</small>
+                                                <div class="fw-bold" id="calculatedVolume">-</div>
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="text-muted d-block">Material Cost</small>
+                                                <div class="fw-bold" id="calculatedCost">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="me-auto">
+                        <button type="button" class="btn btn-outline-primary" id="downloadSTL">
+                            <i class="fas fa-download"></i> Download STL
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="copyMirrorPart">
+                            <i class="fas fa-copy"></i> Copy & Mirror
+                            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" id="removePart">
+                            <i class="fas fa-trash"></i> Remove Part
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="savePartChanges">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Part Modal -->
+    <div class="modal fade" id="partModal" tabindex="-1" aria-labelledby="partModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="partModalLabel">Add Part</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Calculated Values Section -->
+                    <div class="card mb-3">
+                        <div class="card-body p-2">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <small class="text-muted">Volume</small>
+                                    <div class="fw-bold" id="partVolume">-</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Material Cost</small>
+                                    <div class="fw-bold" id="partMaterialCost">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form id="partForm">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Name</label>
+                                    <input type="text" class="form-control form-control-sm" id="partName" value="">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Quantity</label>
+                                    <input type="number" class="form-control form-control-sm" id="partQuantity" value="" min="1">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Material</label>
+                                    <select class="form-select form-select-sm" id="partMaterial">
+                                        <option value="">Select Material</option>
+                                        {% for material in materials %}
+                                            <option value="{{ material.id }}">{{ material.name }} ({{ material.get_type_display }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Color</label>
+                                    <input type="color" class="form-control form-control-color form-control-sm" id="partColor" value="#000000">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Group</label>
+                                    <select class="form-select form-select-sm" id="partGroup">
+                                        <option value="">Select Group</option>
+                                        {% for group in groups %}
+                                            <option value="{{ group.id }}">{{ group.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">STL File</label>
+                                    <input type="file" class="form-control form-control-sm" id="partStlFile" accept=".stl">
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="savePart">Save Part</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions Gallery Card -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Assembly Instructions</h5>
+            <a href="{% url 'projects:upload_instructions' project.pk %}" class="btn btn-sm btn-primary">
+                <i class="fas {% if instructions %}fa-edit{% else %}fa-plus{% endif %}"></i> {% if instructions %}Edit{% else %}Add Instructions{% endif %}
+            </a>
+        </div>
+        <div class="card-body">
+            {% if instructions %}
+                <div class="splide" id="instructionsGallery">
+                    <div class="splide__track">
+                        <ul class="splide__list">
+                            {% for instruction in instructions %}
+                                <li class="splide__slide">
+                                    <img src="{{ instruction.image.url }}" alt="Step {{ instruction.order }}">
+                                    <div class="instruction-description mt-3">
+                                        <h6>Step {{ instruction.order }}</h6>
+                                        <p>{{ instruction.description }}</p>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% else %}
+                <p class="text-muted">No instructions available yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card-footer d-flex justify-content-between">
+        <div>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPartModal">
+                <i class="fas fa-plus"></i> Add Part
+            </button>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPurchasedPartModal">
+                <i class="fas fa-shopping-cart"></i> Add Purchased Part
+            </button>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadInstructionsModal">
+                <i class="fas fa-file-upload"></i> Upload Instructions
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
+<script>
+$(document).ready(function() {
+    let scene, camera, renderer, controls, model, ambientLight, directionalLight;
+    let isViewerInitialized = false;
+    const container = document.getElementById('partViewer');
+
+    // Store material colors in a JavaScript variable
+    const materialColors = {{ material_colors|safe }};
+    
+    function init() {
+        if (isViewerInitialized) return;
+        
+        try {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.01, 10000);
+            camera.position.z = 5;
+
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.innerHTML = ''; // Clear any existing content
+            container.appendChild(renderer.domElement);
+
+            // Add lights
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            backLight.position.set(-5, 5, -5);
+            scene.add(backLight);
+
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(0, -5, 0);
+            scene.add(fillLight);
+
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 0.1;
+            controls.maxDistance = 1000;
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+
+            isViewerInitialized = true;
+            console.log('Three.js viewer initialized successfully');
+
+            // Setup view preset controls
+            $('#viewPreset').on('change', function() {
+                if (!model) return;
+                
+                const preset = $(this).val();
+                switch(preset) {
+                    case 'default':
+                        // Reset to default settings
+                        model.material = new THREE.MeshPhongMaterial({ 
+                            color: model.material.color,
+                            specular: 0x111111,
+                            shininess: 200
+                        });
+                        camera.position.set(0, 0, 5);
+                        controls.reset();
+                        break;
+                        
+                    case 'wireframe':
+                        model.material = new THREE.MeshBasicMaterial({ 
+                            color: model.material.color,
+                            wireframe: true
+                        });
+                        break;
+                        
+                    case 'flat':
+                        model.material = new THREE.MeshPhongMaterial({ 
+                            color: model.material.color,
+                            flatShading: true,
+                            specular: 0x111111,
+                            shininess: 200
+                        });
+                        break;
+                        
+                    case 'smooth':
+                        model.material = new THREE.MeshPhongMaterial({ 
+                            color: model.material.color,
+                            flatShading: false,
+                            specular: 0x111111,
+                            shininess: 200
+                        });
+                        break;
+                        
+                    case 'xray':
+                        model.material = new THREE.MeshPhongMaterial({ 
+                            color: model.material.color,
+                            transparent: true,
+                            opacity: 0.5,
+                            side: THREE.DoubleSide
+                        });
+                        break;
+                        
+                    case 'top':
+                        camera.position.set(0, 5, 0);
+                        camera.lookAt(0, 0, 0);
+                        controls.target.set(0, 0, 0);
+                        break;
+                        
+                    case 'front':
+                        camera.position.set(0, 0, 5);
+                        camera.lookAt(0, 0, 0);
+                        controls.target.set(0, 0, 0);
+                        break;
+                        
+                    case 'side':
+                        camera.position.set(5, 0, 0);
+                        camera.lookAt(0, 0, 0);
+                        controls.target.set(0, 0, 0);
+                        break;
+                }
+            });
+
+            // Setup zoom preset controls
+            $('#zoomPreset').on('change', function() {
+                if (!model) return;
+                
+                const zoomLevel = parseInt($(this).val()) / 100;
+                const viewportWidth = container.clientWidth;
+                const viewportHeight = container.clientHeight;
+                const viewportSize = Math.min(viewportWidth, viewportHeight);
+                
+                // Get the model's bounding box
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                
+                // Calculate new distance based on zoom level
+                const distance = (maxDim * 3.5) / zoomLevel;
+                
+                // Update camera position
+                const direction = camera.position.clone().sub(controls.target).normalize();
+                camera.position.copy(controls.target).add(direction.multiplyScalar(distance));
+            });
+        } catch (error) {
+            console.error('Error initializing Three.js viewer:', error);
+            $('#viewerError').html(`
+                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                <p class="mt-2">Failed to initialize 3D viewer</p>
+                <p class="small text-muted">${error.message}</p>
+            `).show();
+        }
+    }
+
+    function onWindowResize() {
+        if (!isViewerInitialized) return;
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function animate() {
+        if (!isViewerInitialized) return;
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    function loadModel(url, color) {
+        if (!isViewerInitialized) {
+            console.error('Viewer not initialized');
+            return;
+        }
+
+        // Clear previous model if exists
+        if (model) {
+            scene.remove(model);
+            model = null;
+        }
+
+        // Show loading state
+        $('#viewerPlaceholder').hide();
+        $('#viewerLoading').show();
+        $('#viewerError').hide();
+
+        // Convert color string to hex
+        const hexColor = color.startsWith('#') ? color : '#' + color;
+        
+        // Load STL file
+        const loader = new THREE.STLLoader();
+        loader.load(
+            url,
+            function (geometry) {
+                console.log('STL file loaded successfully');
+                
+                try {
+                    // Create material with the part's color
+                    const material = new THREE.MeshPhongMaterial({ 
+                        color: hexColor,
+                        specular: 0x111111,
+                        shininess: 200
+                    });
+                    
+                    // Create mesh
+                    model = new THREE.Mesh(geometry, material);
+
+                    // Center and normalize model
+                    geometry.computeBoundingBox();
+                    const box = geometry.boundingBox;
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    
+                    // Calculate the maximum dimension of the model
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    
+                    // Calculate the viewport size
+                    const viewportWidth = container.clientWidth;
+                    const viewportHeight = container.clientHeight;
+                    const viewportSize = Math.min(viewportWidth, viewportHeight);
+                    
+                    // Calculate scale to make model take up 75% of the viewport
+                    const scale = (viewportSize * 0.75) / maxDim;
+                    
+                    // Apply transformations
+                    model.scale.set(scale, scale, scale);
+                    model.position.sub(center.multiplyScalar(scale));
+                    
+                    // Add to scene
+                    scene.add(model);
+                    
+                    // Update camera to fit model
+                    const distance = maxDim * 3.5;
+                    camera.position.set(distance, distance, distance);
+                    camera.lookAt(0, 0, 0);
+                    controls.target.set(0, 0, 0);
+                    
+                    // Hide loading indicator and enable controls
+                    $('#viewerLoading').hide();
+                    $('#viewPreset').prop('disabled', false);
+                    $('#zoomPreset').prop('disabled', false);
+                    $('#viewPreset').val('default');
+                    $('#zoomPreset').val('75');
+                } catch (error) {
+                    console.error('Error processing STL model:', error);
+                    $('#viewerLoading').hide();
+                    $('#viewerError').html(`
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                        <p class="mt-2">Failed to process 3D model</p>
+                        <p class="small text-muted">${error.message}</p>
+                    `).show();
+                }
+            },
+            function (xhr) {
+                const percent = (xhr.loaded / xhr.total * 100).toFixed(2);
+                console.log(`Loading STL file: ${percent}%`);
+            },
+            function (error) {
+                console.error('Error loading STL file:', error);
+                $('#viewerLoading').hide();
+                $('#viewerError').html(`
+                    <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                    <p class="mt-2">Failed to load 3D model</p>
+                    <p class="small text-muted">${error.message || 'Unknown error'}</p>
+                `).show();
+            }
+        );
+    }
+
+    // Part details modal
+    $('.view-part').click(function() {
+        const partId = $(this).data('part-id');
+        $.get(`/part/${partId}/details/`, function(data) {
+            console.log('Part details loaded:', data);
+            
+            // Update part information
+            $('#partName').val(data.name);
+            $('#partQuantity').val(data.quantity);
+            $('#partMaterial').val(data.material_id || '');
+            $('#partColor').val(data.color);
+            $('#partGroup').val(data.group_id || '');
+            
+            // Update calculated values
+            $('#calculatedVolume').text(data.volume ? `${data.volume.toFixed(2)} in³` : '-');
+            $('#calculatedCost').text(data.material_cost ? `$${data.material_cost.toFixed(2)}` : '-');
+            
+            // Store the part ID for saving changes
+            $('#partDetailsModal').data('part-id', partId);
+            
+            // Show loading state
+            $('#viewerPlaceholder').hide();
+            $('#viewerLoading').show();
+            $('#viewerError').hide();
+            $('#viewPreset').prop('disabled', true);
+            $('#zoomPreset').prop('disabled', true);
+            
+            $('#partDetailsModal').modal('show');
+        }).fail(function(xhr, status, error) {
+            console.error('Error loading part details:', error);
+            $('#viewerLoading').hide();
+            $('#viewerError').html(`
+                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                <p class="mt-2">Failed to load part details</p>
+                <p class="small text-muted">${error}</p>
+            `).show();
+        });
+    });
+
+    // Initialize viewer when modal is shown
+    $('#partDetailsModal').on('shown.bs.modal', function() {
+        init();
+        animate();
+        
+        // Load the model if we have the data
+        const partId = $('#partDetailsModal').data('part-id');
+        if (partId) {
+            $.get(`/part/${partId}/details/`, function(data) {
+                // Update calculated values again in case they weren't set earlier
+                $('#calculatedVolume').text(data.volume ? `${data.volume.toFixed(2)} in³` : '-');
+                $('#calculatedCost').text(data.material_cost ? `$${data.material_cost.toFixed(2)}` : '-');
+                
+                if (data.stl_url) {
+                    loadModel(data.stl_url, data.color);
+                } else {
+                    $('#viewerLoading').hide();
+                    $('#viewerError').html(`
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                        <p class="mt-2">No 3D model uploaded</p>
+                    `).show();
+                }
+            });
+        }
+    });
+
+    // Clean up when modal is closed
+    $('#partDetailsModal').on('hidden.bs.modal', function() {
+        if (model) {
+            scene.remove(model);
+            model = null;
+        }
+        $('#viewerPlaceholder').show();
+        $('#viewerLoading').hide();
+        $('#viewerError').hide();
+        $('#viewPreset').prop('disabled', true);
+        $('#zoomPreset').prop('disabled', true);
+    });
+
+    // Save part changes
+    $('#savePartChanges').click(function() {
+        const partId = $('#partDetailsModal').data('part-id');
+        const formData = new FormData();
+        
+        // Add basic fields
+        formData.append('name', $('#partName').val());
+        formData.append('quantity', parseInt($('#partQuantity').val()));
+        formData.append('material_id', $('#partMaterial').val());
+        formData.append('color', $('#partColor').val());
+        formData.append('group', $('#partGroup').val());
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        // Add STL file if selected
+        const stlFile = $('#partStlFile')[0].files[0];
+        if (stlFile) {
+            formData.append('stl_file', stlFile);
+        }
+
+        // Validate quantity
+        if (formData.get('quantity') < 1) {
+            alert('Quantity must be at least 1');
+            return;
+        }
+
+        $.ajax({
+            url: `/part/${partId}/update/`,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to update part'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error updating part. Please try again.');
+            }
+        });
+    });
+
+    // Update model color when color input changes
+    $('#partColor').on('input', function() {
+        if (model) {
+            const newColor = new THREE.Color($(this).val());
+            model.material.color = newColor;
+            
+            // If in wireframe mode, update wireframe color too
+            if (model.material.wireframe) {
+                model.material = new THREE.MeshBasicMaterial({ 
+                    color: newColor,
+                    wireframe: true
+                });
+            }
+        }
+    });
+
+    // Add the event handlers for the new buttons
+    $('#downloadSTL').click(function() {
+        const partId = $('#partDetailsModal').data('part-id');
+        window.location.href = `/part/${partId}/download/`;
+    });
+
+    $('#copyMirrorPart').click(function() {
+        const $button = $(this);
+        const $spinner = $button.find('.spinner-border');
+        const $icon = $button.find('.fa-copy');
+        const partId = $('#partDetailsModal').data('part-id');
+        
+        // Disable button and show spinner
+        $button.prop('disabled', true);
+        $spinner.removeClass('d-none');
+        $icon.addClass('d-none');
+        
+        $.ajax({
+            url: `/part/${partId}/copy-mirror/`,
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            data: {
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    $('#partDetailsModal').modal('hide');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to copy and mirror part'));
+                    // Re-enable button and hide spinner
+                    $button.prop('disabled', false);
+                    $spinner.addClass('d-none');
+                    $icon.removeClass('d-none');
+                }
+            },
+            error: function(xhr) {
+                let errorMessage = 'Error copying and mirroring part. Please try again.';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMessage = response.message;
+                    }
+                } catch (e) {
+                    // If we can't parse the response, use the default message
+                }
+                alert(errorMessage);
+                // Re-enable button and hide spinner
+                $button.prop('disabled', false);
+                $spinner.addClass('d-none');
+                $icon.removeClass('d-none');
+            }
+        });
+    });
+
+    // Handle part removal
+    $('#removePart').click(function() {
+        const partId = $('#partDetailsModal').data('part-id');
+        if (confirm('Are you sure you want to remove this part? This action cannot be undone.')) {
+            $.ajax({
+                url: `/part/${partId}/delete/`,
+                method: 'POST',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        $('#partDetailsModal').modal('hide');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (response.message || 'Failed to remove part'));
+                    }
+                },
+                error: function(xhr) {
+                    alert('Error removing part. Please try again.');
+                }
+            });
+        }
+    });
+
+    // Initialize Splide gallery
+    if ($('#project-gallery').length) {
+        new Splide('#project-gallery', {
+            type: 'slide',
+            rewind: false,
+            perPage: 3,
+            perMove: 1,
+            gap: '0.5rem',
+            padding: '0.5rem',
+            arrows: true,
+            pagination: true,
+            breakpoints: {
+                992: {
+                    perPage: 2,
+                },
+                576: {
+                    perPage: 1,
+                }
+            }
+        }).mount();
+    }
+
+    // Handle progress updates
+    $('.completion-input').on('input change', function() {
+        const partId = $(this).data('part-id');
+        const completed = parseInt($(this).val()) || 0;
+        const max = parseInt($(this).attr('max'));
+        const $row = $(this).closest('tr');
+        
+        // Validate input
+        if (completed < 0) {
+            $(this).val(0);
+            return;
+        }
+        if (completed > max) {
+            $(this).val(max);
+            return;
+        }
+
+        // Update row background based on completion
+        if (completed === max) {
+            $row.addClass('completed-row').removeClass('table-secondary');
+        } else {
+            $row.removeClass('completed-row table-secondary');
+        }
+
+        // Update server
+        $.ajax({
+            url: `/part/${partId}/update-progress/`,
+            method: 'POST',
+            data: {
+                completed: completed,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Update the Printed Parts count
+                    $('.printed-parts-count').text(response.total_completed);
+                    
+                    // Ensure the row styling is correct after server response
+                    if (completed === max) {
+                        $row.addClass('completed-row').removeClass('table-secondary');
+                    } else {
+                        $row.removeClass('completed-row table-secondary');
+                    }
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to update progress'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error updating progress. Please try again.');
+            }
+        });
+    });
+
+    // Handle purchased part status updates
+    $('.status-select').on('change', function() {
+        const partId = $(this).data('part-id');
+        const newStatus = $(this).val();
+        
+        $.ajax({
+            url: `/purchased-part/${partId}/update-status/`,
+            method: 'POST',
+            data: {
+                status: newStatus,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Optionally show a success message
+                    const toast = new bootstrap.Toast($('<div class="toast" role="alert" aria-live="assertive" aria-atomic="true"><div class="toast-body">Status updated successfully</div></div>').appendTo('body'));
+                    toast.show();
+                    setTimeout(() => toast.dispose(), 3000);
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to update status'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error updating status. Please try again.');
+            }
+        });
+    });
+
+    // Remove the unnecessary event listeners and functions
+    document.getElementById('partStlFile').removeEventListener('change', function(e) {});
+    document.getElementById('partMaterial').removeEventListener('change', function() {});
+    document.getElementById('partQuantity').removeEventListener('input', function() {});
+    function updatePartCost() {} // Remove this function
+
+    // Handle material selection from dropdown
+    $('.dropdown-item[data-value]').click(function(e) {
+        e.preventDefault();
+        const value = $(this).data('value');
+        const color = $(this).data('color');
+        const text = $(this).text().trim();
+        
+        $('#partMaterial').val(value);
+        $('#selectedMaterial').text(text);
+        
+        if (value && color) {
+            $('#partColor').val(color);
+            if (model) {
+                const newColor = new THREE.Color(color);
+                model.material.color = newColor;
+            }
+        }
+    });
+
+    // Initialize instructions gallery
+    new Splide('#instructionsGallery', {
+        type: 'slide',
+        rewind: false,
+        perPage: 1,
+        focus: 'center',
+        autoWidth: true,
+        gap: '1rem',
+        pagination: true,
+        arrows: true,
+        breakpoints: {
+            768: {
+                perPage: 1,
+            }
+        }
+    }).mount();
+
+    // Handle purchased part view button click
+    $('.view-purchased-part').click(function() {
+        const partId = $(this).data('part-id');
+        $.get(`/purchased-part/${partId}/details/`, function(data) {
+            // Update part information
+            $('#purchasedPartName').val(data.name);
+            $('#purchasedPartPrice').val(data.price);
+            $('#purchasedPartQuantity').val(data.quantity);
+            $('#purchasedPartLink').val(data.link);
+            $('#purchasedPartStatus').val(data.status);
+            
+            // Store the part ID for saving changes
+            $('#purchasedPartDetailsModal').data('part-id', partId);
+            
+            $('#purchasedPartDetailsModal').modal('show');
+        }).fail(function(xhr, status, error) {
+            console.error('Error loading purchased part details:', error);
+            alert('Error loading purchased part details. Please try again.');
+        });
+    });
+
+    // Save purchased part changes
+    $('#savePurchasedPartChanges').click(function() {
+        const partId = $('#purchasedPartDetailsModal').data('part-id');
+        const data = {
+            name: $('#purchasedPartName').val(),
+            price: parseFloat($('#purchasedPartPrice').val()),
+            quantity: parseInt($('#purchasedPartQuantity').val()),
+            link: $('#purchasedPartLink').val(),
+            status: $('#purchasedPartStatus').val(),
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        };
+
+        // Validate inputs
+        if (data.quantity < 1) {
+            alert('Quantity must be at least 1');
+            return;
+        }
+        if (data.price < 0) {
+            alert('Price cannot be negative');
+            return;
+        }
+
+        $.ajax({
+            url: `/purchased-part/${partId}/update/`,
+            method: 'POST',
+            data: data,
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to update purchased part'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error updating purchased part. Please try again.');
+            }
+        });
+    });
+
+    // Handle purchased part removal
+    $('#removePurchasedPart').click(function() {
+        const partId = $('#purchasedPartDetailsModal').data('part-id');
+        if (confirm('Are you sure you want to remove this purchased part? This action cannot be undone.')) {
+            $.ajax({
+                url: `/purchased-part/${partId}/delete/`,
+                method: 'POST',
+                data: {
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        $('#purchasedPartDetailsModal').modal('hide');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (response.message || 'Failed to remove purchased part'));
+                    }
+                },
+                error: function(xhr) {
+                    alert('Error removing purchased part. Please try again.');
+                }
+            });
+        }
+    });
+
+    // Handle file uploads
+    $('#savePart').click(function() {
+        const formData = new FormData();
+        const files = $('#partStlFile')[0].files;
+        
+        // Add basic fields
+        formData.append('name', $('#partName').val());
+        formData.append('quantity', parseInt($('#partQuantity').val()));
+        formData.append('material', $('#partMaterial').val());
+        formData.append('color', $('#partColor').val());
+        formData.append('group', $('#partGroup').val());
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        
+        // Add files with indexed names
+        if (files.length > 0) {
+            const file = files[0];
+            const newFile = new File([file], `part_0.${file.name.split('.').pop()}`, { type: file.type });
+            formData.append('files', newFile);
+        }
+        
+        // Validate quantity
+        if (formData.get('quantity') < 1) {
+            alert('Quantity must be at least 1');
+            return;
+        }
+
+        $.ajax({
+            url: `/project/${projectId}/add-parts/`,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to add part'));
+                }
+            },
+            error: function(xhr) {
+                alert('Error adding part. Please try again.');
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

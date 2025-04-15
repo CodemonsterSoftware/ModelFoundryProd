@@ -1,0 +1,24 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Add Purchased Part{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Add Purchased Part</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">Add Part</button>
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

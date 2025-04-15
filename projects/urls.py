@@ -1,0 +1,45 @@
+from django.urls import path
+from django.contrib.auth.decorators import login_required
+from . import views
+
+app_name = 'projects'
+
+urlpatterns = [
+    path('', views.index, name='index'),
+    path('project/', login_required(views.ProjectListView.as_view()), name='project_list'),
+    path('project/<int:pk>/', login_required(views.ProjectDetailView.as_view()), name='project_detail'),
+    path('project/create/', login_required(views.ProjectCreateView.as_view()), name='project_create'),
+    path('project/<int:pk>/update/', login_required(views.ProjectUpdateView.as_view()), name='project_update'),
+    path('project/<int:pk>/delete/', login_required(views.ProjectDeleteView.as_view()), name='project_delete'),
+    path('project/<int:project_id>/upload-files/', login_required(views.upload_files), name='upload_files'),
+    path('project/<int:project_id>/add-part/', login_required(views.add_part), name='add_part'),
+    path('project/<int:project_id>/add-group/', login_required(views.add_group), name='add_group'),
+    path('project/<int:project_id>/add-purchased-part/', login_required(views.add_purchased_part), name='add_purchased_part'),
+    path('project/<int:project_id>/upload-images/', login_required(views.upload_project_images), name='upload_project_images'),
+    path('project/<int:project_id>/upload_instructions/', login_required(views.upload_instructions), name='upload_instructions'),
+    path('project/<int:project_id>/delete_instruction/', login_required(views.delete_instruction), name='delete_instruction'),
+    path('project/<int:project_id>/export/', login_required(views.export_project), name='export_project'),
+    path('import/', login_required(views.import_project), name='import_project'),
+    path('part/<int:part_id>/update-completion/', login_required(views.update_part_completion), name='update_part_completion'),
+    path('part/<int:part_id>/update-group/', login_required(views.update_part_group), name='update_part_group'),
+    path('api/parts/<int:part_id>/', login_required(views.part_details), name='part_details_api'),
+    path('part/<int:part_id>/details/', login_required(views.part_details), name='part_details'),
+    path('part/<int:part_id>/copy-mirror/', login_required(views.copy_mirror_part), name='copy_mirror_part'),
+    path('part/<int:part_id>/update/', login_required(views.update_part), name='update_part'),
+    path('part/<int:part_id>/delete/', login_required(views.delete_part), name='delete_part'),
+    path('part/<int:part_id>/update-progress/', login_required(views.update_part_progress), name='update_part_progress'),
+    path('purchased-part/<int:part_id>/update-status/', login_required(views.update_purchased_part_status), name='update_purchased_part_status'),
+    path('project/<int:project_id>/add-parts/', login_required(views.add_multiple_parts), name='add_multiple_parts'),
+    path('project/<int:project_id>/copy-mirror/', login_required(views.copy_mirror_part), name='copy_mirror_part'),
+    path('designers/', login_required(views.designer_index), name='designer_index'),
+    path('designer/<int:designer_id>/', login_required(views.designer_detail), name='designer_detail'),
+    path('designer/<int:designer_id>/update/', login_required(views.designer_update), name='designer_update'),
+    path('materials/', login_required(views.material_list), name='material_list'),
+    path('materials/add/', login_required(views.material_create), name='material_create'),
+    path('materials/<int:material_id>/edit/', login_required(views.material_edit), name='material_edit'),
+    path('part/<int:part_id>/download/', login_required(views.download_stl), name='download_stl'),
+    path('purchased-part/<int:part_id>/details/', login_required(views.purchased_part_details), name='purchased_part_details'),
+    path('purchased-part/<int:part_id>/update/', login_required(views.update_purchased_part), name='update_purchased_part'),
+    path('purchased-part/<int:part_id>/delete/', login_required(views.delete_purchased_part), name='delete_purchased_part'),
+    path('register/', views.register, name='register'),
+] 

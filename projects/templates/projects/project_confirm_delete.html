@@ -1,0 +1,31 @@
+{% extends 'projects/base.html' %}
+
+{% block title %}Delete Project - ModelFoundry{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h2 class="mb-4">Delete Project</h2>
+                    <p class="lead">Are you sure you want to delete the project "{{ project.name }}"?</p>
+                    <p class="text-danger">This action cannot be undone. All parts, images, and associated data will be permanently deleted.</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-2"></i>Delete Project
+                            </button>
+                            <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

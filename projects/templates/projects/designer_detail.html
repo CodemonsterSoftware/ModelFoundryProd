@@ -1,0 +1,112 @@
+{% extends 'projects/base.html' %}
+
+{% block title %}{{ designer.name }} - ModelFoundry{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Designer Info -->
+        <div class="col-md-4">
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        {% if designer.logo %}
+                            <img src="{{ designer.logo.url }}" alt="{{ designer.name }} logo" class="img-fluid rounded mb-3" style="max-height: 200px;">
+                        {% else %}
+                            <div class="bg-secondary rounded d-flex align-items-center justify-content-center mb-3" style="height: 200px;">
+                                <i class="fas fa-user fa-5x text-light"></i>
+                            </div>
+                        {% endif %}
+                        <h2>{{ designer.name }}</h2>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h5 class="text-muted mb-3">Links</h5>
+                        <div class="list-group">
+                            {% if designer.mmf_url %}
+                            <a href="{{ designer.mmf_url }}" target="_blank" class="list-group-item list-group-item-action bg-dark text-light border-secondary">
+                                <i class="fas fa-store me-2"></i>MMF Store
+                            </a>
+                            {% endif %}
+                            {% if designer.patreon_url %}
+                            <a href="{{ designer.patreon_url }}" target="_blank" class="list-group-item list-group-item-action bg-dark text-light border-secondary">
+                                <i class="fab fa-patreon me-2"></i>Patreon
+                            </a>
+                            {% endif %}
+                            {% if designer.cults3d_url %}
+                            <a href="{{ designer.cults3d_url }}" target="_blank" class="list-group-item list-group-item-action bg-dark text-light border-secondary">
+                                <i class="fas fa-cube me-2"></i>Cults3D
+                            </a>
+                            {% endif %}
+                            {% if designer.website_url %}
+                            <a href="{{ designer.website_url }}" target="_blank" class="list-group-item list-group-item-action bg-dark text-light border-secondary">
+                                <i class="fas fa-globe me-2"></i>Website
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'projects:designer_index' %}" class="btn btn-dark">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Designers
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Projects -->
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3>Projects</h3>
+                <span class="badge bg-secondary">{{ projects.count }} projects</span>
+            </div>
+            
+            <div class="row">
+                {% for project in projects %}
+                <div class="col-md-6 mb-4">
+                    <div class="card bg-dark text-light h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'projects:project_detail' project.id %}" class="text-decoration-none">
+                                    {{ project.name }}
+                                </a>
+                            </h5>
+                            <p class="card-text text-muted">
+                                <small>
+                                    <i class="fas fa-calendar me-1"></i>
+                                    Created: {{ project.created_at|date:"M d, Y" }}
+                                </small>
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-cube me-1"></i>
+                                    {{ project.parts.count }} parts
+                                </span>
+                                <a href="{% url 'projects:project_detail' project.id %}" class="btn btn-sm btn-dark">
+                                    View Project
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>No projects found for this designer.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .list-group-item-action:hover {
+        background-color: var(--border-color);
+        border-color: var(--border-color);
+        color: var(--text-light);
+    }
+</style>
+{% endblock %} 

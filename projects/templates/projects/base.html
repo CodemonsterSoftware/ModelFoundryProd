@@ -1,0 +1,438 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ModelFoundry{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'projects/favicon/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'projects/favicon/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'projects/favicon/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'projects/favicon/site.webmanifest' %}">
+    <link rel="mask-icon" href="{% static 'projects/favicon/safari-pinned-tab.svg' %}" color="#5bbad5">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#ffffff">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'projects/css/style.css' %}">
+    
+    <style>
+        :root {
+            --bg-dark: #1a1a1a;
+            --bg-darker: #121212;
+            --bg-grey: #2d2d2d;
+            --text-light: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --border-dark: #404040;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+        }
+
+        /* Text color rules for all text elements */
+        p, span, div, a, li, label, small, strong, em, i, b {
+            color: var(--text-light);
+        }
+
+        /* Heading styles */
+        h1, h2, h3, h4, h5, h6,
+        .h1, .h2, .h3, .h4, .h5, .h6,
+        .display-1, .display-2, .display-3, .display-4, .display-5, .display-6,
+        .card-title, .card-subtitle,
+        .modal-title, .modal-header h1, .modal-header h2, .modal-header h3, .modal-header h4, .modal-header h5, .modal-header h6,
+        .lead {
+            color: var(--text-light) !important;
+        }
+
+        /* Specific heading styles */
+        h1, .h1 { font-size: 2.5rem; }
+        h2, .h2 { font-size: 2rem; }
+        h3, .h3 { font-size: 1.75rem; }
+        h4, .h4 { font-size: 1.5rem; }
+        h5, .h5 { font-size: 1.25rem; }
+        h6, .h6 { font-size: 1rem; }
+
+        /* Paragraph styles */
+        p {
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .lead {
+            font-size: 1.25rem;
+            font-weight: 300;
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        .navbar {
+            background-color: var(--bg-grey) !important;
+            border-bottom: 1px solid var(--border-dark);
+        }
+
+        .navbar-brand, .nav-link {
+            color: var(--text-light) !important;
+        }
+
+        .navbar-brand:hover, .nav-link:hover {
+            color: var(--text-light) !important;
+            opacity: 0.8;
+        }
+
+        .card {
+            background-color: var(--bg-darker);
+            border-color: var(--border-dark);
+        }
+
+        .card-header {
+            background-color: var(--bg-grey);
+            border-bottom-color: var(--border-dark);
+            color: var(--text-light);
+        }
+
+        .card-header h1,
+        .card-header h5 {
+            color: var(--text-light);
+            margin: 0;
+        }
+
+        h3 {
+            color: var(--text-light);
+        }
+
+        .table {
+            color: var(--text-light);
+            border-color: var(--border-dark);
+        }
+
+        .table thead th {
+            background-color: var(--bg-grey);
+            border-bottom-color: var(--border-dark);
+            color: var(--text-light);
+        }
+
+        .table td, .table th {
+            border-color: var(--border-dark);
+            background-color: var(--bg-darker);
+            color: var(--text-light);
+        }
+
+        .table-light {
+            background-color: var(--bg-grey);
+            color: var(--text-light);
+        }
+
+        .table-light td {
+            background-color: var(--bg-grey);
+            color: var(--text-light);
+        }
+
+        .table-light tr {
+            background-color: var(--bg-grey);
+            color: var(--text-light);
+        }
+
+        .table-light strong {
+            color: var(--text-light);
+        }
+
+        .table .text-center {
+            color: var(--text-light);
+        }
+
+        .form-select, .form-control {
+            background-color: var(--bg-grey);
+            border-color: var(--border-dark);
+            color: var(--text-light);
+        }
+
+        .form-select:focus, .form-control:focus {
+            background-color: var(--bg-grey);
+            border-color: var(--border-dark);
+            color: var(--text-light);
+        }
+
+        .input-group-text {
+            background-color: var(--bg-grey);
+            border-color: var(--border-dark);
+            color: var(--text-light);
+        }
+
+        /* Style number input spinner buttons */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .completion-input {
+            position: relative;
+        }
+
+        .completion-input::after {
+            content: "▲";
+            position: absolute;
+            right: 10px;
+            top: 5px;
+            color: var(--text-light);
+            pointer-events: none;
+        }
+
+        .completion-input::before {
+            content: "▼";
+            position: absolute;
+            right: 10px;
+            bottom: 5px;
+            color: var(--text-light);
+            pointer-events: none;
+        }
+
+        .color-swatch {
+            border-color: var(--border-dark) !important;
+        }
+
+        .btn-outline-primary {
+            color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #0d6efd;
+            color: var(--text-light);
+        }
+
+        .btn-outline-secondary {
+            color: var(--text-muted);
+            border-color: var(--border-dark);
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: var(--bg-grey);
+            color: var(--text-light);
+        }
+
+        .badge {
+            background-color: var(--bg-grey);
+            color: var(--text-light);
+        }
+
+        .modal-content {
+            background-color: var(--bg-darker);
+            border-color: var(--border-dark);
+        }
+
+        .modal-header {
+            border-bottom-color: var(--border-dark);
+        }
+
+        .modal-footer {
+            border-top-color: var(--border-dark);
+        }
+
+        .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+        }
+
+        .navbar-brand img {
+            filter: invert(1) grayscale(100%) brightness(200%);
+        }
+
+        footer {
+            background-color: var(--bg-grey) !important;
+            border-top: 1px solid var(--border-dark);
+        }
+
+        /* Toast styles */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+        }
+
+        .toast {
+            background-color: var(--bg-darker);
+            border: 1px solid var(--border-dark);
+            color: var(--text-light);
+        }
+
+        .toast-header {
+            background-color: var(--bg-grey);
+            border-bottom: 1px solid var(--border-dark);
+            color: var(--text-light);
+        }
+
+        .toast-body {
+            background-color: var(--bg-darker);
+            color: var(--text-light);
+        }
+
+        /* Form styles */
+        .form-control {
+            background-color: var(--bg-dark);
+            border-color: var(--border-color);
+            color: var(--text-light);
+        }
+
+        .form-control:focus {
+            background-color: var(--bg-dark);
+            border-color: var(--primary-color);
+            color: var(--text-light);
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .form-label {
+            color: var(--text-light);
+        }
+
+        .form-text {
+            color: var(--text-muted) !important;
+        }
+
+        .form-check-input {
+            background-color: var(--bg-dark);
+            border-color: var(--border-color);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .form-check-label {
+            color: var(--text-light);
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Toast Container -->
+    <div class="toast-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header">
+                        {% if message.tags == 'success' %}
+                            <i class="fas fa-check-circle me-2 text-success"></i>
+                        {% elif message.tags == 'error' %}
+                            <i class="fas fa-exclamation-circle me-2 text-danger"></i>
+                        {% elif message.tags == 'warning' %}
+                            <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                        {% elif message.tags == 'info' %}
+                            <i class="fas fa-info-circle me-2 text-info"></i>
+                        {% endif %}
+                        <strong class="me-auto">{{ message.tags|title }}</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        {{ message }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'projects:index' %}">
+                <img src="{% static 'logo_2.png' %}" alt="ModelFoundry Logo" height="30">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'projects:project_list' %}">
+                                <i class="fas fa-cube"></i> Projects
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'projects:designer_index' %}">
+                                <i class="fas fa-user"></i> Designers
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'projects:material_list' %}">
+                                <i class="fas fa-cubes"></i> Materials
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-link btn btn-link" style="border: none; background: none; color: var(--text-light);">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                                </button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">
+                                <i class="fas fa-sign-in-alt me-1"></i>Login
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-4 mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0">ModelFoundry - 3D Printing Project Management</p>
+            <p class="text-muted mb-0">&copy; CodeMonster Software 2025</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Online3DViewer -->
+    <script src="https://cdn.jsdelivr.net/npm/online-3d-viewer@latest/dist/online-3d-viewer.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <script>
+        // Initialize all toasts
+        document.addEventListener('DOMContentLoaded', function() {
+            var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+            var toastList = toastElList.map(function(toastEl) {
+                var toast = new bootstrap.Toast(toastEl, {
+                    autohide: true,
+                    delay: 5000
+                });
+                toast.show();
+                return toast;
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

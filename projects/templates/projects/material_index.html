@@ -1,0 +1,66 @@
+{% extends 'projects/base.html' %}
+{% load material_filters %}
+
+{% block title %}Materials{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Materials</h1>
+        <a href="{% url 'projects:material_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Material
+        </a>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+        {% for material in materials %}
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ material.name }}</h5>
+                    <p class="card-text">{{ material.description|truncatewords:20 }}</p>
+                    <div class="mb-2">
+                        <strong>Brand:</strong> {{ material.brand|default:"N/A" }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Density:</strong> {{ material.density|default:"N/A" }} g/cm³
+                    </div>
+                    <div class="mb-2">
+                        <strong>Cost:</strong> ${{ material.cost|default:"0.00" }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Weight:</strong> {{ material.weight }}g
+                    </div>
+                    {% if material.cost_per_kg %}
+                    <div class="mb-2">
+                        <strong>Cost per kg:</strong> ${{ material.cost_per_kg|floatformat:2 }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Usage: {{ material.total_used|floatformat:2 }}g / {{ material.weight }}g</span>
+                        <span>{{ material.total_used|div:material.weight|mul:100|floatformat:1 }}%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-primary" 
+                             role="progressbar" 
+                             style="width: {{ material.total_used|div:material.weight|mul:100 }}%"
+                             aria-valuenow="{{ material.total_used|div:material.weight|mul:100 }}"
+                             aria-valuemin="0"
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No materials found. <a href="{% url 'projects:material_create' %}">Add your first material</a>.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,155 @@
+{% extends 'projects/base.html' %}
+
+{% block title %}Designers - ModelFoundry{% endblock %}
+
+{% block extra_css %}
+<style>
+    .designer-logo-container {
+        position: relative;
+        width: 100%;
+        padding-top: 75%; /* 4:3 Aspect Ratio */
+        overflow: hidden;
+        background-color: #f8f9fa;
+        border-top-left-radius: 0.375rem;
+        border-top-right-radius: 0.375rem;
+    }
+    .designer-logo-container img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background-color: #f8f9fa;
+    }
+    .designer-logo-container .no-logo {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Designers</h1>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newDesignerModal">
+            <i class="fas fa-plus me-2"></i>New Designer
+        </button>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+        {% for data in designer_data %}
+        <div class="col">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="designer-logo-container">
+                    {% if data.designer.logo %}
+                    <img src="{{ data.designer.logo.url }}" alt="{{ data.designer.name }} logo">
+                    {% else %}
+                    <div class="no-logo">
+                        <i class="fas fa-user-circle fa-3x text-muted"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'projects:designer_detail' data.designer.id %}" class="text-decoration-none">
+                            {{ data.designer.name }}
+                        </a>
+                    </h5>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted"><i class="fas fa-folder me-2"></i>Projects</span>
+                            <span class="badge bg-secondary">{{ data.total_projects }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted"><i class="fas fa-cube me-2"></i>Parts</span>
+                            <span class="badge bg-secondary">{{ data.total_parts }}</span>
+                        </div>
+                    </div>
+                    
+                    <h6 class="text-muted mb-3">Recent Projects</h6>
+                    <ul class="list-unstyled mb-0">
+                        {% for project in data.projects|slice:":3" %}
+                        <li class="mb-2">
+                            <a href="{% url 'projects:project_detail' project.id %}" class="text-decoration-none">
+                                <i class="fas fa-folder me-2"></i>{{ project.name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                        {% if data.total_projects > 3 %}
+                        <li>
+                            <small class="text-muted">+{{ data.total_projects|add:"-3" }} more projects</small>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <div class="btn-group w-100">
+                        <a href="{% url 'projects:designer_detail' data.designer.id %}" class="btn btn-outline-primary">
+                            <i class="fas fa-eye me-1"></i>View
+                        </a>
+                        <a href="{% url 'projects:designer_update' data.designer.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-edit me-1"></i>Edit
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>No designers found.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- New Designer Modal -->
+<div class="modal fade" id="newDesignerModal" tabindex="-1" aria-labelledby="newDesignerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newDesignerModalLabel">Add New Designer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'projects:designer_index' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.logo.id_for_label }}" class="form-label">Logo</label>
+                        {{ form.logo }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.mmf_url.id_for_label }}" class="form-label">MMF URL</label>
+                        {{ form.mmf_url }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.patreon_url.id_for_label }}" class="form-label">Patreon URL</label>
+                        {{ form.patreon_url }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.cults3d_url.id_for_label }}" class="form-label">Cults3D URL</label>
+                        {{ form.cults3d_url }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.website_url.id_for_label }}" class="form-label">Website URL</label>
+                        {{ form.website_url }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Designer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 
