@@ -1,14 +1,19 @@
 # ModelFoundry
+![image](https://github.com/user-attachments/assets/73d357c7-1b15-4aa8-8b08-127df74ceef1)
 
 ModelFoundry is a Django-based web application designed to help users manage their 3D printing projects. It provides a comprehensive solution for tracking parts, materials, costs, and project progress.
 
+
 ## Features
+![image](https://github.com/user-attachments/assets/3a2f6a06-22d4-43ea-907f-5dec1a2ea6ab)
 
 - **Project Management**
   - Create and organize 3D printing projects
   - Track project progress and completion status
   - Export and import projects for backup or sharing
   - Manage project images and documentation
+    
+![image](https://github.com/user-attachments/assets/96cab528-10e5-4bf1-8c33-f4d51ded43b0)
 
 - **Part Management**
   - Add and organize 3D printed parts
@@ -16,23 +21,34 @@ ModelFoundry is a Django-based web application designed to help users manage the
   - Track part quantities and completion status
   - Group parts for better organization
   - Calculate material costs and volumes
+    
+![image](https://github.com/user-attachments/assets/7aca590d-3901-4fbc-84b5-ba1bc400cfb0)
 
 - **Material Management**
   - Create and manage material profiles
   - Track material costs and usage
   - Monitor material inventory
   - Set material properties (density, cost, color)
+    
+![image](https://github.com/user-attachments/assets/36b246d7-a323-420f-8abe-65c087d75b10)
+
 
 - **Purchased Parts**
   - Track purchased components
   - Monitor order status
   - Link to product pages
   - Track costs and quantities
+    
+![image](https://github.com/user-attachments/assets/543be7d3-d972-4dea-9702-bbd1f43ff8c9)
+
 
 - **Instructions**
   - Add step-by-step assembly instructions
   - Include images for each step
   - Organize instructions in order
+    
+![image](https://github.com/user-attachments/assets/43ed55e7-5dec-42a5-a90c-865fe95df8e0)
+
 
 - **Designer Management**
   - Create designer profiles
