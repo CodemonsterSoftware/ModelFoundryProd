@@ -4,6 +4,7 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=modelfoundry.settings
 ENV DJANGO_ALLOWED_HOSTS=*
 
 # Set work directory
@@ -26,19 +27,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/media /app/staticfiles /app/db \
     && chmod -R 777 /app/media /app/staticfiles /app/db
 
-# Set up database
-RUN touch /app/db/db.sqlite3 \
-    && chmod 666 /app/db/db.sqlite3
-
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Run migrations and initialize materials
-RUN python manage.py migrate && \
-    python manage.py init_materials
+# Create startup script
+RUN echo '#!/bin/bash\n\
+python manage.py migrate --noinput\n\
+python manage.py init_materials\n\
+python manage.py collectstatic --noinput\n\
+python manage.py runserver 0.0.0.0:8000 --noreload' > /app/start.sh \
+&& chmod +x /app/start.sh
 
 # Expose port 8000
 EXPOSE 8000
 
-# Command to run the application with host binding
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"] 
+# Command to run the application
+CMD ["/app/start.sh"] 

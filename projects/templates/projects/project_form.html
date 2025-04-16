@@ -82,9 +82,16 @@
                     <a href="{% if project %}{% url 'projects:project_detail' project.id %}{% else %}{% url 'projects:project_list' %}{% endif %}" class="btn btn-secondary">
                         <i class="fas fa-times me-2"></i>Cancel
                     </a>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Save
-                    </button>
+                    <div>
+                        {% if project %}
+                        <a href="{% url 'projects:project_delete' project.id %}" class="btn btn-danger me-2">
+                            <i class="fas fa-trash me-2"></i>Delete
+                        </a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

@@ -27,9 +27,9 @@ SECRET_KEY = 'django-insecure-@8vwc25h)*hau(#d)$!@65@g#^t)t7lx^ab(p!5!qgmh!==4k&
 DEBUG = True
 
 # Update ALLOWED_HOSTS to use environment variable
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if os.getenv('DJANGO_ALLOWED_HOSTS') else []
+ALLOWED_HOSTS = ['*']
 
-# Add localhost and 127.0.0.1 for development
+# If DEBUG is True, add localhost and 127.0.0.1
 if DEBUG:
     ALLOWED_HOSTS.extend(['localhost', '127.0.0.1'])
 
