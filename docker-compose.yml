@@ -3,20 +3,39 @@ version: '3.8'
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-      - db_volume:/app/db
     ports:
-      - "8000:8000"
+      - "8999:8000"
     environment:
       - DEBUG=1
       - SECRET_KEY=your-secret-key-here
-      - DATABASE_URL=sqlite:///db/db.sqlite3
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
+    depends_on:
+      - db
+    networks:
+      - app_network
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=modelfoundry
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5433:5432"
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   static_volume:
   media_volume:
-  db_volume: 
+  postgres_data: 

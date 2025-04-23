@@ -15,28 +15,22 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     git \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone the repository
-RUN git clone https://github.com/CodemonsterSoftware/ModelFoundryProd.git /app
-
 # Install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create necessary directories with proper permissions
-RUN mkdir -p /app/media /app/staticfiles /app/db \
-    && chmod -R 777 /app/media /app/staticfiles /app/db
+# Copy project files
+COPY . .
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-python manage.py migrate --noinput\n\
-python manage.py init_materials\n\
-python manage.py collectstatic --noinput\n\
-python manage.py runserver 0.0.0.0:8000 --noreload' > /app/start.sh \
-&& chmod +x /app/start.sh
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/media /app/staticfiles \
+    && chmod -R 777 /app/media /app/staticfiles
 
 # Expose port 8000
 EXPOSE 8000
 
 # Command to run the application
-CMD ["/app/start.sh"] 
+CMD ["sh", "-c", "while ! nc -z db 5432; do sleep 0.1; done && python manage.py migrate && python manage.py init_materials && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"] 
