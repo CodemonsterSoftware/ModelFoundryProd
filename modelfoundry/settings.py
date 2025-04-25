@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'projects',
+    'widget_tweaks',
 ]
 
 MIDDLEWARE = [
@@ -88,19 +89,32 @@ WSGI_APPLICATION = 'modelfoundry.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://postgres:postgres@db:5432/modelfoundry')
-db_info = urlparse(DATABASE_URL)
+# Check if running in Docker
+IS_DOCKER = os.environ.get('DOCKER_CONTAINER', False)
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': db_info.path[1:],  # Remove leading slash
-        'USER': db_info.username,
-        'PASSWORD': db_info.password,
-        'HOST': db_info.hostname,
-        'PORT': db_info.port or '5432',
+if IS_DOCKER:
+    # Docker configuration - use PostgreSQL
+    DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://postgres:postgres@db:5432/modelfoundry')
+    db_info = urlparse(DATABASE_URL)
+    
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': db_info.path[1:],  # Remove leading slash
+            'USER': db_info.username,
+            'PASSWORD': db_info.password,
+            'HOST': db_info.hostname,
+            'PORT': db_info.port or '5432',
+        }
     }
-}
+else:
+    # Local development - use SQLite3
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db' / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation

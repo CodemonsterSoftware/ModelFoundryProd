@@ -21,6 +21,17 @@ class Designer(models.Model):
     class Meta:
         ordering = ['name']
 
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+
 class Project(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -28,6 +39,7 @@ class Project(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     designer = models.ForeignKey(Designer, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects')
+    tags = models.ManyToManyField(Tag, blank=True, related_name='projects')
 
     @property
     def total_parts(self):

@@ -19,6 +19,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Taggle.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/taggle@1.15.0/dist/css/taggle.min.css">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'projects/css/style.css' %}">
     
@@ -97,7 +99,6 @@
         .card-header {
             background-color: var(--bg-grey);
             border-bottom-color: var(--border-dark);
-            color: var(--text-light);
         }
 
         .card-header h1,
@@ -316,6 +317,70 @@
         .form-check-label {
             color: var(--text-light);
         }
+
+        /* Taggle.js custom styling */
+        .taggle_list {
+            padding: 0.375rem 0.75rem;
+            border: 1px solid var(--border-dark);
+            border-radius: 0.25rem;
+            background-color: var(--bg-darker);
+            min-height: 38px;
+        }
+
+        .taggle_input {
+            border: none !important;
+            box-shadow: none !important;
+            outline: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: auto !important;
+            max-width: inherit !important;
+            color: var(--text-light) !important;
+        }
+
+        .taggle_placeholder {
+            position: absolute;
+            color: var(--text-muted);
+            top: 50%;
+            left: 0.75rem;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .taggle {
+            background-color: var(--bg-grey);
+            border: 1px solid var(--border-dark);
+            color: var(--text-light);
+            margin: 5px;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+
+        .taggle .close {
+            color: var(--text-light);
+            opacity: 0.5;
+        }
+
+        .taggle .close:hover {
+            opacity: 1;
+        }
+
+        /* Bootstrap form control overrides for taggle */
+        .form-control[data-role="tagsinput"] {
+            padding: 0;
+            height: auto;
+            background-color: var(--bg-darker) !important;
+            border-color: var(--border-dark) !important;
+            color: var(--text-light) !important;
+        }
+
+        /* Duplicate tag styling */
+        .taggle.duplicate {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -417,6 +482,11 @@
     <script src="https://cdn.jsdelivr.net/npm/online-3d-viewer@latest/dist/online-3d-viewer.min.js"></script>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Taggle.js -->
+    <script src="https://cdn.jsdelivr.net/npm/taggle@1.15.0/dist/taggle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{% static 'projects/js/main.js' %}"></script>
+    <script src="{% static 'projects/js/taggle.js' %}"></script>
     
     <script>
         // Initialize all toasts
@@ -432,7 +502,5 @@
             });
         });
     </script>
-    
-    {% block extra_js %}{% endblock %}
 </body>
 </html> 

@@ -1,7 +1,7 @@
 from django import forms
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout, Submit, Row, Column, Field, ButtonHolder
-from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material
+from crispy_forms.layout import Layout, Submit, Row, Column, Field, ButtonHolder, Div
+from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Tag
 
 class MultipleFileInput(forms.ClearableFileInput):
     def __init__(self, attrs=None):
@@ -16,30 +16,75 @@ class MultipleFileInput(forms.ClearableFileInput):
             return files.getlist(name)
         return None
 
+class TagsInput(forms.TextInput):
+    template_name = 'projects/widgets/tags_input.html'
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context['widget']['attrs'].update({
+            'class': 'form-control',
+            'data-role': 'tagsinput',
+            'placeholder': 'Add tags...'
+        })
+        return context
+
 class ProjectForm(forms.ModelForm):
     images = forms.FileField(
         widget=MultipleFileInput(attrs={'accept': 'image/*'}),
         required=False,
         label='Project Images'
     )
+    tags = forms.CharField(
+        required=False,
+        widget=TagsInput()
+    )
 
     class Meta:
         model = Project
-        fields = ['name', 'description', 'designer', 'images']
+        fields = ['name', 'description', 'designer', 'images', 'tags']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+        self.helper.layout = Layout(
+            'name',
+            'description',
+            'designer',
+            'images',
+            Div(
+                'tags',
+                css_class='form-group'
+            )
+        )
         self.fields['designer'].queryset = Designer.objects.all().order_by('name')
+        if self.instance.pk:
+            self.initial['tags'] = ', '.join(tag.name for tag in self.instance.tags.all())
+
+    def clean_tags(self):
+        tags = self.cleaned_data.get('tags', '')
+        return [tag.strip() for tag in tags.split(',') if tag.strip()]
 
     def save(self, commit=True):
         instance = super().save(commit=commit)
         if commit:
             # Handle multiple file uploads
-            for image in self.files.getlist('images'):
-                ProjectImage.objects.create(project=instance, image=image)
+            if 'images' in self.files:
+                for image in self.files.getlist('images'):
+                    ProjectImage.objects.create(project=instance, image=image)
+            
+            # Handle tags
+            tags = self.cleaned_data.get('tags', [])
+            if tags:
+                # Clear existing tags
+                instance.tags.clear()
+                # Add new tags
+                for tag_name in tags:
+                    tag, created = Tag.objects.get_or_create(name=tag_name)
+                    instance.tags.add(tag)
         return instance
 
 class PartForm(forms.ModelForm):

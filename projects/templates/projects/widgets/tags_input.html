@@ -1,0 +1,22 @@
+{% load crispy_forms_tags %}
+
+
+    {% if field.label %}
+        <label for="{{ widget.attrs.id }}" class="form-label">{{ field.label }}</label>
+    {% endif %}
+    <div class="taggle-container">
+        <input type="hidden" 
+               name="{{ widget.name }}" 
+               id="{{ widget.attrs.id }}"
+               {% if widget.value %}value="{{ widget.value }}"{% endif %}>
+    </div>
+    {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+    {% endif %}
+    {% if field.errors %}
+        <div class="invalid-feedback d-block">
+            {% for error in field.errors %}
+                {{ error }}
+            {% endfor %}
+        </div>
+    {% endif %}

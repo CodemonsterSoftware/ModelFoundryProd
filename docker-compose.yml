@@ -13,6 +13,7 @@ services:
       - DEBUG=1
       - SECRET_KEY=your-secret-key-here
       - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
+      - DOCKER_CONTAINER=true
     depends_on:
       - db
     networks:
