@@ -69,22 +69,31 @@ class ProjectForm(forms.ModelForm):
         return [tag.strip() for tag in tags.split(',') if tag.strip()]
 
     def save(self, commit=True):
-        instance = super().save(commit=commit)
+        instance = super().save(commit=False)  # Don't commit yet to handle m2m
         if commit:
+            instance.save()
+            
             # Handle multiple file uploads
             if 'images' in self.files:
                 for image in self.files.getlist('images'):
                     ProjectImage.objects.create(project=instance, image=image)
             
             # Handle tags
-            tags = self.cleaned_data.get('tags', [])
-            if tags:
-                # Clear existing tags
-                instance.tags.clear()
-                # Add new tags
-                for tag_name in tags:
-                    tag, created = Tag.objects.get_or_create(name=tag_name)
+            tags_string = self.cleaned_data.get('tags', '')
+            if isinstance(tags_string, str):
+                tag_names = [name.strip().lower() for name in tags_string.split(',') if name.strip()]
+            else:
+                tag_names = [tag.strip().lower() for tag in tags_string if tag.strip()]
+            
+            # Clear existing tags
+            instance.tags.clear()
+            
+            # Create or get tags and add them to the instance
+            for tag_name in tag_names:
+                if tag_name:  # Only process non-empty tags
+                    tag, _ = Tag.objects.get_or_create(name=tag_name)
                     instance.tags.add(tag)
+                
         return instance
 
 class PartForm(forms.ModelForm):

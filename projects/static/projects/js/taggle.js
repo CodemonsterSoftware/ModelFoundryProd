@@ -58,14 +58,18 @@ document.addEventListener('DOMContentLoaded', function() {
             allowDuplicates: false,
             duplicateTagClass: 'duplicate',
             placeholder: 'Add tags...',
-            tabIndex: 1,
             preserveCase: false,
             containerClass: 'taggle_container',
             tagClass: 'taggle',
             closeClass: 'taggle_close',
             inputClass: 'taggle_input',
+            submitKeys: [13, 188], // Enter and comma keys
             onBeforeTagAdd: function(event, tag) {
-                return true;
+                // Remove comma if it was used to create the tag
+                if (tag.endsWith(',')) {
+                    tag = tag.slice(0, -1);
+                }
+                return tag.length > 0;
             },
             onTagAdd: function(event, tag) {
                 // Update the hidden input with the current tags
@@ -84,6 +88,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 hiddenInput.value = tags.join(',');
             }
         });
+
+        // Handle input behavior
+        const taggleInput = taggleElement.querySelector('.taggle_input');
+        if (taggleInput) {
+            // Set a non-conflicting name to prevent duplicate form submission
+            taggleInput.setAttribute('name', '_taggle_input');
+            
+            // Handle keydown events
+            taggleInput.addEventListener('keydown', function(e) {
+                // Prevent form submission on enter
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                }
+                
+                // Handle tab key
+                if (e.key === 'Tab') {
+                    const value = this.value.trim();
+                    if (value) {
+                        e.preventDefault();
+                        taggle.add(value);
+                        this.value = '';
+                    }
+                }
+            });
+        }
 
         // Initial update of close buttons
         updateCloseButtons(taggleElement);
