@@ -29,11 +29,6 @@ class TagsInput(forms.TextInput):
         return context
 
 class ProjectForm(forms.ModelForm):
-    images = forms.FileField(
-        widget=MultipleFileInput(attrs={'accept': 'image/*'}),
-        required=False,
-        label='Project Images'
-    )
     tags = forms.CharField(
         required=False,
         widget=TagsInput()
@@ -41,7 +36,7 @@ class ProjectForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ['name', 'description', 'designer', 'images', 'tags']
+        fields = ['name', 'description', 'designer', 'tags']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
@@ -54,7 +49,6 @@ class ProjectForm(forms.ModelForm):
             'name',
             'description',
             'designer',
-            'images',
             Div(
                 'tags',
                 css_class='form-group'
@@ -72,11 +66,6 @@ class ProjectForm(forms.ModelForm):
         instance = super().save(commit=False)  # Don't commit yet to handle m2m
         if commit:
             instance.save()
-            
-            # Handle multiple file uploads
-            if 'images' in self.files:
-                for image in self.files.getlist('images'):
-                    ProjectImage.objects.create(project=instance, image=image)
             
             # Handle tags
             tags_string = self.cleaned_data.get('tags', '')

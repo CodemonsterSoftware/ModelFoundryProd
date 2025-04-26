@@ -199,8 +199,9 @@ $(document).ready(function() {
     const $uploadArea = $('#uploadArea');
     const $fileInput = $('#fileInput');
     const $imagePreview = $('#imagePreview');
-    const $uploadBtn = $('#uploadBtn');
+    const $uploadForm = $('#uploadForm');
     let files = [];
+    let isDragging = false;
     
     // Initialize sortable for the preview area
     $imagePreview.sortable({
@@ -216,32 +217,78 @@ $(document).ready(function() {
         }
     });
     
-    // Handle click on upload area
-    $uploadArea.on('click', function(e) {
+    // Prevent default drag and drop behavior on the document
+    $(document).on('dragover dragenter drop', function(e) {
         e.preventDefault();
-        $fileInput.trigger('click');
+        e.stopPropagation();
+    });
+    
+    // Make the upload area clickable using the mousedown/mouseup approach
+    // This avoids conflicts with drag events
+    $uploadArea.on('mousedown', function(e) {
+        // Only consider left mouse button clicks
+        if (e.which !== 1) return;
+        
+        // Prevent default only for mouse events, not drag events
+        if (!isDragging) {
+            // Mark where the click started
+            $(this).data('clickStarted', true);
+        }
+    });
+    
+    $uploadArea.on('mouseup', function(e) {
+        // Only consider left mouse button clicks
+        if (e.which !== 1) return;
+        
+        // If we started a click on this element and not dragging
+        if ($(this).data('clickStarted') === true && !isDragging) {
+            console.log('Upload area clicked (not dragged), opening file dialog');
+            $fileInput.click();
+        }
+        
+        // Reset click state
+        $(this).data('clickStarted', false);
     });
     
     // Handle file selection
     $fileInput.on('change', function(e) {
-        handleFiles(e.target.files);
+        console.log('File input changed, files selected:', this.files.length);
+        if (this.files && this.files.length > 0) {
+            handleFiles(this.files);
+        }
     });
     
     // Handle drag and drop
+    $uploadArea.on('dragenter', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isDragging = true;
+        $(this).addClass('dragover');
+    });
+    
     $uploadArea.on('dragover', function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        isDragging = true;
         $(this).addClass('dragover');
     });
     
     $uploadArea.on('dragleave', function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        isDragging = false;
         $(this).removeClass('dragover');
     });
     
     $uploadArea.on('drop', function(e) {
         e.preventDefault();
+        e.stopPropagation();
+        isDragging = false;
         $(this).removeClass('dragover');
-        handleFiles(e.originalEvent.dataTransfer.files);
+        
+        if (e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files) {
+            handleFiles(e.originalEvent.dataTransfer.files);
+        }
     });
     
     function handleFiles(newFiles) {
@@ -265,7 +312,7 @@ $(document).ready(function() {
         updatePreview();
         
         // Enable upload button if we have files
-        $uploadBtn.prop('disabled', files.length === 0);
+        $('#uploadBtn').prop('disabled', files.length === 0);
     }
     
     function updatePreview() {
@@ -283,7 +330,7 @@ $(document).ready(function() {
             reader.onload = function(e) {
                 const orderNumber = currentHighestOrder + index + 1;
                 const $previewItem = $(`
-                    <div class="preview-item" data-index="${index}">
+                    <div class="col-md-4 preview-item" data-index="${index}">
                         <img src="${e.target.result}" alt="Preview">
                         <div class="order-number">${orderNumber}</div>
                         <button type="button" class="remove-btn" data-index="${index}">
@@ -337,15 +384,14 @@ $(document).ready(function() {
         const index = $(this).data('index');
         files.splice(index, 1);
         updatePreview();
-        $uploadBtn.prop('disabled', files.length === 0);
+        $('#uploadBtn').prop('disabled', files.length === 0);
     });
     
     // Handle form submission
-    $('#uploadForm').on('submit', function(e) {
+    $uploadForm.on('submit', function(e) {
         e.preventDefault();
         
-        const formData = new FormData();
-        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        const formData = new FormData(this);
         formData.append('description_format', $('#descriptionFormat').val());
         
         // Add each file to the FormData with the name 'images'
@@ -354,13 +400,13 @@ $(document).ready(function() {
         });
         
         // Show loading state
-        const $btn = $uploadBtn;
+        const $btn = $('#uploadBtn');
         const originalHtml = $btn.html();
         $btn.html('<i class="fas fa-spinner fa-spin"></i> Uploading...').prop('disabled', true);
         
         // Submit the form
         $.ajax({
-            url: window.location.href,
+            url: this.action,
             type: 'POST',
             data: formData,
             processData: false,
@@ -373,7 +419,7 @@ $(document).ready(function() {
                     $btn.html(originalHtml).prop('disabled', false);
                 }
             },
-            error: function(xhr) {
+            error: function() {
                 alert('Error uploading instructions. Please try again.');
                 $btn.html(originalHtml).prop('disabled', false);
             }
