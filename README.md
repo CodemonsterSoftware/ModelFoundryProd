@@ -55,6 +55,11 @@ ModelFoundry is a Django-based web application designed to help users manage the
   - Track projects by designer
   - Add designer logos and information
 
+- **Search Functionality**
+  - Instantly search for projects and designers
+  - Filter by names, tags, descriptions, and other attributes
+  - Real-time search capabilities across the application
+
 ## Installation
 
 1. Clone the repository:
@@ -190,6 +195,7 @@ ModelFoundry/
 │   ├── views.py          # View functions
 │   ├── urls.py           # URL routing
 │   └── forms.py          # Form definitions
+├── logs/                 # Application logs (automatically created)
 ├── requirements.txt      # Project dependencies
 └── manage.py            # Django management script
 ```
@@ -218,10 +224,17 @@ ModelFoundry/
    - Monitor project costs
    - Track purchased parts status
 
+5. **Designer Management**
+   - Create designer profiles with details
+   - Filter projects by designer
+   - Easily find designer projects when importing
+
 ## Exporting and Importing Projects
 
 - **Export**: Click the "Export Project" button to download a ZIP file containing all project data and files
 - **Import**: Use the "Import Project" button to upload a previously exported project
+- Designer information is now included in exports and automatically matched when importing
+
 
 ## Contributing
 
@@ -240,4 +253,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Django framework
 - Bootstrap for frontend styling
 - Font Awesome for icons
-- STL library for 3D file handling 
+- STL library for 3D file handling
+- jQuery for enhanced JavaScript functionality
