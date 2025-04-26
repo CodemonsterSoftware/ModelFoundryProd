@@ -28,6 +28,45 @@
         left: 50%;
         transform: translate(-50%, -50%);
     }
+    .search-container {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    .search-container .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    .search-container .clear-icon {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        cursor: pointer;
+        display: none;
+    }
+    .search-container input {
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+        border-radius: 50px;
+        background-color: var(--bs-dark);
+        border-color: var(--border-dark);
+        color: var(--bs-light);
+    }
+    .search-container input:focus {
+        background-color: var(--bs-dark);
+        border-color: var(--bs-primary);
+        color: var(--bs-light);
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .no-results {
+        display: none;
+        text-align: center;
+        padding: 2rem;
+    }
 </style>
 {% endblock %}
 
@@ -39,10 +78,19 @@
             <i class="fas fa-plus me-2"></i>New Designer
         </button>
     </div>
+    
+    <!-- Search Bar -->
+    <div class="search-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="designerSearch" class="form-control form-control-lg" placeholder="Search designers by name or projects...">
+        <i class="fas fa-times-circle clear-icon" id="clearSearch"></i>
+    </div>
 
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="designersContainer">
         {% for data in designer_data %}
-        <div class="col">
+        <div class="col designer-card" 
+             data-name="{{ data.designer.name|lower }}" 
+             data-projects="{% for project in data.projects %}{{ project.name|lower }} {% endfor %}">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="designer-logo-container">
                     {% if data.designer.logo %}
@@ -106,6 +154,15 @@
         </div>
         {% endfor %}
     </div>
+    
+    <!-- No Results Message -->
+    <div class="no-results" id="noResults">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <p class="lead text-muted">No designers found matching your search.</p>
+        <button class="btn btn-outline-secondary" id="resetSearch">
+            <i class="fas fa-undo me-2"></i>Reset Search
+        </button>
+    </div>
 </div>
 
 <!-- New Designer Modal -->
@@ -152,4 +209,71 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('designerSearch');
+        const clearButton = document.getElementById('clearSearch');
+        const designerCards = document.querySelectorAll('.designer-card');
+        const designersContainer = document.getElementById('designersContainer');
+        const noResults = document.getElementById('noResults');
+        const resetButton = document.getElementById('resetSearch');
+        
+        // Function to filter designers
+        function filterDesigners() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let matchCount = 0;
+            
+            // Show or hide clear button
+            if (searchTerm.length > 0) {
+                clearButton.style.display = 'block';
+            } else {
+                clearButton.style.display = 'none';
+            }
+            
+            // Filter designers
+            designerCards.forEach(card => {
+                const name = card.dataset.name || '';
+                const projects = card.dataset.projects || '';
+                
+                // Check if any of the fields contain the search term
+                if (name.includes(searchTerm) || projects.includes(searchTerm)) {
+                    card.style.display = '';
+                    matchCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Show or hide no results message
+            if (matchCount === 0 && searchTerm.length > 0) {
+                designersContainer.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                designersContainer.style.display = '';
+                noResults.style.display = 'none';
+            }
+        }
+        
+        // Event listeners
+        searchInput.addEventListener('input', filterDesigners);
+        
+        clearButton.addEventListener('click', function() {
+            searchInput.value = '';
+            filterDesigners();
+            searchInput.focus();
+        });
+        
+        resetButton.addEventListener('click', function() {
+            searchInput.value = '';
+            filterDesigners();
+            searchInput.focus();
+        });
+        
+        // Initialize (in case there's a value already)
+        filterDesigners();
+    });
+</script>
 {% endblock %} 

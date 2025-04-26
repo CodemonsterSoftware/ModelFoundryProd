@@ -2,6 +2,7 @@ from django.shortcuts import render
 import os
 import zipfile
 import json
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
@@ -26,6 +27,9 @@ from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from decimal import Decimal
 from datetime import datetime
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -544,7 +548,7 @@ def copy_mirror_part(request, part_id):
             return redirect('projects:project_detail', pk=project_id)
 
     except Exception as e:
-        print(e)
+        logger.error(f'Error creating mirrored part: {str(e)}')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'status': 'error',
@@ -932,6 +936,7 @@ def export_project(request, project_id):
                 'created_at': project.created_at.isoformat(),
                 'updated_at': project.updated_at.isoformat(),
                 'designer': project.designer.name if project.designer else None,
+                # Keep designer_id for backward compatibility but it won't be used for imports
                 'designer_id': project.designer.id if project.designer else None
             },
             'materials': [],
@@ -1110,6 +1115,7 @@ def import_project(request):
             # Get the uploaded zip file
             zip_file = request.FILES.get('zip_file')
             if not zip_file:
+                logger.warning("Import project failed: No file uploaded")
                 return JsonResponse({
                     'status': 'error',
                     'message': 'No file was uploaded'
@@ -1118,12 +1124,14 @@ def import_project(request):
             # Create a temporary directory to extract files
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Extract the zip file
+                logger.info(f"Extracting zip file: {zip_file.name}")
                 with zipfile.ZipFile(zip_file) as z:
                     z.extractall(temp_dir)
 
                 # Read the manifest file
                 manifest_path = os.path.join(temp_dir, 'manifest.json')
                 if not os.path.exists(manifest_path):
+                    logger.warning("Import project failed: No manifest.json found in zip")
                     return JsonResponse({
                         'status': 'error',
                         'message': 'No manifest.json file found in the zip'
@@ -1131,14 +1139,27 @@ def import_project(request):
 
                 with open(manifest_path) as f:
                     project_data = json.load(f)
+                
+                logger.info(f"Importing project: {project_data['metadata']['name']}")
+
+                # Find designer by name if available
+                designer = None
+                if designer_name := project_data['metadata'].get('designer'):
+                    designer = Designer.objects.filter(name=designer_name).first()
+                    # Log the designer search result
+                    if designer:
+                        logger.info(f"Found designer: {designer.name} (ID: {designer.id})")
+                    else:
+                        logger.info(f"Designer '{designer_name}' not found in database")
 
                 # Create the project
                 project = Project.objects.create(
                     name=project_data['metadata']['name'],
                     description=project_data['metadata']['description'],
                     user=request.user,
-                    designer_id=project_data['metadata']['designer_id']
+                    designer=designer  # Use the designer object or None
                 )
+                logger.info(f"Created project: {project.name} (ID: {project.id})")
 
                 # Create or get materials
                 materials = {}
@@ -1146,9 +1167,11 @@ def import_project(request):
                     # Try to get existing material by name
                     existing_material = Material.objects.filter(name=material_data['name']).first()
                     if existing_material:
+                        logger.info(f"Using existing material: {existing_material.name}")
                         materials[material_data['id']] = existing_material
                     else:
                         # Create new material
+                        logger.info(f"Creating new material: {material_data['name']}")
                         material = Material.objects.create(
                             name=material_data['name'],
                             type=material_data['type'],
@@ -1243,6 +1266,8 @@ def import_project(request):
                 return redirect('projects:project_detail', pk=project.id)
 
         except Exception as e:
+            # Log the full exception with traceback
+            logger.exception(f"Error importing project: {str(e)}")
             messages.error(request, f'Error importing project: {str(e)}')
             return redirect('projects:index')
 

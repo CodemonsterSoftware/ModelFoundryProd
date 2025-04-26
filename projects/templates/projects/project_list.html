@@ -29,6 +29,45 @@
         left: 50%;
         transform: translate(-50%, -50%);
     }
+    .search-container {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    .search-container .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    .search-container .clear-icon {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+        cursor: pointer;
+        display: none;
+    }
+    .search-container input {
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+        border-radius: 50px;
+        background-color: var(--bs-dark);
+        border-color: var(--border-dark);
+        color: var(--bs-light);
+    }
+    .search-container input:focus {
+        background-color: var(--bs-dark);
+        border-color: var(--bs-primary);
+        color: var(--bs-light);
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .no-results {
+        display: none;
+        text-align: center;
+        padding: 2rem;
+    }
 </style>
 {% endblock %}
 
@@ -45,10 +84,21 @@
             </a>
         </div>
     </div>
+    
+    <!-- Search Bar -->
+    <div class="search-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="projectSearch" class="form-control form-control-lg" placeholder="Search projects by name, description, tags, or files...">
+        <i class="fas fa-times-circle clear-icon" id="clearSearch"></i>
+    </div>
 
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="projectsContainer">
         {% for project in projects %}
-        <div class="col">
+        <div class="col project-card" 
+             data-name="{{ project.name|lower }}" 
+             data-description="{{ project.description|lower }}" 
+             data-tags="{% for tag in project.tags.all %}{{ tag.name|lower }} {% endfor %}"
+             data-files="{% for image in project.images.all %}{{ image.image.name|lower }} {% endfor %}">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="project-image-container">
                     {% if project.images.first %}
@@ -106,5 +156,86 @@
         </div>
         {% endfor %}
     </div>
+    
+    <!-- No Results Message -->
+    <div class="no-results" id="noResults">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+        <p class="lead text-muted">No projects found matching your search.</p>
+        <button class="btn btn-outline-secondary" id="resetSearch">
+            <i class="fas fa-undo me-2"></i>Reset Search
+        </button>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('projectSearch');
+        const clearButton = document.getElementById('clearSearch');
+        const projectCards = document.querySelectorAll('.project-card');
+        const projectsContainer = document.getElementById('projectsContainer');
+        const noResults = document.getElementById('noResults');
+        const resetButton = document.getElementById('resetSearch');
+        
+        // Function to filter projects
+        function filterProjects() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let matchCount = 0;
+            
+            // Show or hide clear button
+            if (searchTerm.length > 0) {
+                clearButton.style.display = 'block';
+            } else {
+                clearButton.style.display = 'none';
+            }
+            
+            // Filter projects
+            projectCards.forEach(card => {
+                const name = card.dataset.name || '';
+                const description = card.dataset.description || '';
+                const tags = card.dataset.tags || '';
+                const files = card.dataset.files || '';
+                
+                // Check if any of the fields contain the search term
+                if (name.includes(searchTerm) || 
+                    description.includes(searchTerm) || 
+                    tags.includes(searchTerm) ||
+                    files.includes(searchTerm)) {
+                    card.style.display = '';
+                    matchCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Show or hide no results message
+            if (matchCount === 0 && searchTerm.length > 0) {
+                projectsContainer.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                projectsContainer.style.display = '';
+                noResults.style.display = 'none';
+            }
+        }
+        
+        // Event listeners
+        searchInput.addEventListener('input', filterProjects);
+        
+        clearButton.addEventListener('click', function() {
+            searchInput.value = '';
+            filterProjects();
+            searchInput.focus();
+        });
+        
+        resetButton.addEventListener('click', function() {
+            searchInput.value = '';
+            filterProjects();
+            searchInput.focus();
+        });
+        
+        // Initialize (in case there's a value already)
+        filterProjects();
+    });
+</script>
 {% endblock %} 
