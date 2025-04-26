@@ -1,3 +1,12 @@
 INFO 2025-04-25 21:03:37,978 autoreload 43256 46816 Watching for file changes with StatReloader
 INFO 2025-04-25 21:04:13,599 autoreload 43256 46816 C:\Users\Christian\CursorProjects\ModelFoundry\projects\views.py changed, reloading.
 INFO 2025-04-25 21:04:14,204 autoreload 26268 41868 Watching for file changes with StatReloader
+INFO 2025-04-25 21:07:54,479 basehttp 26268 5012 "GET / HTTP/1.1" 200 27591
+INFO 2025-04-25 21:07:55,142 basehttp 26268 31692 "GET /static/logo_2.png HTTP/1.1" 200 20640
+INFO 2025-04-25 21:07:55,172 basehttp 26268 5012 "GET /static/projects/css/style.css HTTP/1.1" 200 3945
+INFO 2025-04-25 21:07:55,179 basehttp 26268 49012 "GET /media/project_images/project_image_14_g065GOP.jpg HTTP/1.1" 200 63959
+INFO 2025-04-25 21:07:55,208 basehttp 26268 14364 "GET /media/project_images/3b24130a-ff4f-4869-9b1e-464ca9f80b5b.png HTTP/1.1" 200 1208204
+INFO 2025-04-25 21:07:55,217 basehttp 26268 24024 "GET /static/projects/js/main.js HTTP/1.1" 200 2435
+INFO 2025-04-25 21:07:55,217 basehttp 26268 48316 "GET /static/projects/js/taggle.js HTTP/1.1" 200 5178
+INFO 2025-04-25 21:07:55,710 basehttp 26268 24024 "GET /static/projects/favicon/favicon-32x32.png HTTP/1.1" 200 997
+INFO 2025-04-25 21:07:55,721 basehttp 26268 44344 "GET /static/projects/favicon/site.webmanifest HTTP/1.1" 200 263
