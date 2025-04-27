@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, Part, PurchasedPart, ProjectImage, Designer, Group, Material, Instructions
+from .models import Project, Part, PurchasedPart, ProjectImage, Designer, Group, Material, Instructions, UserSettings
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
@@ -98,3 +98,10 @@ class InstructionsAdmin(admin.ModelAdmin):
     list_filter = ('project',)
     search_fields = ('description', 'project__name')
     ordering = ('project', 'order')
+
+@admin.register(UserSettings)
+class UserSettingsAdmin(admin.ModelAdmin):
+    list_display = ('user', 'settings_type', 'updated_at')
+    list_filter = ('settings_type', 'updated_at')
+    search_fields = ('user__username', 'settings_type')
+    readonly_fields = ('updated_at',)

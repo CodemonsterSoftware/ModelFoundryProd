@@ -1,0 +1,164 @@
+{% extends 'projects/base.html' %}
+{% load static %}
+
+{% block title %}Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+    .nav-tabs .nav-link {
+        color: var(--text-light);
+        border-color: var(--border-dark);
+        background-color: var(--bg-darker);
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: var(--text-light);
+        border-color: var(--border-dark);
+        border-bottom-color: var(--bg-darker);
+        background-color: var(--bg-darker);
+    }
+    
+    .nav-tabs {
+        border-bottom-color: var(--border-dark);
+    }
+    
+    .tab-content {
+        background-color: var(--bg-darker);
+        border: 1px solid var(--border-dark);
+        border-top: none;
+        padding: 20px;
+    }
+    
+    .settings-header {
+        border-bottom: 1px solid var(--border-dark);
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="settings-header">Settings</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">
+                        <i class="fas fa-cog me-2"></i>General
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="slicer-tab" data-bs-toggle="tab" data-bs-target="#slicer" type="button" role="tab" aria-controls="slicer" aria-selected="false">
+                        <i class="fas fa-layer-group me-2"></i>Slicer Integration
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button" role="tab" aria-controls="appearance" aria-selected="false">
+                        <i class="fas fa-palette me-2"></i>Appearance
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="settingsTabsContent">
+                <!-- General Settings Tab -->
+                <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="settings_type" value="general">
+                        
+                        <div class="mb-3">
+                            <label for="defaultMaterial" class="form-label">Default Material</label>
+                            <select class="form-select" id="defaultMaterial" name="default_material">
+                                <option value="">No default</option>
+                                {% for material in materials %}
+                                <option value="{{ material.id }}" {% if general_settings.default_material == material.id %}selected{% endif %}>
+                                    {{ material.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select the default material to use when creating new parts.</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save General Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Slicer Integration Tab -->
+                <div class="tab-pane fade" id="slicer" role="tabpanel" aria-labelledby="slicer-tab">
+                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="settings_type" value="slicer">
+                        
+                        <div class="mb-3">
+                            <label for="slicerType" class="form-label">Default Slicer</label>
+                            <select class="form-select" id="slicerType" name="slicer_type">
+                                <option value="none" {% if slicer_settings.slicer_type == 'none' %}selected{% endif %}>None</option>
+                                <option value="cura" {% if slicer_settings.slicer_type == 'cura' %}selected{% endif %}>Cura</option>
+                                <option value="prusaslicer" {% if slicer_settings.slicer_type == 'prusaslicer' %}selected{% endif %}>PrusaSlicer</option>
+                            </select>
+                            <div class="form-text">Select your preferred slicer application.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="slicerPath" class="form-label">Slicer Path</label>
+                            <input type="text" class="form-control" id="slicerPath" name="slicer_path" value="{{ slicer_settings.slicer_path }}" placeholder="C:\Program Files\Ultimaker Cura\cura.exe">
+                            <div class="form-text">Full path to your slicer executable.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="profilesPath" class="form-label">Profiles Path</label>
+                            <input type="text" class="form-control" id="profilesPath" name="profiles_path" value="{{ slicer_settings.profiles_path }}" placeholder="C:\Users\username\AppData\Roaming\cura\4.8\profiles">
+                            <div class="form-text">Path where slicer profiles are stored (optional).</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="directSlicing" name="direct_slicing" {% if slicer_settings.direct_slicing %}checked{% endif %}>
+                            <label class="form-check-label" for="directSlicing">Enable Direct Slicing</label>
+                            <div class="form-text">When enabled, parts can be sent directly to the slicer from ModelFoundry.</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Slicer Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Appearance Tab -->
+                <div class="tab-pane fade" id="appearance" role="tabpanel" aria-labelledby="appearance-tab">
+                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="settings_type" value="appearance">
+                        
+                        <div class="mb-3">
+                            <label for="themePreference" class="form-label">Theme</label>
+                            <select class="form-select" id="themePreference" name="theme_preference">
+                                <option value="dark" {% if appearance_settings.theme_preference == 'dark' %}selected{% endif %}>Dark</option>
+                                <option value="light" {% if appearance_settings.theme_preference == 'light' %}selected{% endif %}>Light</option>
+                            </select>
+                            <div class="form-text">Choose between light and dark theme (not yet implemented).</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Appearance Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

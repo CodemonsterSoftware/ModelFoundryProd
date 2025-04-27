@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
-from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions
+from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings
 from .forms import (
     ProjectForm, PartForm, GroupForm, PurchasedPartForm,
     ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm
@@ -1361,3 +1361,71 @@ def set_project_thumbnail(request, image_id):
         except ProjectImage.DoesNotExist:
             return JsonResponse({'status': 'error', 'message': 'Image not found'}, status=404)
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+@login_required
+def settings_view(request):
+    """View for application settings"""
+    
+    # Get or create settings objects
+    try:
+        general_settings = UserSettings.objects.get(user=request.user, settings_type='general')
+    except UserSettings.DoesNotExist:
+        general_settings = UserSettings.objects.create(user=request.user, settings_type='general', settings_data='{}')
+    
+    try:
+        slicer_settings = UserSettings.objects.get(user=request.user, settings_type='slicer')
+    except UserSettings.DoesNotExist:
+        slicer_settings = UserSettings.objects.create(user=request.user, settings_type='slicer', settings_data='{}')
+    
+    try:
+        appearance_settings = UserSettings.objects.get(user=request.user, settings_type='appearance')
+    except UserSettings.DoesNotExist:
+        appearance_settings = UserSettings.objects.create(user=request.user, settings_type='appearance', settings_data='{}')
+    
+    # Parse JSON data
+    import json
+    general_data = json.loads(general_settings.settings_data) if general_settings.settings_data else {}
+    slicer_data = json.loads(slicer_settings.settings_data) if slicer_settings.settings_data else {}
+    appearance_data = json.loads(appearance_settings.settings_data) if appearance_settings.settings_data else {}
+    
+    # Process form submission
+    if request.method == 'POST':
+        settings_type = request.POST.get('settings_type')
+        
+        if settings_type == 'general':
+            # Update general settings
+            default_material = request.POST.get('default_material', '')
+            general_data['default_material'] = default_material
+            general_settings.settings_data = json.dumps(general_data)
+            general_settings.save()
+            messages.success(request, "General settings saved successfully")
+            
+        elif settings_type == 'slicer':
+            # Update slicer settings
+            slicer_data['slicer_type'] = request.POST.get('slicer_type', 'none')
+            slicer_data['slicer_path'] = request.POST.get('slicer_path', '')
+            slicer_data['profiles_path'] = request.POST.get('profiles_path', '')
+            slicer_data['direct_slicing'] = 'direct_slicing' in request.POST
+            slicer_settings.settings_data = json.dumps(slicer_data)
+            slicer_settings.save()
+            messages.success(request, "Slicer settings saved successfully")
+            
+        elif settings_type == 'appearance':
+            # Update appearance settings
+            appearance_data['theme_preference'] = request.POST.get('theme_preference', 'dark')
+            appearance_settings.settings_data = json.dumps(appearance_data)
+            appearance_settings.save()
+            messages.success(request, "Appearance settings saved successfully")
+            
+        # Redirect to settings page to avoid form resubmission
+        return redirect('projects:settings')
+    
+    # Prepare context for template
+    context = {
+        'general_settings': general_data,
+        'slicer_settings': slicer_data,
+        'appearance_settings': appearance_data,
+        'materials': Material.objects.all(),
+    }
+    
+    return render(request, 'projects/settings.html', context)

@@ -45,4 +45,5 @@ urlpatterns = [
     path('register/', views.register, name='register'),
     path('project/<int:image_id>/delete-image/', views.delete_project_image, name='delete_project_image'),
     path('project/<int:image_id>/set-thumbnail/', views.set_project_thumbnail, name='set_project_thumbnail'),
+    path('settings/', login_required(views.settings_view), name='settings'),
 ] 

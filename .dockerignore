@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -24,9 +25,16 @@ var/
 *.log
 local_settings.py
 db.sqlite3
+*.sqlite3
+/db/*.sqlite3
+db/*.sqlite3
 media/
 staticfiles/
 logs/
+
+# Django migrations (uncomment if you want to ignore migrations)
+# */migrations/*.py
+# !*/migrations/__init__.py
 
 # Docker
 Dockerfile
@@ -51,4 +59,7 @@ ENV/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Utility Scripts
+clean_pycache.ps1 

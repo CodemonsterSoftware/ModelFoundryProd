@@ -161,6 +161,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# File Upload Settings
+# Set maximum upload size to 5GB (5 * 1024 * 1024 * 1024 bytes)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5GB in bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5GB in bytes
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 

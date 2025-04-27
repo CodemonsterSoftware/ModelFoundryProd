@@ -275,3 +275,18 @@ class Instructions(models.Model):
 
     def __str__(self):
         return f"Step {self.order} - {self.project.name}"
+
+class UserSettings(models.Model):
+    """Model to store user settings in JSON format"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='settings')
+    settings_type = models.CharField(max_length=50)  # 'general', 'slicer', 'appearance', etc.
+    settings_data = models.TextField(blank=True, null=True)  # JSON data
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('user', 'settings_type')
+        verbose_name = 'User Setting'
+        verbose_name_plural = 'User Settings'
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.settings_type} settings"

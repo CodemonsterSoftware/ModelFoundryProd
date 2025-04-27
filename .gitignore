@@ -1,5 +1,43 @@
-/db.sqlite3
-/media
-\db\db.sqlite3
+# Database files
+*.sqlite3
+db.sqlite3
+/db/*.sqlite3
+db/*.sqlite3
+
+# Media and static files
+/media/
+media/
+/staticfiles/
+staticfiles/
+
+# Log files
 /logs/
 logs/
+*.log
+
+# Python cache files
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Django migrations (uncomment if you want to ignore migrations)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# Virtual environments
+venv/
+env/
+.env
+.venv/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db

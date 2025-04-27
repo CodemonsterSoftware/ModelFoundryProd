@@ -2,13 +2,13 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    image: codemonstersoftware/modelfoundry:latest
     volumes:
-      - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - logs_volume:/app/logs
     ports:
-      - "8999:8000"
+      - "80:8000"
     environment:
       - DEBUG=1
       - SECRET_KEY=your-secret-key-here
@@ -39,4 +39,5 @@ networks:
 volumes:
   static_volume:
   media_volume:
+  logs_volume:
   postgres_data: 
