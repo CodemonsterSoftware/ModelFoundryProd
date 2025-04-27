@@ -25,13 +25,82 @@
     <link rel="stylesheet" href="{% static 'projects/css/style.css' %}">
     
     <style>
+        /* Theme variables */
         :root {
+            /* Dark Theme (Default) */
             --bg-dark: #1a1a1a;
             --bg-darker: #121212;
             --bg-grey: #2d2d2d;
             --text-light: #e0e0e0;
             --text-muted: #a0a0a0;
             --border-dark: #404040;
+            --primary-color: #0d6efd;
+        }
+
+        /* Light Theme */
+        :root.light-theme {
+            --bg-dark: #f8f9fa;
+            --bg-darker: #ffffff;
+            --bg-grey: #e9ecef;
+            --text-light: #212529;
+            --text-muted: #6c757d;
+            --border-dark: #dee2e6;
+            --primary-color: #0d6efd;
+        }
+
+        /* Midnight Blue Theme */
+        :root.midnight-theme {
+            --bg-dark: #1a2647;
+            --bg-darker: #0f172a;
+            --bg-grey: #253352;
+            --text-light: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-dark: #334155;
+            --primary-color: #3b82f6;
+        }
+
+        /* Forest Green Theme */
+        :root.forest-theme {
+            --bg-dark: #1e3a2b;
+            --bg-darker: #14261d;
+            --bg-grey: #2a4d3a;
+            --text-light: #e0e7e3;
+            --text-muted: #a3b8ad;
+            --border-dark: #3e6e52;
+            --primary-color: #4ade80;
+        }
+
+        /* Sunset Orange Theme */
+        :root.sunset-theme {
+            --bg-dark: #2d1a12;
+            --bg-darker: #1f110c;
+            --bg-grey: #3d2419;
+            --text-light: #f5e9e5;
+            --text-muted: #caa99e;
+            --border-dark: #65392a;
+            --primary-color: #fb923c;
+        }
+
+        /* Deep Purple Theme */
+        :root.purple-theme {
+            --bg-dark: #2e1065;
+            --bg-darker: #1e084a;
+            --bg-grey: #3b1a79;
+            --text-light: #ede9fe;
+            --text-muted: #c4b5fd;
+            --border-dark: #5b21b6;
+            --primary-color: #a855f7;
+        }
+
+        /* Teal Theme */
+        :root.teal-theme {
+            --bg-dark: #0f3737;
+            --bg-darker: #092424;
+            --bg-grey: #164b4b;
+            --text-light: #e0f2f2;
+            --text-muted: #a5d8d8;
+            --border-dark: #115e5e;
+            --primary-color: #2dd4bf;
         }
 
         body {
@@ -207,12 +276,12 @@
         }
 
         .btn-outline-primary {
-            color: #0d6efd;
-            border-color: #0d6efd;
+            color: var(--primary-color);
+            border-color: var(--primary-color);
         }
 
         .btn-outline-primary:hover {
-            background-color: #0d6efd;
+            background-color: var(--primary-color);
             color: var(--text-light);
         }
 
@@ -251,6 +320,16 @@
         .navbar-brand img {
             filter: invert(1) grayscale(100%) brightness(200%);
         }
+        
+        /* Invert logo for light theme */
+        :root.light-theme .navbar-brand img {
+            filter: none;
+        }
+        
+        /* Invert close button for light theme */
+        :root.light-theme .btn-close {
+            filter: none;
+        }
 
         footer {
             background-color: var(--bg-grey) !important;
@@ -285,7 +364,7 @@
         /* Form styles */
         .form-control {
             background-color: var(--bg-dark);
-            border-color: var(--border-color);
+            border-color: var(--border-dark);
             color: var(--text-light);
         }
 
@@ -306,7 +385,7 @@
 
         .form-check-input {
             background-color: var(--bg-dark);
-            border-color: var(--border-color);
+            border-color: var(--border-dark);
         }
 
         .form-check-input:checked {
@@ -497,6 +576,28 @@
     <script src="{% static 'projects/js/taggle.js' %}"></script>
     
     <script>
+        // Cookie utility functions
+        function setCookie(name, value, days) {
+            var expires = "";
+            if (days) {
+                var date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "") + expires + "; path=/";
+        }
+        
+        function getCookie(name) {
+            var nameEQ = name + "=";
+            var ca = document.cookie.split(';');
+            for(var i=0; i < ca.length; i++) {
+                var c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+        
         // Initialize all toasts
         document.addEventListener('DOMContentLoaded', function() {
             var toastElList = [].slice.call(document.querySelectorAll('.toast'));
@@ -508,7 +609,31 @@
                 toast.show();
                 return toast;
             });
+            
+            // Apply theme from user settings
+            applyTheme();
         });
+        
+        // Function to apply theme
+        function applyTheme() {
+            // Get theme from cookie with a default of 'dark'
+            var theme = getCookie('theme_preference') || 'dark';
+            
+            // Reset any theme classes
+            document.documentElement.classList.remove(
+                'light-theme', 
+                'midnight-theme', 
+                'forest-theme', 
+                'sunset-theme', 
+                'purple-theme', 
+                'teal-theme'
+            );
+            
+            // Apply the appropriate theme
+            if (theme !== 'dark') {
+                document.documentElement.classList.add(theme + '-theme');
+            }
+        }
     </script>
 </body>
 </html> 

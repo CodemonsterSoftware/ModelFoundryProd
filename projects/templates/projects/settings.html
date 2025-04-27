@@ -34,6 +34,35 @@
         margin-bottom: 20px;
         padding-bottom: 10px;
     }
+    
+    /* Theme preview swatches */
+    .theme-swatch {
+        width: 100%;
+        height: 20px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+    }
+    .dark-swatch {
+        background: linear-gradient(to right, #1a1a1a 0%, #1a1a1a 40%, #121212 40%, #121212 80%, #2d2d2d 80%, #2d2d2d 100%);
+    }
+    .light-swatch {
+        background: linear-gradient(to right, #f8f9fa 0%, #f8f9fa 40%, #ffffff 40%, #ffffff 80%, #e9ecef 80%, #e9ecef 100%);
+    }
+    .midnight-swatch {
+        background: linear-gradient(to right, #1a2647 0%, #1a2647 40%, #0f172a 40%, #0f172a 80%, #253352 80%, #253352 100%);
+    }
+    .forest-swatch {
+        background: linear-gradient(to right, #1e3a2b 0%, #1e3a2b 40%, #14261d 40%, #14261d 80%, #2a4d3a 80%, #2a4d3a 100%);
+    }
+    .sunset-swatch {
+        background: linear-gradient(to right, #2d1a12 0%, #2d1a12 40%, #1f110c 40%, #1f110c 80%, #3d2419 80%, #3d2419 100%);
+    }
+    .purple-swatch {
+        background: linear-gradient(to right, #2e1065 0%, #2e1065 40%, #1e084a 40%, #1e084a 80%, #3b1a79 80%, #3b1a79 100%);
+    }
+    .teal-swatch {
+        background: linear-gradient(to right, #0f3737 0%, #0f3737 40%, #092424 40%, #092424 80%, #164b4b 80%, #164b4b 100%);
+    }
 </style>
 {% endblock %}
 
@@ -137,17 +166,25 @@
                 
                 <!-- Appearance Tab -->
                 <div class="tab-pane fade" id="appearance" role="tabpanel" aria-labelledby="appearance-tab">
-                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
+                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3" id="appearanceForm">
                         {% csrf_token %}
                         <input type="hidden" name="settings_type" value="appearance">
                         
                         <div class="mb-3">
                             <label for="themePreference" class="form-label">Theme</label>
                             <select class="form-select" id="themePreference" name="theme_preference">
-                                <option value="dark" {% if appearance_settings.theme_preference == 'dark' %}selected{% endif %}>Dark</option>
-                                <option value="light" {% if appearance_settings.theme_preference == 'light' %}selected{% endif %}>Light</option>
+                                <option value="dark" data-swatch="dark-swatch" {% if appearance_settings.theme_preference == 'dark' %}selected{% endif %}>Dark</option>
+                                <option value="light" data-swatch="light-swatch" {% if appearance_settings.theme_preference == 'light' %}selected{% endif %}>Light</option>
+                                <option value="midnight" data-swatch="midnight-swatch" {% if appearance_settings.theme_preference == 'midnight' %}selected{% endif %}>Midnight Blue</option>
+                                <option value="forest" data-swatch="forest-swatch" {% if appearance_settings.theme_preference == 'forest' %}selected{% endif %}>Forest Green</option>
+                                <option value="sunset" data-swatch="sunset-swatch" {% if appearance_settings.theme_preference == 'sunset' %}selected{% endif %}>Sunset Orange</option>
+                                <option value="purple" data-swatch="purple-swatch" {% if appearance_settings.theme_preference == 'purple' %}selected{% endif %}>Deep Purple</option>
+                                <option value="teal" data-swatch="teal-swatch" {% if appearance_settings.theme_preference == 'teal' %}selected{% endif %}>Teal</option>
                             </select>
-                            <div class="form-text">Choose between light and dark theme (not yet implemented).</div>
+                            <div class="form-text">Choose your preferred theme for the application.</div>
+                            
+                            <!-- Theme preview -->
+                            <div class="theme-swatch dark-swatch mt-3" id="themeSwatch"></div>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
@@ -161,4 +198,69 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update theme swatch when selection changes
+        const themePreference = document.getElementById('themePreference');
+        const themeSwatch = document.getElementById('themeSwatch');
+        
+        // Show the initial swatch
+        if (themePreference && themeSwatch) {
+            const selectedOption = themePreference.options[themePreference.selectedIndex];
+            themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
+            
+            // Update swatch when selection changes
+            themePreference.addEventListener('change', function() {
+                const selectedOption = themePreference.options[themePreference.selectedIndex];
+                themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
+                
+                // Apply theme for preview
+                previewTheme(themePreference.value);
+            });
+        }
+        
+        // Handle appearance form submission
+        const appearanceForm = document.getElementById('appearanceForm');
+        if (appearanceForm) {
+            appearanceForm.addEventListener('submit', function() {
+                // Save theme to cookie (will persist for 365 days)
+                setCookie('theme_preference', themePreference.value, 365);
+            });
+        }
+        
+        // Initialize current theme from cookie
+        const currentTheme = getCookie('theme_preference') || 'dark';
+        if (themePreference) {
+            for (let i = 0; i < themePreference.options.length; i++) {
+                if (themePreference.options[i].value === currentTheme) {
+                    themePreference.selectedIndex = i;
+                    const selectedOption = themePreference.options[themePreference.selectedIndex];
+                    themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
+                    break;
+                }
+            }
+        }
+    });
+    
+    // Function to preview the theme without saving
+    function previewTheme(theme) {
+        // Reset any theme classes
+        document.documentElement.classList.remove(
+            'light-theme', 
+            'midnight-theme', 
+            'forest-theme', 
+            'sunset-theme', 
+            'purple-theme', 
+            'teal-theme'
+        );
+        
+        // Apply the appropriate theme
+        if (theme !== 'dark') {
+            document.documentElement.classList.add(theme + '-theme');
+        }
+    }
+</script>
 {% endblock %} 

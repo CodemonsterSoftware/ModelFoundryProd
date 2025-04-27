@@ -514,6 +514,27 @@ def add_multiple_parts(request, project_id):
 
 def index(request):
     recent_projects = Project.objects.all().order_by('-created_at')[:6]
+    
+    # If the user is logged in, check for theme preference
+    if request.user.is_authenticated and request.COOKIES.get('theme_preference') is None:
+        try:
+            import json
+            # Try to get the user's appearance settings
+            appearance_settings = UserSettings.objects.get(user=request.user, settings_type='appearance')
+            appearance_data = json.loads(appearance_settings.settings_data) if appearance_settings.settings_data else {}
+            
+            # If the user has a theme preference, set it in a cookie
+            if appearance_data.get('theme_preference'):
+                response = render(request, 'projects/index.html', {
+                    'recent_projects': recent_projects
+                })
+                # Set cookie to expire in 1 year
+                max_age = 365 * 24 * 60 * 60
+                response.set_cookie('theme_preference', appearance_data['theme_preference'], max_age=max_age)
+                return response
+        except (UserSettings.DoesNotExist, json.JSONDecodeError):
+            pass
+    
     return render(request, 'projects/index.html', {
         'recent_projects': recent_projects
     })
@@ -1412,10 +1433,18 @@ def settings_view(request):
             
         elif settings_type == 'appearance':
             # Update appearance settings
-            appearance_data['theme_preference'] = request.POST.get('theme_preference', 'dark')
+            theme_preference = request.POST.get('theme_preference', 'dark')
+            appearance_data['theme_preference'] = theme_preference
             appearance_settings.settings_data = json.dumps(appearance_data)
             appearance_settings.save()
             messages.success(request, "Appearance settings saved successfully")
+            
+            # Prepare redirect with the cookie set
+            response = redirect('projects:settings')
+            # Set the theme cookie to expire in 1 year (365 days)
+            max_age = 365 * 24 * 60 * 60  # 1 year in seconds
+            response.set_cookie('theme_preference', theme_preference, max_age=max_age)
+            return response
             
         # Redirect to settings page to avoid form resubmission
         return redirect('projects:settings')
@@ -1427,5 +1456,13 @@ def settings_view(request):
         'appearance_settings': appearance_data,
         'materials': Material.objects.all(),
     }
+    
+    # Check if there's a theme preference in the database but not in cookies
+    if request.COOKIES.get('theme_preference') is None and appearance_data.get('theme_preference'):
+        # Set the cookie on the response
+        response = render(request, 'projects/settings.html', context)
+        max_age = 365 * 24 * 60 * 60  # 1 year in seconds
+        response.set_cookie('theme_preference', appearance_data['theme_preference'], max_age=max_age)
+        return response
     
     return render(request, 'projects/settings.html', context)
