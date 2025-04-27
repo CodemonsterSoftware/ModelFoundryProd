@@ -16,6 +16,7 @@ services:
       - DOCKER_CONTAINER=true
     depends_on:
       - db
+      - curaengine
     networks:
       - app_network
 
@@ -32,6 +33,16 @@ services:
     networks:
       - app_network
 
+  curaengine:
+    build: 
+      context: ./curaengine
+    volumes:
+      - cura_data:/app/data
+    ports:
+      - "8080:8080"
+    networks:
+      - app_network
+
 networks:
   app_network:
     driver: bridge
@@ -40,4 +51,5 @@ volumes:
   static_volume:
   media_volume:
   logs_volume:
-  postgres_data: 
+  postgres_data:
+  cura_data: 

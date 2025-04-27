@@ -3,6 +3,55 @@
 
 {% block title %}ModelFoundry - 3D Printing Project Management{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Add card styles for the index page */
+    .project-image-container {
+        position: relative;
+        width: 100%;
+        padding-top: 75%; /* 4:3 Aspect Ratio */
+        overflow: hidden;
+        background-color: #f8f9fa;
+    }
+    .project-image-container img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background-color: #f8f9fa;
+    }
+    .project-image-container .no-image {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    .card-link {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+        height: 100%;
+    }
+    .card-link:hover {
+        text-decoration: none;
+        color: inherit;
+    }
+    .card, .card-img-top {
+        border-radius: 0 !important;
+    }
+    /* Card hover effect */
+    .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15) !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-5">
     <!-- Hero Section -->
@@ -96,51 +145,55 @@
             <h2 class="display-5">Recent Projects</h2>
             <p class="lead text-muted">Your latest 3D printing projects</p>
         </div>
-        {% for project in recent_projects %}
-        <div class="col-md-4 mb-4">
-            <div class="card h-100 border-0 shadow-sm">
-                {% if project.images.first %}
-                <img src="{{ project.images.first.image.url }}" class="card-img-top" alt="{{ project.name }}">
-                {% endif %}
-                <div class="card-body">
-                    <h5 class="card-title">{{ project.name }}</h5>
-                    <p class="card-text text-muted">{{ project.description|truncatechars:100 }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            <i class="fas fa-cube me-1"></i>{{ project.total_parts }} parts
-                        </small>
-                        <small class="text-muted">
-                            <i class="fas fa-clock me-1"></i>{{ project.created_at|date:"M j, Y" }}
-                        </small>
-                    </div>
-                    {% if project.tags.all %}
-                    <div class="mt-2">
-                        {% for tag in project.tags.all %}
-                            <span class="badge bg-secondary me-1">
-                                <i class="fas fa-tag me-1"></i>{{ tag.name }}
-                            </span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="card-footer bg-transparent border-0">
-                    <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
-                        View Project
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+            {% for project in recent_projects %}
+            <div class="col mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <a href="{% url 'projects:project_detail' project.pk %}" class="card-link">
+                        <div class="project-image-container">
+                            {% if project.images.first %}
+                            <img src="{{ project.images.first.image.url }}" alt="{{ project.name }}">
+                            {% else %}
+                            <div class="no-image">
+                                <i class="fas fa-cube fa-3x text-muted"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">{{ project.name }}</h5>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted me-3">
+                                    <i class="fas fa-cube me-1"></i>{{ project.total_parts }} parts
+                                </small>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>{{ project.created_at|date:"M j, Y" }}
+                                </small>
+                            </div>
+                            {% if project.tags.all %}
+                            <div class="mt-2">
+                                {% for tag in project.tags.all %}
+                                    <span class="badge bg-secondary me-1">
+                                        <i class="fas fa-tag me-1"></i>{{ tag.name }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
                     </a>
                 </div>
             </div>
-        </div>
-        {% empty %}
-        <div class="col-12">
-            <div class="text-center py-5">
-                <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
-                <p class="lead text-muted">No projects yet. Create your first project to get started!</p>
-                <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
-                    <i class="fas fa-plus me-2"></i>Create Project
-                </a>
+            {% empty %}
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                    <p class="lead text-muted">No projects yet. Create your first project to get started!</p>
+                    <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Create Project
+                    </a>
+                </div>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 </div>
 {% endblock %} 
