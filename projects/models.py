@@ -41,6 +41,7 @@ class Project(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     designer = models.ForeignKey(Designer, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects')
     tags = models.ManyToManyField(Tag, blank=True, related_name='projects')
+    source = models.URLField(max_length=500, blank=True, help_text="Link to where the project files were sourced from")
 
     @property
     def total_parts(self):

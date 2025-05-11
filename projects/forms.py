@@ -36,9 +36,10 @@ class ProjectForm(forms.ModelForm):
 
     class Meta:
         model = Project
-        fields = ['name', 'description', 'designer', 'tags']
+        fields = ['name', 'description', 'designer', 'tags', 'source']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
+            'source': forms.URLInput(attrs={'placeholder': 'https://example.com/project-source'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -49,6 +50,7 @@ class ProjectForm(forms.ModelForm):
             'name',
             'description',
             'designer',
+            'source',
             Div(
                 'tags',
                 css_class='form-group'
