@@ -8,10 +8,11 @@ from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
-from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings
+from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings, Machine
 from .forms import (
     ProjectForm, PartForm, GroupForm, PurchasedPartForm,
-    ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm
+    ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm,
+    MachineForm
 )
 from django.db.models import Count, Sum, Max
 from django.contrib.auth.decorators import login_required
@@ -1384,85 +1385,110 @@ def set_project_thumbnail(request, image_id):
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
 @login_required
-def settings_view(request):
-    """View for application settings"""
-    
-    # Get or create settings objects
-    try:
-        general_settings = UserSettings.objects.get(user=request.user, settings_type='general')
-    except UserSettings.DoesNotExist:
-        general_settings = UserSettings.objects.create(user=request.user, settings_type='general', settings_data='{}')
-    
-    try:
-        slicer_settings = UserSettings.objects.get(user=request.user, settings_type='slicer')
-    except UserSettings.DoesNotExist:
-        slicer_settings = UserSettings.objects.create(user=request.user, settings_type='slicer', settings_data='{}')
-    
-    try:
-        appearance_settings = UserSettings.objects.get(user=request.user, settings_type='appearance')
-    except UserSettings.DoesNotExist:
-        appearance_settings = UserSettings.objects.create(user=request.user, settings_type='appearance', settings_data='{}')
-    
-    # Parse JSON data
-    import json
-    general_data = json.loads(general_settings.settings_data) if general_settings.settings_data else {}
-    slicer_data = json.loads(slicer_settings.settings_data) if slicer_settings.settings_data else {}
-    appearance_data = json.loads(appearance_settings.settings_data) if appearance_settings.settings_data else {}
-    
-    # Process form submission
+def settings(request):
+    user = request.user
+    settings_types = ['general', 'slicer', 'appearance']
+    user_settings_instances = {}
+    forms = {}
+
+    # Load existing settings for each type
+    for type_name in settings_types:
+        instance, _ = UserSettings.objects.get_or_create(
+            user=user, 
+            settings_type=type_name,
+            defaults={'settings_data': json.dumps({})}
+        )
+        user_settings_instances[type_name] = instance
+        try:
+            initial_data = json.loads(instance.settings_data)
+        except (TypeError, json.JSONDecodeError):
+            initial_data = {}
+        forms[type_name] = initial_data # Store parsed JSON data
+
+    # Machine management
+    machine_form = MachineForm()
+    machines = Machine.objects.filter(user=user)
+    machine_to_edit = None
+
+    # Get all active materials
+    materials = Material.objects.filter(is_active=True).order_by('name')
+
     if request.method == 'POST':
-        settings_type = request.POST.get('settings_type')
+        settings_type_submitted = request.POST.get('settings_type')
+        machine_action = request.POST.get('machine_action')
+
+        if settings_type_submitted in settings_types:
+            instance = user_settings_instances[settings_type_submitted]
+            current_data = json.loads(instance.settings_data) if instance.settings_data else {}
+
+            if settings_type_submitted == 'general':
+                current_data['default_material'] = request.POST.get('default_material')
+            elif settings_type_submitted == 'slicer':
+                current_data['slicer_type'] = request.POST.get('slicer_type')
+                current_data['slicer_path'] = request.POST.get('slicer_path')
+                current_data['profiles_path'] = request.POST.get('profiles_path')
+                current_data['direct_slicing'] = request.POST.get('direct_slicing') == 'on'
+            elif settings_type_submitted == 'appearance':
+                theme_preference = request.POST.get('theme_preference')
+                current_data['theme_preference'] = theme_preference
+                if theme_preference:
+                    messages.success(request, f'Theme preference "{theme_preference.capitalize()}" saved.')
+                    response = redirect('projects:settings')
+                    response.set_cookie('theme_preference', theme_preference, max_age=365 * 24 * 60 * 60) # 1 year
+                    instance.settings_data = json.dumps(current_data)
+                    instance.save()
+                    return response
+
+            instance.settings_data = json.dumps(current_data)
+            instance.save()
+            messages.success(request, f'{settings_type_submitted.capitalize()} settings saved successfully.')
+            return redirect('projects:settings')
         
-        if settings_type == 'general':
-            # Update general settings
-            default_material = request.POST.get('default_material', '')
-            general_data['default_material'] = default_material
-            general_settings.settings_data = json.dumps(general_data)
-            general_settings.save()
-            messages.success(request, "General settings saved successfully")
-            
-        elif settings_type == 'slicer':
-            # Update slicer settings
-            slicer_data['slicer_type'] = request.POST.get('slicer_type', 'none')
-            slicer_data['slicer_path'] = request.POST.get('slicer_path', '')
-            slicer_data['profiles_path'] = request.POST.get('profiles_path', '')
-            slicer_data['direct_slicing'] = 'direct_slicing' in request.POST
-            slicer_settings.settings_data = json.dumps(slicer_data)
-            slicer_settings.save()
-            messages.success(request, "Slicer settings saved successfully")
-            
-        elif settings_type == 'appearance':
-            # Update appearance settings
-            theme_preference = request.POST.get('theme_preference', 'dark')
-            appearance_data['theme_preference'] = theme_preference
-            appearance_settings.settings_data = json.dumps(appearance_data)
-            appearance_settings.save()
-            messages.success(request, "Appearance settings saved successfully")
-            
-            # Prepare redirect with the cookie set
-            response = redirect('projects:settings')
-            # Set the theme cookie to expire in 1 year (365 days)
-            max_age = 365 * 24 * 60 * 60  # 1 year in seconds
-            response.set_cookie('theme_preference', theme_preference, max_age=max_age)
-            return response
-            
-        # Redirect to settings page to avoid form resubmission
-        return redirect('projects:settings')
-    
-    # Prepare context for template
-    context = {
-        'general_settings': general_data,
-        'slicer_settings': slicer_data,
-        'appearance_settings': appearance_data,
-        'materials': Material.objects.all(),
-    }
-    
-    # Check if there's a theme preference in the database but not in cookies
-    if request.COOKIES.get('theme_preference') is None and appearance_data.get('theme_preference'):
-        # Set the cookie on the response
-        response = render(request, 'projects/settings.html', context)
-        max_age = 365 * 24 * 60 * 60  # 1 year in seconds
-        response.set_cookie('theme_preference', appearance_data['theme_preference'], max_age=max_age)
-        return response
-    
-    return render(request, 'projects/settings.html', context)
+        elif machine_action:
+            if machine_action == 'add' or machine_action == 'edit':
+                machine_id = request.POST.get('machine_id')
+                instance = get_object_or_404(Machine, pk=machine_id, user=user) if machine_id else None
+                machine_form = MachineForm(request.POST, instance=instance)
+                if machine_form.is_valid():
+                    machine = machine_form.save(commit=False)
+                    machine.user = user
+                    machine.save()
+                    messages.success(request, f'Machine "{machine.name}" saved successfully.')
+                    return redirect('projects:settings')
+                else:
+                    if instance:
+                        machine_to_edit = instance # Keep form populated with errors
+            elif machine_action == 'delete':
+                machine_id = request.POST.get('machine_id')
+                machine = get_object_or_404(Machine, pk=machine_id, user=user)
+                machine_name = machine.name
+                machine.delete()
+                messages.success(request, f'Machine "{machine_name}" deleted successfully.')
+                return redirect('projects:settings')
+
+    # Prepare context for GET request or if form is invalid
+    if request.GET.get('edit_machine'):
+        machine_id = request.GET.get('edit_machine')
+        machine_to_edit = get_object_or_404(Machine, pk=machine_id, user=user)
+        machine_form = MachineForm(instance=machine_to_edit)
+
+    return render(request, 'projects/settings.html', {
+        'forms': forms,
+        'machines': machines,
+        'machine_form': machine_form,
+        'machine_to_edit': machine_to_edit,
+        'materials': materials,
+    })
+
+@login_required
+def manage_tags(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if request.method == 'POST':
+        tag_name = request.POST.get('tag_name')
+        if tag_name:
+            tag, created = Tag.objects.get_or_create(name=tag_name)
+            project.tags.add(tag)
+            return JsonResponse({'status': 'success', 'message': f'Tag "{tag_name}" added to project'})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Tag name is required'})
+    return render(request, 'projects/manage_tags.html', {'project': project})

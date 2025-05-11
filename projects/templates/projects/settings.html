@@ -1,5 +1,6 @@
 {% extends 'projects/base.html' %}
 {% load static %}
+{% load widget_tweaks %}
 
 {% block title %}Settings{% endblock %}
 
@@ -90,6 +91,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button" role="tab" aria-controls="appearance" aria-selected="false">
                         <i class="fas fa-palette me-2"></i>Appearance
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="machines-tab" data-bs-toggle="tab" data-bs-target="#machines" type="button" role="tab" aria-controls="machines" aria-selected="false">
+                        <i class="fas fa-print me-2"></i>Machines
                     </button>
                 </li>
             </ul>
@@ -194,6 +200,119 @@
                         </div>
                     </form>
                 </div>
+                
+                <!-- Machines Tab -->
+                <div class="tab-pane fade" id="machines" role="tabpanel" aria-labelledby="machines-tab">
+                    <h5 class="mt-3 mb-3">{% if machine_to_edit %}Edit Machine: {{ machine_to_edit.name }}{% else %}Add New Machine{% endif %}</h5>
+                    <form method="post" action="{% url 'projects:settings' %}" class="mb-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="machine_action" value="{% if machine_to_edit %}edit{% else %}add{% endif %}">
+                        {% if machine_to_edit %}
+                            <input type="hidden" name="machine_id" value="{{ machine_to_edit.id }}">
+                        {% endif %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_name" class="form-label">{{ machine_form.name.label }}</label>
+                                {{ machine_form.name }}
+                                {% if machine_form.name.errors %}<div class="invalid-feedback d-block">{{ machine_form.name.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_technology" class="form-label">{{ machine_form.technology.label }}</label>
+                                {{ machine_form.technology }}
+                                {% if machine_form.technology.errors %}<div class="invalid-feedback d-block">{{ machine_form.technology.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_maker" class="form-label">{{ machine_form.maker.label }}</label>
+                                {{ machine_form.maker }}
+                                {% if machine_form.maker.errors %}<div class="invalid-feedback d-block">{{ machine_form.maker.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_model" class="form-label">{{ machine_form.model.label }}</label>
+                                {{ machine_form.model }}
+                                {% if machine_form.model.errors %}<div class="invalid-feedback d-block">{{ machine_form.model.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="id_print_volume_x" class="form-label">{{ machine_form.print_volume_x.label }}</label>
+                                {{ machine_form.print_volume_x }}
+                                {% if machine_form.print_volume_x.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_x.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_print_volume_y" class="form-label">{{ machine_form.print_volume_y.label }}</label>
+                                {{ machine_form.print_volume_y }}
+                                {% if machine_form.print_volume_y.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_y.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_print_volume_z" class="form-label">{{ machine_form.print_volume_z.label }}</label>
+                                {{ machine_form.print_volume_z }}
+                                {% if machine_form.print_volume_z.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_z.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="id_notes" class="form-label">{{ machine_form.notes.label }}</label>
+                                {% render_field machine_form.notes class="form-control" %}
+                                {% if machine_form.notes.errors %}<div class="invalid-feedback d-block">{{ machine_form.notes.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            {% if machine_to_edit %}
+                                <a href="{% url 'projects:settings' %}#machines-tab" class="btn btn-outline-secondary">Cancel Edit</a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>{% if machine_to_edit %}Save Changes{% else %}Add Machine{% endif %}
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr>
+                    <h5 class="mt-4 mb-3">Your Machines</h5>
+                    {% if machines %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Maker & Model</th>
+                                        <th>Technology</th>
+                                        <th>Print Volume (mm)</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for machine in machines %}
+                                        <tr>
+                                            <td>{{ machine.name }}</td>
+                                            <td>{{ machine.maker|default_if_none:"" }} {{ machine.model|default_if_none:"" }}</td>
+                                            <td>{{ machine.get_technology_display }}</td>
+                                            <td>{{ machine.print_volume_x }} x {{ machine.print_volume_y }} x {{ machine.print_volume_z }}</td>
+                                            <td>
+                                                <a href="?edit_machine={{ machine.id }}#machines-tab" class="btn btn-sm btn-outline-primary me-1" title="Edit {{ machine.name }}">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <form method="post" action="{% url 'projects:settings' %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete {{ machine.name }}?');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="machine_action" value="delete">
+                                                    <input type="hidden" name="machine_id" value="{{ machine.id }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete {{ machine.name }}">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">You haven't added any machines yet.</p>
+                    {% endif %}
+                </div> <!-- /#machines -->
             </div>
         </div>
     </div>

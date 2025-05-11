@@ -1,7 +1,7 @@
 from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Submit, Row, Column, Field, ButtonHolder, Div
-from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Tag
+from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Tag, UserSettings, Machine
 
 class MultipleFileInput(forms.ClearableFileInput):
     def __init__(self, attrs=None):
@@ -179,3 +179,37 @@ class MaterialForm(forms.ModelForm):
             # Make density and cost optional
             if field_name in ['density', 'cost']:
                 field.required = False 
+
+class UserSettingsForm(forms.ModelForm):
+    class Meta:
+        model = UserSettings
+        fields = ['settings_data'] # Simplified, specific forms for each type might be better
+
+class MachineForm(forms.ModelForm):
+    class Meta:
+        model = Machine
+        fields = [
+            'name',
+            'maker',
+            'model',
+            'technology',
+            'print_volume_x',
+            'print_volume_y',
+            'print_volume_z',
+            'notes'
+        ]
+        widgets = {
+            'notes': forms.Textarea(attrs={'rows': 3}),
+            'technology': forms.Select(attrs={'class': 'form-select'}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'maker': forms.TextInput(attrs={'class': 'form-control'}),
+            'model': forms.TextInput(attrs={'class': 'form-control'}),
+            'print_volume_x': forms.NumberInput(attrs={'class': 'form-control'}),
+            'print_volume_y': forms.NumberInput(attrs={'class': 'form-control'}),
+            'print_volume_z': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'print_volume_x': 'Print Volume X (mm)',
+            'print_volume_y': 'Print Volume Y (mm)',
+            'print_volume_z': 'Print Volume Z (mm)',
+        } 

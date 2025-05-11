@@ -6,6 +6,7 @@ from stl import mesh
 import os
 import numpy as np
 from decimal import Decimal
+from django.conf import settings
 
 class Designer(models.Model):
     name = models.CharField(max_length=100)
@@ -278,9 +279,14 @@ class Instructions(models.Model):
 
 class UserSettings(models.Model):
     """Model to store user settings in JSON format"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='settings')
-    settings_type = models.CharField(max_length=50)  # 'general', 'slicer', 'appearance', etc.
-    settings_data = models.TextField(blank=True, null=True)  # JSON data
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    settings_type = models.CharField(max_length=50, choices=[
+        ('general', 'General Settings'),
+        ('slicer', 'Slicer Settings'),
+        ('appearance', 'Appearance Settings'),
+        ('machines', 'Machine Settings')
+    ])
+    settings_data = models.TextField(blank=True, null=True)  # Store JSON data
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
@@ -289,4 +295,31 @@ class UserSettings(models.Model):
         verbose_name_plural = 'User Settings'
     
     def __str__(self):
-        return f"{self.user.username} - {self.settings_type} settings"
+        return f"{self.user.username}'s {self.get_settings_type_display()}"
+
+class Machine(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='machines')
+    name = models.CharField(max_length=100)
+    maker = models.CharField(max_length=100, blank=True, null=True)
+    model = models.CharField(max_length=100, blank=True, null=True)
+    technology_choices = [
+        ('FDM', 'FDM (Fused Deposition Modeling)'),
+        ('SLA', 'SLA (Stereolithography)'),
+        ('SLS', 'SLS (Selective Laser Sintering)'),
+        ('DLP', 'DLP (Digital Light Processing)'),
+        ('MJF', 'MJF (Multi Jet Fusion)'),
+        ('Other', 'Other Technology'),
+    ]
+    technology = models.CharField(max_length=10, choices=technology_choices, default='FDM')
+    print_volume_x = models.PositiveIntegerField(help_text="Print volume X in mm")
+    print_volume_y = models.PositiveIntegerField(help_text="Print volume Y in mm")
+    print_volume_z = models.PositiveIntegerField(help_text="Print volume Z in mm")
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.maker} {self.model} ({self.name})"
+
+    class Meta:
+        ordering = ['name']
