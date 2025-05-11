@@ -1,0 +1,29 @@
+version: 2
+
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs  # Assuming you have a "docs" extra in your setup.py or a requirements_docs.txt
+
+# If you're using Sphinx for documentation, you can configure it here:
+# sphinx:
+#   configuration: docs/conf.py
+
+# Define the formats you want to build
+formats:
+  - htmlzip
+  # - pdf
+  # - epub
+
+build:
+  os: "ubuntu-22.04"
+  tools:
+    python: "3.10" # Specify your desired Python version
+  jobs:
+    pre_build:
+      # Install project dependencies
+      - "pip install -r requirements.txt"
+      # You might need to install other system dependencies here if your docs need them
+      # - "sudo apt-get update && sudo apt-get install -y ..." 
