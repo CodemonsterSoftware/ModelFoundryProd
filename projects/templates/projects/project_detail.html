@@ -37,6 +37,7 @@
         max-width: 100%;
         max-height: 100%;
         object-fit: contain;
+        object-position: top center;
         border-radius: 0.5rem;
         display: block;
         margin: auto;
@@ -56,6 +57,7 @@
         min-height: auto;
         height: auto;
         margin-bottom: 0.5rem;
+        object-position: top center;
     }
     #instructionsGallery .instruction-description {
         color: white;
@@ -979,7 +981,20 @@ $(document).ready(function() {
             // Update part information
             $('#partName').val(data.name);
             $('#partQuantity').val(data.quantity);
-            $('#partMaterial').val(data.material_id || '');
+            
+            // Update material selection
+            if (data.material_id) {
+                $('#partMaterial').val(data.material_id);
+                // Find the material in the dropdown and update the text
+                const materialItem = $('.dropdown-item[data-value="' + data.material_id + '"]');
+                if (materialItem.length) {
+                    $('#selectedMaterial').text(materialItem.text().trim());
+                }
+            } else {
+                $('#partMaterial').val('');
+                $('#selectedMaterial').text('Select Material');
+            }
+            
             $('#partColor').val(data.color);
             $('#partGroup').val(data.group_id || '');
             

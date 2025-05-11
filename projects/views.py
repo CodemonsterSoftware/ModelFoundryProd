@@ -1355,11 +1355,32 @@ def update_project(request, pk):
                     except ProjectImage.DoesNotExist:
                         continue
             
-            messages.success(request, 'Project updated successfully.')
-            return redirect('projects:project_detail', pk=project.pk)
-    else:
-        form = ProjectForm(instance=project)
+            # Handle new image uploads
+            files = request.FILES
+            for key in files:
+                if key.startswith('image_'):
+                    ProjectImage.objects.create(
+                        project=project,
+                        image=files[key]
+                    )
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'redirect_url': reverse('projects:project_detail', kwargs={'pk': project.pk})
+                })
+            else:
+                messages.success(request, 'Project updated successfully.')
+                return redirect('projects:project_detail', pk=project.pk)
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Please correct the errors below.',
+                    'errors': form.errors
+                }, status=400)
     
+    form = ProjectForm(instance=project)
     return render(request, 'projects/project_form.html', {
         'form': form,
         'project': project
