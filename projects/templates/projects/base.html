@@ -1,6 +1,7 @@
 {% load static %}
+{% load theme_tags %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="{% get_theme %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -609,16 +610,10 @@
                 toast.show();
                 return toast;
             });
-            
-            // Apply theme from user settings
-            applyTheme();
         });
         
-        // Function to apply theme
-        function applyTheme() {
-            // Get theme from cookie with a default of 'dark'
-            var theme = getCookie('theme_preference') || 'dark';
-            
+        // Function to apply theme (used for theme preview in settings)
+        function applyTheme(theme) {
             // Reset any theme classes
             document.documentElement.classList.remove(
                 'light-theme', 

@@ -218,7 +218,7 @@
                 themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
                 
                 // Apply theme for preview
-                previewTheme(themePreference.value);
+                applyTheme(themePreference.value);
             });
         }
         
@@ -244,23 +244,5 @@
             }
         }
     });
-    
-    // Function to preview the theme without saving
-    function previewTheme(theme) {
-        // Reset any theme classes
-        document.documentElement.classList.remove(
-            'light-theme', 
-            'midnight-theme', 
-            'forest-theme', 
-            'sunset-theme', 
-            'purple-theme', 
-            'teal-theme'
-        );
-        
-        // Apply the appropriate theme
-        if (theme !== 'dark') {
-            document.documentElement.classList.add(theme + '-theme');
-        }
-    }
 </script>
 {% endblock %} 
