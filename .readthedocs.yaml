@@ -4,12 +4,10 @@ python:
   install:
     - method: pip
       path: .
-      extra_requirements:
-        - docs  # Assuming you have a "docs" extra in your setup.py or a requirements_docs.txt
 
-# If you're using Sphinx for documentation, you can configure it here:
-# sphinx:
-#   configuration: docs/conf.py
+# Configure Sphinx
+sphinx:
+  configuration: docs/conf.py
 
 # Define the formats you want to build
 formats:
@@ -25,5 +23,7 @@ build:
     pre_build:
       # Install project dependencies
       - "pip install -r requirements.txt"
+      # Install documentation dependencies
+      - "pip install -r docs/requirements.txt"
       # You might need to install other system dependencies here if your docs need them
       # - "sudo apt-get update && sudo apt-get install -y ..." 
