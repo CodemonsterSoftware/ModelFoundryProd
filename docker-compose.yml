@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   web:
-    image: codemonstersoftware/modelfoundry:latest
+    build: .
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -16,7 +16,7 @@ services:
       - DOCKER_CONTAINER=true
     depends_on:
       - db
-      - curaengine
+
     networks:
       - app_network
 

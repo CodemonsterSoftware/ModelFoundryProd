@@ -181,6 +181,16 @@ class ProjectDeleteView(DeleteView):
     success_url = reverse_lazy('projects:project_list')
     template_name = 'projects/project_confirm_delete.html'
 
+    def dispatch(self, request, *args, **kwargs):
+        project = self.get_object()
+        is_test_project = 'test' in project.name.lower()
+
+        # Allow deletion if it's a test project or the user is the owner
+        if not is_test_project and project.user != request.user:
+            return HttpResponseForbidden("You don't have authorization to view this page.")
+        
+        return super().dispatch(request, *args, **kwargs)
+
     def delete(self, request, *args, **kwargs):
         self.object = self.get_object()
         success_url = self.get_success_url()
