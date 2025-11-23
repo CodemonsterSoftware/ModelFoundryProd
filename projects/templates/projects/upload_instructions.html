@@ -52,6 +52,22 @@
     height: 100%;
     object-fit: cover;
 }
+.preview-item .file-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    text-align: center;
+}
+.preview-item .file-preview .file-name {
+    margin-top: 10px;
+    font-size: 11px;
+    word-break: break-word;
+    color: var(--bs-body-color);
+}
 .preview-item .remove-btn {
     position: absolute;
     top: 5px;
@@ -134,7 +150,7 @@
     <div class="row mb-4">
         <div class="col">
             <h1>Upload Assembly Instructions</h1>
-            <p class="text-muted">Add instruction images to {{ project.name }}</p>
+            <p class="text-muted">Add instruction files (images, PDFs, or DOCX) to {{ project.name }}</p>
         </div>
         <div class="col text-end">
             <a href="{% url 'projects:project_detail' project.pk %}" class="btn btn-outline-secondary">
@@ -162,16 +178,33 @@
 
                 <div class="upload-area" id="uploadArea">
                     <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
-                    <h5>Drag and drop instruction images here</h5>
-                    <p class="text-muted">or click to browse</p>
-                    <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                    <h5>Drag and drop instruction files here</h5>
+                    <p class="text-muted">or click to browse (Images, PDF, DOCX)</p>
+                    <input type="file" id="fileInput" multiple accept="image/*,.pdf,.doc,.docx" style="display: none;">
                 </div>
                 
                 <div class="image-preview" id="imagePreview">
                     {% if existing_instructions %}
                         {% for instruction in existing_instructions %}
-                        <div class="preview-item" data-id="{{ instruction.id }}">
-                            <img src="{{ instruction.image.url }}" alt="{{ instruction.description }}">
+                        <div class="preview-item" data-id="{{ instruction.id }}" data-file-type="{{ instruction.file_type }}">
+                            {% if instruction.is_image %}
+                                <img src="{{ instruction.file.url }}" alt="{{ instruction.description }}">
+                            {% elif instruction.file_type == 'pdf' %}
+                                <div class="file-preview pdf-preview">
+                                    <i class="fas fa-file-pdf fa-4x text-danger"></i>
+                                    <p class="file-name">{{ instruction.file.name|slice:":20" }}{% if instruction.file.name|length > 20 %}...{% endif %}</p>
+                                </div>
+                            {% elif instruction.file_type == 'docx' %}
+                                <div class="file-preview docx-preview">
+                                    <i class="fas fa-file-word fa-4x text-primary"></i>
+                                    <p class="file-name">{{ instruction.file.name|slice:":20" }}{% if instruction.file.name|length > 20 %}...{% endif %}</p>
+                                </div>
+                            {% else %}
+                                <div class="file-preview other-preview">
+                                    <i class="fas fa-file fa-4x text-secondary"></i>
+                                    <p class="file-name">{{ instruction.file.name|slice:":20" }}{% if instruction.file.name|length > 20 %}...{% endif %}</p>
+                                </div>
+                            {% endif %}
                             <div class="order-number">{{ instruction.order }}</div>
                             <button type="button" class="remove-btn" data-id="{{ instruction.id }}">
                                 <i class="fas fa-times"></i>
@@ -291,22 +324,39 @@ $(document).ready(function() {
         }
     });
     
+    function getFileType(file) {
+        const name = file.name.toLowerCase();
+        if (name.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
+            return 'image';
+        } else if (name.endsWith('.pdf')) {
+            return 'pdf';
+        } else if (name.match(/\.(doc|docx)$/)) {
+            return 'docx';
+        }
+        return 'other';
+    }
+    
     function handleFiles(newFiles) {
-        // Convert FileList to Array and filter for images
-        const imageFiles = Array.from(newFiles).filter(file => 
-            file.type.startsWith('image/')
-        );
+        // Convert FileList to Array and validate file types
+        const validFiles = Array.from(newFiles).filter(file => {
+            const fileType = getFileType(file);
+            return fileType === 'image' || fileType === 'pdf' || fileType === 'docx';
+        });
         
-        if (imageFiles.length === 0) {
-            alert('Please select only image files');
+        if (validFiles.length === 0) {
+            alert('Please select only image files (jpg, png, gif, etc.), PDF, or DOCX files');
             return;
         }
         
+        if (validFiles.length < newFiles.length) {
+            alert('Some files were skipped. Only images, PDF, and DOCX files are allowed.');
+        }
+        
         // Sort files by name to maintain order
-        imageFiles.sort((a, b) => a.name.localeCompare(b.name));
+        validFiles.sort((a, b) => a.name.localeCompare(b.name));
         
         // Add new files to our array
-        files = [...files, ...imageFiles];
+        files = [...files, ...validFiles];
         
         // Update preview
         updatePreview();
@@ -326,25 +376,49 @@ $(document).ready(function() {
         const currentHighestOrder = existingItems.length;
         
         files.forEach((file, index) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const orderNumber = currentHighestOrder + index + 1;
+            const fileType = getFileType(file);
+            const orderNumber = currentHighestOrder + index + 1;
+            let previewHtml = '';
+            
+            if (fileType === 'image') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const $previewItem = $(`
+                        <div class="preview-item" data-index="${index}" data-file-type="image">
+                            <img src="${e.target.result}" alt="Preview">
+                            <div class="order-number">${orderNumber}</div>
+                            <button type="button" class="remove-btn" data-index="${index}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `);
+                    $imagePreview.append($previewItem);
+                    updateOrderNumbers();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // For non-image files, create preview with icon
+                const iconClass = fileType === 'pdf' ? 'fa-file-pdf text-danger' : 
+                                 fileType === 'docx' ? 'fa-file-word text-primary' : 
+                                 'fa-file text-secondary';
+                const fileName = file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name;
+                
                 const $previewItem = $(`
-                    <div class="col-md-4 preview-item" data-index="${index}">
-                        <img src="${e.target.result}" alt="Preview">
+                    <div class="preview-item" data-index="${index}" data-file-type="${fileType}">
+                        <div class="file-preview">
+                            <i class="fas ${iconClass} fa-4x"></i>
+                            <p class="file-name">${fileName}</p>
+                        </div>
                         <div class="order-number">${orderNumber}</div>
                         <button type="button" class="remove-btn" data-index="${index}">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 `);
-                
                 $imagePreview.append($previewItem);
-            };
-            reader.readAsDataURL(file);
+                updateOrderNumbers();
+            }
         });
-        
-        updateOrderNumbers();
     }
     
     function updateOrderNumbers() {
@@ -394,9 +468,9 @@ $(document).ready(function() {
         const formData = new FormData(this);
         formData.append('description_format', $('#descriptionFormat').val());
         
-        // Add each file to the FormData with the name 'images'
+        // Add each file to the FormData with the name 'files'
         files.forEach((file, index) => {
-            formData.append('images', file);
+            formData.append('files', file);
         });
         
         // Show loading state

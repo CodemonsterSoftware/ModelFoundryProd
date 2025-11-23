@@ -265,7 +265,7 @@ class ProjectImage(models.Model):
 
 class Instructions(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='instructions')
-    image = models.ImageField(upload_to='instructions/', help_text='Image for this instruction step')
+    file = models.FileField(upload_to='instructions/', help_text='Instruction file (image, PDF, or DOCX)')
     description = models.TextField(blank=True, help_text='Description of this instruction step')
     order = models.PositiveIntegerField(default=0, help_text='Order in which this instruction should be displayed')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -277,6 +277,25 @@ class Instructions(models.Model):
 
     def __str__(self):
         return f"Step {self.order} - {self.project.name}"
+    
+    @property
+    def file_type(self):
+        """Determine the file type based on the file extension"""
+        if not self.file:
+            return None
+        filename = self.file.name.lower()
+        if filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')):
+            return 'image'
+        elif filename.endswith('.pdf'):
+            return 'pdf'
+        elif filename.endswith(('.doc', '.docx')):
+            return 'docx'
+        return 'other'
+    
+    @property
+    def is_image(self):
+        """Check if the file is an image"""
+        return self.file_type == 'image'
 
 class UserSettings(models.Model):
     """Model to store user settings in JSON format"""

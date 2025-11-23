@@ -811,39 +811,54 @@ def upload_instructions(request, project_id):
     project = get_object_or_404(Project, id=project_id)
     
     if request.method == 'POST':
-        images = request.FILES.getlist('images')
+        # Accept both 'files' and 'images' for backward compatibility
+        files = request.FILES.getlist('files') or request.FILES.getlist('images')
         description_format = request.POST.get('description_format', 'filename')
         
-        if not images:
+        if not files:
             return JsonResponse({
                 'status': 'error',
-                'message': 'No images were uploaded'
+                'message': 'No files were uploaded'
+            })
+        
+        # Validate file types
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.pdf', '.doc', '.docx']
+        invalid_files = []
+        for file in files:
+            ext = os.path.splitext(file.name.lower())[1]
+            if ext not in allowed_extensions:
+                invalid_files.append(file.name)
+        
+        if invalid_files:
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Invalid file types: {", ".join(invalid_files)}. Allowed types: images (jpg, png, gif, etc.), PDF, DOC, DOCX'
             })
         
         try:
             # Get the current highest order number
             current_highest_order = Instructions.objects.filter(project=project).aggregate(Max('order'))['order__max'] or 0
             
-            # Sort images by filename
-            images = sorted(images, key=lambda x: x.name)
+            # Sort files by filename
+            files = sorted(files, key=lambda x: x.name)
             
-            for index, image in enumerate(images, current_highest_order + 1):
+            for index, file in enumerate(files, current_highest_order + 1):
                 description = ''
                 if description_format == 'filename':
-                    description = os.path.splitext(image.name)[0]
+                    description = os.path.splitext(file.name)[0]
                 elif description_format == 'step':
                     description = f'Step {index}'
                 
                 Instructions.objects.create(
                     project=project,
-                    image=image,
+                    file=file,
                     description=description,
                     order=index
                 )
             
             return JsonResponse({
                 'status': 'success',
-                'message': f'Successfully uploaded {len(images)} instructions'
+                'message': f'Successfully uploaded {len(files)} instruction files'
             })
             
         except Exception as e:
@@ -1082,14 +1097,16 @@ def export_project(request, project_id):
                 'order': instruction.order
             }
             
-            # Handle instruction image
-            if instruction.image:
-                image_filename = f"step_{instruction.order}.jpg"
-                image_path = os.path.join(instructions_dir, image_filename)
-                with default_storage.open(instruction.image.name, 'rb') as source_file:
-                    with open(image_path, 'wb') as dest_file:
+            # Handle instruction file
+            if instruction.file:
+                # Get file extension from original filename
+                file_ext = os.path.splitext(instruction.file.name)[1] or '.jpg'
+                file_filename = f"step_{instruction.order}{file_ext}"
+                file_path = os.path.join(instructions_dir, file_filename)
+                with default_storage.open(instruction.file.name, 'rb') as source_file:
+                    with open(file_path, 'wb') as dest_file:
                         dest_file.write(source_file.read())
-                instruction_data['image'] = f"instructions/{image_filename}"
+                instruction_data['file'] = f"instructions/{file_filename}"
             
             project_data['instructions'].append(instruction_data)
         
@@ -1291,12 +1308,18 @@ def import_project(request):
                         order=instruction_data['order']
                     )
 
-                    # Handle instruction image
-                    if instruction_data.get('image'):
+                    # Handle instruction file
+                    if instruction_data.get('file'):
+                        file_path = os.path.join(temp_dir, instruction_data['file'])
+                        if os.path.exists(file_path):
+                            with open(file_path, 'rb') as f:
+                                instruction.file.save(os.path.basename(file_path), File(f), save=True)
+                    # Backward compatibility: also check for 'image' key
+                    elif instruction_data.get('image'):
                         image_path = os.path.join(temp_dir, instruction_data['image'])
                         if os.path.exists(image_path):
                             with open(image_path, 'rb') as f:
-                                instruction.image.save(os.path.basename(image_path), File(f), save=True)
+                                instruction.file.save(os.path.basename(image_path), File(f), save=True)
 
                 # Create project images
                 for image_data in project_data['project_images']:

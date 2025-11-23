@@ -72,6 +72,17 @@
     #instructionsGallery .instruction-description p {
         margin-bottom: 0;
     }
+    #instructionsGallery .instruction-file-display {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 40vh;
+        padding: 2rem;
+    }
+    #instructionsGallery .file-icon-container {
+        margin-bottom: 1rem;
+    }
     /* Remove hover effect from group header rows */
 </style>
 {% endblock %}
@@ -633,7 +644,40 @@
                         <ul class="splide__list">
                             {% for instruction in instructions %}
                                 <li class="splide__slide">
-                                    <img src="{{ instruction.image.url }}" alt="Step {{ instruction.order }}">
+                                    {% if instruction.is_image %}
+                                        <img src="{{ instruction.file.url }}" alt="Step {{ instruction.order }}">
+                                    {% elif instruction.file_type == 'pdf' %}
+                                        <div class="instruction-file-display">
+                                            <div class="file-icon-container mb-3">
+                                                <i class="fas fa-file-pdf fa-5x text-danger"></i>
+                                            </div>
+                                            <a href="{{ instruction.file.url }}" target="_blank" class="btn btn-primary">
+                                                <i class="fas fa-download"></i> View/Download PDF
+                                            </a>
+                                            <iframe src="{{ instruction.file.url }}" style="width: 100%; height: 60vh; border: 1px solid #ddd; margin-top: 1rem; display: none;" id="pdf-viewer-{{ instruction.id }}"></iframe>
+                                            <button class="btn btn-sm btn-outline-secondary mt-2" onclick="togglePdfViewer({{ instruction.id }})">
+                                                <i class="fas fa-eye"></i> Toggle PDF Viewer
+                                            </button>
+                                        </div>
+                                    {% elif instruction.file_type == 'docx' %}
+                                        <div class="instruction-file-display">
+                                            <div class="file-icon-container mb-3">
+                                                <i class="fas fa-file-word fa-5x text-primary"></i>
+                                            </div>
+                                            <a href="{{ instruction.file.url }}" target="_blank" class="btn btn-primary">
+                                                <i class="fas fa-download"></i> Download DOCX
+                                            </a>
+                                        </div>
+                                    {% else %}
+                                        <div class="instruction-file-display">
+                                            <div class="file-icon-container mb-3">
+                                                <i class="fas fa-file fa-5x text-secondary"></i>
+                                            </div>
+                                            <a href="{{ instruction.file.url }}" target="_blank" class="btn btn-primary">
+                                                <i class="fas fa-download"></i> Download File
+                                            </a>
+                                        </div>
+                                    {% endif %}
                                     <div class="instruction-description mt-3">
                                         <h6>Step {{ instruction.order }}</h6>
                                         <p>{{ instruction.description }}</p>
@@ -1349,6 +1393,18 @@ $(document).ready(function() {
             }
         }
     }).mount();
+    
+    // Toggle PDF viewer function
+    window.togglePdfViewer = function(instructionId) {
+        const viewer = document.getElementById('pdf-viewer-' + instructionId);
+        if (viewer) {
+            if (viewer.style.display === 'none') {
+                viewer.style.display = 'block';
+            } else {
+                viewer.style.display = 'none';
+            }
+        }
+    };
 
     // Handle purchased part view button click
     $('.view-purchased-part').click(function() {
