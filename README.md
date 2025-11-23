@@ -182,6 +182,78 @@ To start the services:
 docker-compose up -d
 ```
 
+### Upgrading ModelFoundry
+
+**Important:** Your data is stored in Docker volumes and will persist when you upgrade, as long as you don't use the `-v` flag.
+
+#### Safe Upgrade Process (Preserves All Data):
+
+1. **Pull the latest code:**
+   ```bash
+   git pull origin main
+   ```
+
+2. **Stop the containers (data is safe - volumes persist):**
+   ```bash
+   docker-compose down
+   ```
+   ⚠️ **Note:** `docker-compose down` is SAFE - it only stops and removes containers. Your database and media files are stored in volumes and will NOT be deleted.
+
+3. **Rebuild the images:**
+   ```bash
+   docker-compose build
+   ```
+
+4. **Start the services (migrations run automatically):**
+   ```bash
+   docker-compose up -d
+   ```
+
+5. **Verify everything is working:**
+   ```bash
+   docker-compose logs -f web
+   ```
+
+#### ⚠️ WARNING - Data Loss:
+
+**NEVER use `docker-compose down -v` unless you want to delete ALL data:**
+```bash
+# ❌ DANGEROUS - This deletes volumes and ALL your data!
+docker-compose down -v
+```
+
+The `-v` flag removes volumes, which will delete:
+- All database data (projects, parts, materials, etc.)
+- All uploaded files (STL files, images, instructions)
+- All static files
+
+#### Data Backup (Recommended Before Upgrades):
+
+Before upgrading, consider backing up your data:
+
+```bash
+# Backup database (creates a SQL dump file)
+docker-compose exec db pg_dump -U postgres modelfoundry > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# List your volumes to find the exact names (project name prefix may vary)
+docker volume ls | grep postgres_data
+
+# Backup database volume (replace 'modelfoundry' with your actual project name if different)
+# The volume name format is: <project_name>_postgres_data
+docker run --rm \
+  -v modelfoundry_postgres_data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/postgres_backup_$(date +%Y%m%d_%H%M%S).tar.gz /data
+
+# Backup media volume (uploaded files)
+docker run --rm \
+  -v modelfoundry_media_volume:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/media_backup_$(date +%Y%m%d_%H%M%S).tar.gz /data
+```
+
+**Note:** The volume names are prefixed with your project name. To find your exact volume names, run `docker volume ls` and look for volumes ending in `_postgres_data`, `_media_volume`, etc.
+
 ## Project Structure
 
 ```
