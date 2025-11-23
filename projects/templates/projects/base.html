@@ -104,6 +104,28 @@
             --primary-color: #2dd4bf;
         }
 
+        /* Modern Mocha Theme */
+        :root.modern-mocha-theme {
+            --bg-dark: #2C3639;
+            --bg-darker: #202729;
+            --bg-grey: #3F4E4F;
+            --text-light: #DCD7C9;
+            --text-muted: #A27B5B;
+            --border-dark: #3F4E4F;
+            --primary-color: #A27B5B;
+        }
+
+        /* Sunset Ember Theme */
+        :root.sunset-ember-theme {
+            --bg-dark: #1B2021;
+            --bg-darker: #060505;
+            --bg-grey: #3B3A37;
+            --text-light: #dccdbf;
+            --text-muted: #AE8C6F;
+            --border-dark: #551009;
+            --primary-color: #DC4B14;
+        }
+
         body {
             background-color: var(--bg-dark);
             color: var(--text-light);
@@ -621,7 +643,9 @@
                 'forest-theme', 
                 'sunset-theme', 
                 'purple-theme', 
-                'teal-theme'
+                'teal-theme',
+                'modern-mocha-theme',
+                'sunset-ember-theme'
             );
             
             // Apply the appropriate theme

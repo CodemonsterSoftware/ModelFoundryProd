@@ -124,6 +124,41 @@
 .table-hover tbody tr:hover {
     background-color: var(--bg-grey) !important;
 }
+.upload-progress-modal {
+    z-index: 1060;
+}
+.upload-progress-modal .modal-content {
+    background-color: var(--bg-darker) !important;
+    border-color: var(--border-dark) !important;
+}
+.upload-progress-modal .modal-header {
+    background-color: var(--bg-grey) !important;
+    border-bottom-color: var(--border-dark) !important;
+    color: var(--text-light) !important;
+}
+.upload-progress-modal .modal-body {
+    background-color: var(--bg-darker) !important;
+    color: var(--text-light) !important;
+}
+.upload-progress-modal .progress {
+    height: 30px;
+    background-color: var(--bg-grey);
+    border-radius: 5px;
+}
+.upload-progress-modal .progress-bar {
+    background-color: var(--primary-color);
+    transition: width 0.3s ease;
+}
+.upload-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+.upload-stats span {
+    color: var(--text-light);
+}
 </style>
 {% endblock %}
 
@@ -213,6 +248,41 @@
                     <tbody>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Progress Modal -->
+<div class="modal fade upload-progress-modal" id="uploadProgressModal" tabindex="-1" aria-labelledby="uploadProgressModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadProgressModalLabel">
+                    <i class="fas fa-upload me-2"></i>Uploading Parts
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" 
+                         id="uploadProgressBar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        <span id="uploadProgressText">0%</span>
+                    </div>
+                </div>
+                <div class="upload-stats">
+                    <div>
+                        <span id="uploadedSize">0 KB</span> / <span id="totalSize">0 KB</span>
+                    </div>
+                    <div>
+                        <span id="uploadSpeed">0 KB/s</span>
+                    </div>
+                    <div>
+                        <span id="timeRemaining">Calculating...</span>
+                    </div>
+                </div>
+                <div class="mt-3 text-center">
+                    <small class="text-muted" id="uploadStatus">Preparing upload...</small>
+                </div>
             </div>
         </div>
     </div>
@@ -377,10 +447,35 @@ $(document).ready(function() {
         }
     });
 
+    // Helper function to format bytes
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    // Helper function to format time
+    function formatTime(seconds) {
+        if (seconds < 60) {
+            return Math.round(seconds) + 's';
+        } else if (seconds < 3600) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.round(seconds % 60);
+            return mins + 'm ' + secs + 's';
+        } else {
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            return hours + 'h ' + mins + 'm';
+        }
+    }
+
     // Save all parts
     $('#saveAll').click(function() {
         const formData = new FormData();
         const parts = [];
+        let totalSize = 0;
         
         $table.find('tbody tr').each(function() {
             const $row = $(this);
@@ -388,6 +483,7 @@ $(document).ready(function() {
             
             if (file) {
                 formData.append('files', file);
+                totalSize += file.size;
             }
             
             const partData = {
@@ -427,7 +523,41 @@ $(document).ready(function() {
         const originalHtml = $btn.html();
         $btn.html('<i class="fas fa-spinner fa-spin"></i> Saving...').prop('disabled', true);
 
-        // Send AJAX request
+        // Initialize progress tracking variables
+        let uploadedBytes = 0;
+        let startTime = Date.now();
+        let lastUpdateTime = startTime;
+        let lastUploadedBytes = 0;
+        let speedSamples = [];
+        const maxSamples = 10;
+        
+        // Phase tracking: Upload (0-80%) and Processing (80-100%)
+        const UPLOAD_PHASE_MAX = 80;
+        const PROCESSING_PHASE_MAX = 100;
+        
+        // Estimate processing time based on file sizes
+        // Rough estimate: ~0.5-2 seconds per MB depending on complexity
+        // Base time: 0.5s per file + 1s per MB
+        const fileCount = $table.find('tbody tr').length;
+        const estimatedProcessingTime = Math.max(
+            fileCount * 0.5, // Base time per file
+            (totalSize / (1024 * 1024)) * 1.0 // 1 second per MB
+        );
+
+        // Show progress modal
+        const progressModal = new bootstrap.Modal(document.getElementById('uploadProgressModal'));
+        progressModal.show();
+
+        // Initialize progress display
+        $('#uploadProgressBar').css('width', '0%').attr('aria-valuenow', 0);
+        $('#uploadProgressText').text('0%');
+        $('#uploadedSize').text('0 Bytes');
+        $('#totalSize').text(formatBytes(totalSize));
+        $('#uploadSpeed').text('0 Bytes/s');
+        $('#timeRemaining').text('Calculating...');
+        $('#uploadStatus').text('Starting upload...');
+
+        // Send AJAX request with progress tracking
         $.ajax({
             url: '{% url "projects:add_multiple_parts" project.pk %}',
             type: 'POST',
@@ -437,15 +567,124 @@ $(document).ready(function() {
             headers: {
                 'X-CSRFToken': $('input[name="csrfmiddlewaretoken"]').val()
             },
+            xhr: function() {
+                const xhr = new window.XMLHttpRequest();
+                
+                // Upload progress
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        uploadedBytes = e.loaded;
+                        const uploadPercent = (e.loaded / e.total) * 100;
+                        // Map upload progress to 0-80% of total progress
+                        const totalPercent = Math.round((uploadPercent / 100) * UPLOAD_PHASE_MAX);
+                        
+                        // Update progress bar
+                        $('#uploadProgressBar').css('width', totalPercent + '%').attr('aria-valuenow', totalPercent);
+                        $('#uploadProgressText').text(totalPercent + '%');
+                        $('#uploadedSize').text(formatBytes(e.loaded));
+                        $('#totalSize').text(formatBytes(e.total));
+                        
+                        // Calculate speed
+                        const currentTime = Date.now();
+                        const timeDiff = (currentTime - lastUpdateTime) / 1000; // seconds
+                        
+                        if (timeDiff > 0.1) { // Update every 100ms minimum
+                            const bytesDiff = e.loaded - lastUploadedBytes;
+                            const currentSpeed = bytesDiff / timeDiff; // bytes per second
+                            
+                            // Add to samples array
+                            speedSamples.push(currentSpeed);
+                            if (speedSamples.length > maxSamples) {
+                                speedSamples.shift();
+                            }
+                            
+                            // Calculate average speed
+                            const avgSpeed = speedSamples.reduce((a, b) => a + b, 0) / speedSamples.length;
+                            $('#uploadSpeed').text(formatBytes(avgSpeed) + '/s');
+                            
+                            // Calculate estimated time remaining for upload
+                            const remainingBytes = e.total - e.loaded;
+                            let uploadTimeRemaining = 0;
+                            if (avgSpeed > 0) {
+                                uploadTimeRemaining = remainingBytes / avgSpeed;
+                            }
+                            
+                            // Add estimated processing time
+                            const totalTimeRemaining = uploadTimeRemaining + estimatedProcessingTime;
+                            $('#timeRemaining').text(formatTime(totalTimeRemaining));
+                            
+                            lastUpdateTime = currentTime;
+                            lastUploadedBytes = e.loaded;
+                        }
+                        
+                        // Update status
+                        $('#uploadStatus').text(`Uploading ${fileCount} file${fileCount !== 1 ? 's' : ''}...`);
+                    }
+                }, false);
+                
+                return xhr;
+            },
             success: function(response) {
                 if (response.status === 'success') {
-                    window.location.href = '{% url "projects:project_detail" project.pk %}';
+                    // Upload complete, now processing
+                    // Update to processing phase (80-100%)
+                    let processingProgress = UPLOAD_PHASE_MAX;
+                    $('#uploadProgressBar').css('width', processingProgress + '%').attr('aria-valuenow', processingProgress);
+                    $('#uploadProgressText').text(processingProgress + '%');
+                    $('#uploadStatus').text('Processing files and calculating volumes...');
+                    $('#uploadSpeed').text('Processing...');
+                    
+                    // Use actual processing time from server, or fall back to estimate
+                    const actualProcessingTime = response.processing_time || estimatedProcessingTime;
+                    const processingStartTime = Date.now();
+                    const processingRange = PROCESSING_PHASE_MAX - UPLOAD_PHASE_MAX; // 20%
+                    
+                    // Animate processing progress
+                    const processingInterval = setInterval(function() {
+                        const elapsed = (Date.now() - processingStartTime) / 1000;
+                        const processingPercent = Math.min(1, elapsed / actualProcessingTime);
+                        processingProgress = Math.round(UPLOAD_PHASE_MAX + (processingPercent * processingRange));
+                        
+                        $('#uploadProgressBar').css('width', processingProgress + '%').attr('aria-valuenow', processingProgress);
+                        $('#uploadProgressText').text(processingProgress + '%');
+                        
+                        const remaining = Math.max(0, actualProcessingTime - elapsed);
+                        $('#timeRemaining').text(formatTime(remaining));
+                        
+                        if (processingProgress >= PROCESSING_PHASE_MAX) {
+                            clearInterval(processingInterval);
+                            // Complete
+                            $('#uploadProgressBar').css('width', '100%').attr('aria-valuenow', 100);
+                            $('#uploadProgressText').text('100%');
+                            $('#uploadStatus').text('Upload complete! Redirecting...');
+                            $('#timeRemaining').text('0s');
+                            setTimeout(function() {
+                                window.location.href = '{% url "projects:project_detail" project.pk %}';
+                            }, 500);
+                        }
+                    }, 100);
+                    
+                    // Safety timeout in case processing takes longer than expected
+                    setTimeout(function() {
+                        clearInterval(processingInterval);
+                        if (processingProgress < PROCESSING_PHASE_MAX) {
+                            $('#uploadProgressBar').css('width', '100%').attr('aria-valuenow', 100);
+                            $('#uploadProgressText').text('100%');
+                            $('#uploadStatus').text('Upload complete! Redirecting...');
+                            $('#timeRemaining').text('0s');
+                            setTimeout(function() {
+                                window.location.href = '{% url "projects:project_detail" project.pk %}';
+                            }, 500);
+                        }
+                    }, (actualProcessingTime * 1000) + 2000); // Add 2 second buffer
                 } else {
+                    progressModal.hide();
                     alert('Error: ' + (response.message || 'Unknown error occurred'));
                     $btn.html(originalHtml).prop('disabled', false);
                 }
             },
             error: function(xhr) {
+                progressModal.hide();
                 let errorMessage = 'Error saving parts. Please try again.';
                 try {
                     const response = JSON.parse(xhr.responseText);

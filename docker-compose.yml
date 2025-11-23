@@ -9,6 +9,8 @@ services:
       - logs_volume:/app/logs
     ports:
       - "80:8000"
+    expose:
+      - "8000"
     environment:
       - DEBUG=1
       - SECRET_KEY=your-secret-key-here
@@ -33,15 +35,15 @@ services:
     networks:
       - app_network
 
-  curaengine:
-    build: 
-      context: ./curaengine
-    volumes:
-      - cura_data:/app/data
-    ports:
-      - "8080:8080"
-    networks:
-      - app_network
+  # curaengine:
+  #   build: 
+  #     context: ./curaengine
+  #   volumes:
+  #     - cura_data:/app/data
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - app_network
 
 networks:
   app_network:
@@ -53,3 +55,4 @@ volumes:
   logs_volume:
   postgres_data:
   cura_data: 
+

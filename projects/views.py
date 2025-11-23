@@ -479,6 +479,7 @@ def add_multiple_parts(request, project_id):
     
     if request.method == 'POST':
         try:
+            import time
             # Get the parts data from the request
             parts_data = json.loads(request.POST.get('parts', '[]'))
             created_parts = []
@@ -501,17 +502,34 @@ def add_multiple_parts(request, project_id):
                     part.group = group
                     part.save()
             
-            # Handle file uploads
+            # Handle file uploads and volume calculations
             files = request.FILES.getlist('files')
+            processing_start_time = time.time()
+            total_files = len(files)
+            processed_files = 0
+            
             for i, file in enumerate(files):
                 if i < len(created_parts):
                     part = created_parts[i]
-                    # Save the file to the part
+                    # Save the file to the part (this triggers volume calculation)
+                    file_start_time = time.time()
                     part.stl_file.save(file.name, file, save=True)
+                    file_process_time = time.time() - file_start_time
+                    processed_files += 1
+                    
+                    # Log processing time for estimation (optional)
+                    logger.debug(f"Processed {part.name} in {file_process_time:.2f}s")
             
-            return JsonResponse({'status': 'success'})
+            total_processing_time = time.time() - processing_start_time
+            
+            return JsonResponse({
+                'status': 'success',
+                'processing_time': total_processing_time,
+                'files_processed': processed_files
+            })
             
         except Exception as e:
+            logger.error(f"Error in add_multiple_parts: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
     
     # For GET requests, render the template

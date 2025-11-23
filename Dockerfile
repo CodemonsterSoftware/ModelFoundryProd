@@ -33,4 +33,4 @@ RUN mkdir -p /app/media /app/staticfiles /app/logs \
 EXPOSE 8000
 
 # Command to run the application
-CMD ["sh", "-c", "while ! nc -z db 5432; do sleep 0.1; done && python manage.py migrate && python manage.py init_materials && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"] 
+CMD ["sh", "-c", "while ! nc -z db 5432; do sleep 0.1; done && python manage.py migrate && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"] 

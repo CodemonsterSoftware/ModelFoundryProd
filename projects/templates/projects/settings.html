@@ -64,6 +64,12 @@
     .teal-swatch {
         background: linear-gradient(to right, #0f3737 0%, #0f3737 40%, #092424 40%, #092424 80%, #164b4b 80%, #164b4b 100%);
     }
+    .modern-mocha-swatch {
+        background: linear-gradient(to right, #2C3639 0%, #3F4E4F 40%, #A27B5B 70%, #DCD7C9 100%);
+    }
+    .sunset-ember-swatch {
+        background: linear-gradient(to right, #DC4B14 0%, #551009 20%, #060505 40%, #1B2021 60%, #3B3A37 80%, #AE8C6F 100%);
+    }
 </style>
 {% endblock %}
 
@@ -186,6 +192,8 @@
                                 <option value="sunset" data-swatch="sunset-swatch" {% if appearance_settings.theme_preference == 'sunset' %}selected{% endif %}>Sunset Orange</option>
                                 <option value="purple" data-swatch="purple-swatch" {% if appearance_settings.theme_preference == 'purple' %}selected{% endif %}>Deep Purple</option>
                                 <option value="teal" data-swatch="teal-swatch" {% if appearance_settings.theme_preference == 'teal' %}selected{% endif %}>Teal</option>
+                                <option value="modern-mocha" data-swatch="modern-mocha-swatch" {% if appearance_settings.theme_preference == 'modern-mocha' %}selected{% endif %}>Modern Mocha</option>
+                                <option value="sunset-ember" data-swatch="sunset-ember-swatch" {% if appearance_settings.theme_preference == 'sunset-ember' %}selected{% endif %}>Sunset Ember</option>
                             </select>
                             <div class="form-text">Choose your preferred theme for the application.</div>
                             
