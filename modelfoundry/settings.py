@@ -38,6 +38,11 @@ if DEBUG:
 if '*' in ALLOWED_HOSTS:
     ALLOWED_HOSTS = ['*']
 
+# CSRF components
+# https://docs.djangoproject.com/en/5.0/ref/settings/#csrf-trusted-origins
+# This is required for Django 4.0+ to blindly trust the Origin header
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1,https://modelfoundry.net').split(',')
+
 
 # Application definition
 
