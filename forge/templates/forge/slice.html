@@ -274,13 +274,16 @@
         </div>
 
         <!-- Right Column: 3D Preview -->
+        <!-- Right Column: 3D Preview -->
         <div class="col-lg-7">
-            <div class="card shadow-sm">
-                <div class="card-header">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light py-2">
                     <h6 class="mb-0"><i class="bi bi-eye"></i> Preview</h6>
                 </div>
-                <div class="card-body p-0">
-                    <div id="preview-container">
+
+                <!-- 3D Viewport Area -->
+                <div class="card-body p-0 position-relative" style="min-height: 500px;">
+                    <div id="preview-container" class="h-100 w-100 position-absolute" style="top:0; left:0;">
                         <div id="preview-message">
                             <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
                             <p class="mt-2">Upload an STL file to preview</p>
@@ -292,8 +295,88 @@
                         </div>
                     </div>
                 </div>
-                <div class="card-footer small text-muted">
-                    <i class="bi bi-mouse"></i> Drag to rotate • Scroll to zoom • Right-click to pan
+
+                <!-- Rotation Controls Section -->
+                <!-- Rotation Controls Section -->
+                <div class="card-body border-top bg-white p-3">
+                    <h6 class="card-subtitle mb-3 text-muted small fw-bold text-uppercase"
+                        style="letter-spacing: 0.5px;">Model Rotation</h6>
+                    <div class="d-flex flex-column gap-2">
+                        <!-- X Axis -->
+                        <div class="d-flex align-items-center">
+                            <span class="badge rounded-1 d-flex align-items-center justify-content-center me-2"
+                                style="width: 24px; height: 24px; background-color: #dc3545;">X</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-danger btn-sm rotate-btn" data-axis="x"
+                                    data-angle="-90">-90°</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm rotate-btn" data-axis="x"
+                                    data-angle="-45">-45°</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm rotate-btn" data-axis="x"
+                                    data-angle="-15">-15°</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm rotate-btn" data-axis="x"
+                                    data-angle="15">+15°</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm rotate-btn" data-axis="x"
+                                    data-angle="45">+45°</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm rotate-btn" data-axis="x"
+                                    data-angle="90">+90°</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm reset-axis-btn"
+                                    data-axis="x">Reset</button>
+                            </div>
+                        </div>
+
+                        <!-- Y Axis -->
+                        <div class="d-flex align-items-center">
+                            <span class="badge rounded-1 d-flex align-items-center justify-content-center me-2"
+                                style="width: 24px; height: 24px; background-color: #198754;">Y</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-success btn-sm rotate-btn" data-axis="y"
+                                    data-angle="-90">-90°</button>
+                                <button type="button" class="btn btn-outline-success btn-sm rotate-btn" data-axis="y"
+                                    data-angle="-45">-45°</button>
+                                <button type="button" class="btn btn-outline-success btn-sm rotate-btn" data-axis="y"
+                                    data-angle="-15">-15°</button>
+                                <button type="button" class="btn btn-outline-success btn-sm rotate-btn" data-axis="y"
+                                    data-angle="15">+15°</button>
+                                <button type="button" class="btn btn-outline-success btn-sm rotate-btn" data-axis="y"
+                                    data-angle="45">+45°</button>
+                                <button type="button" class="btn btn-outline-success btn-sm rotate-btn" data-axis="y"
+                                    data-angle="90">+90°</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm reset-axis-btn"
+                                    data-axis="y">Reset</button>
+                            </div>
+                        </div>
+
+                        <!-- Z Axis -->
+                        <div class="d-flex align-items-center">
+                            <span class="badge rounded-1 d-flex align-items-center justify-content-center me-2"
+                                style="width: 24px; height: 24px; background-color: #0d6efd;">Z</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm rotate-btn" data-axis="z"
+                                    data-angle="-90">-90°</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm rotate-btn" data-axis="z"
+                                    data-angle="-45">-45°</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm rotate-btn" data-axis="z"
+                                    data-angle="-15">-15°</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm rotate-btn" data-axis="z"
+                                    data-angle="15">+15°</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm rotate-btn" data-axis="z"
+                                    data-angle="45">+45°</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm rotate-btn" data-axis="z"
+                                    data-angle="90">+90°</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm reset-axis-btn"
+                                    data-axis="z">Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer py-2 d-flex justify-content-between align-items-center bg-white border-top-0">
+                    <small class="text-muted">
+                        Drag to rotate • Scroll to zoom • Right-click to pan
+                    </small>
+                    <button type="button" class="btn btn-outline-dark btn-sm" id="reset-rotation">
+                        Reset All
+                    </button>
                 </div>
             </div>
         </div>
@@ -425,6 +508,11 @@
                     geometry.computeBoundingBox();
                     this.bounds = geometry.boundingBox;
 
+                    // Store original geometry for reset
+                    this.originalGeometry = geometry.clone();
+                    // Initialize rotation state
+                    this.rotations = { x: 0, y: 0, z: 0 };
+
                     this.scene.add(this.model);
                     this.fitCameraToModel();
 
@@ -536,6 +624,64 @@
 
             return plane;
         }
+
+        // Update rotation for an axis by a delta amount
+        updateRotation(axis, deltaDegrees) {
+            if (!this.model || !this.originalGeometry) return;
+            this.rotations[axis] += deltaDegrees;
+            this.applyRotations();
+        }
+
+        // Set rotation for an axis to a specific value
+        setRotation(axis, degrees) {
+            if (!this.model || !this.originalGeometry) return;
+            this.rotations[axis] = degrees;
+            this.applyRotations();
+        }
+
+        // Reset all rotations
+        resetRotation() {
+            if (!this.model || !this.originalGeometry) return;
+            this.rotations = { x: 0, y: 0, z: 0 };
+            this.applyRotations();
+        }
+
+        // Apply current rotation state to the model
+        applyRotations() {
+            // Start with fresh geometry from original
+            this.model.geometry.dispose();
+            this.model.geometry = this.originalGeometry.clone();
+
+            // Apply rotations in X -> Y -> Z order (consistent order ensures predictability)
+            // Convert to radians
+            const radX = this.rotations.x * (Math.PI / 180);
+            const radY = this.rotations.y * (Math.PI / 180);
+            const radZ = this.rotations.z * (Math.PI / 180);
+
+            // Apply to geometry
+            this.model.geometry.rotateX(radX);
+            this.model.geometry.rotateY(radY);
+            this.model.geometry.rotateZ(radZ);
+
+            // Recompute bounds
+            this.model.geometry.computeBoundingBox();
+            this.bounds = this.model.geometry.boundingBox;
+
+            // Recenter
+            const center = new THREE.Vector3();
+            this.bounds.getCenter(center);
+            this.model.geometry.translate(-center.x, -center.y, -center.z);
+
+            this.model.geometry.computeBoundingBox();
+            this.bounds = this.model.geometry.boundingBox;
+
+            // Update slice planes
+            this.updateSlicePlanes(
+                parseInt(document.getElementById('grid_x')?.value) || 2,
+                parseInt(document.getElementById('grid_y')?.value) || 2,
+                parseInt(document.getElementById('grid_z')?.value) || 1
+            );
+        }
     }
 
     // Make available globally
@@ -642,6 +788,31 @@
                     dovetailOptions.classList.add('d-none');
                 }
             });
+        });
+
+        // Rotation button handlers
+        // Rotation button handlers
+        document.querySelectorAll('.rotate-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (window.preview) {
+                    const axis = this.dataset.axis;
+                    const angle = parseFloat(this.dataset.angle);
+                    window.preview.updateRotation(axis, angle);
+                }
+            });
+        });
+
+        document.querySelectorAll('.reset-axis-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (window.preview) {
+                    const axis = this.dataset.axis;
+                    window.preview.setRotation(axis, 0);
+                }
+            });
+        });
+
+        document.getElementById('reset-rotation').addEventListener('click', () => {
+            if (window.preview) window.preview.resetRotation();
         });
     });
 </script>
