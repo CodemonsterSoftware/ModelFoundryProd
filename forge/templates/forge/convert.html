@@ -1,0 +1,149 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}STL to STEP Conversion - Forge{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'forge:index' %}">Forge</a></li>
+            <li class="breadcrumb-item active">STL to STEP</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-arrow-repeat"></i> Convert STL to STEP
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="convert-form" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="stl_file" class="form-label">STL File</label>
+                            <input type="file" class="form-control form-control-lg" id="stl_file" name="stl_file"
+                                accept=".stl" required>
+                            <div class="form-text">Select an STL file to convert</div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="repair_mesh" name="repair_mesh"
+                                        checked>
+                                    <label class="form-check-label" for="repair_mesh">
+                                        Repair mesh before conversion
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="tolerance" class="form-label">Tolerance (mm)</label>
+                                <input type="number" class="form-control" id="tolerance" name="tolerance" value="0.1"
+                                    min="0.001" max="1" step="0.01">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="submit-btn">
+                            <i class="bi bi-arrow-repeat"></i> Convert to STEP
+                        </button>
+                    </form>
+
+                    <!-- Progress indicator -->
+                    <div id="progress-container" class="mt-4 d-none">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                style="width: 100%">
+                                Converting...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result -->
+                    <div id="result-container" class="mt-4 d-none">
+                        <div class="alert" id="result-alert">
+                            <span id="result-message"></span>
+                        </div>
+                        <a href="#" id="download-link" class="btn btn-success btn-lg w-100 d-none">
+                            <i class="bi bi-download"></i> Download STEP File
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> About this tool</h6>
+                </div>
+                <div class="card-body small">
+                    <p>This tool converts STL mesh files to STEP solid format using OpenCASCADE.</p>
+                    <p><strong>Important:</strong> The output is a solid body, not parametric geometry. Curved surfaces
+                        will remain as faceted triangles.</p>
+                    <p>For best results:</p>
+                    <ul>
+                        <li>Use watertight meshes</li>
+                        <li>Enable mesh repair</li>
+                        <li>Adjust tolerance if edges aren't joining</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('convert-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const formData = new FormData(form);
+        const submitBtn = document.getElementById('submit-btn');
+        const progressContainer = document.getElementById('progress-container');
+        const resultContainer = document.getElementById('result-container');
+
+        submitBtn.disabled = true;
+        progressContainer.classList.remove('d-none');
+        resultContainer.classList.add('d-none');
+
+        try {
+            const response = await fetch('{% url "forge:api_convert" %}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            progressContainer.classList.add('d-none');
+            resultContainer.classList.remove('d-none');
+
+            const resultAlert = document.getElementById('result-alert');
+            const resultMessage = document.getElementById('result-message');
+            const downloadLink = document.getElementById('download-link');
+
+            if (data.success) {
+                resultAlert.className = 'alert alert-success';
+                resultMessage.textContent = 'Conversion complete!';
+                downloadLink.href = `/forge/api/download/${data.job_id}/`;
+                downloadLink.classList.remove('d-none');
+            } else {
+                resultAlert.className = 'alert alert-danger';
+                resultMessage.textContent = data.error || data.message || 'Conversion failed';
+                downloadLink.classList.add('d-none');
+            }
+        } catch (error) {
+            progressContainer.classList.add('d-none');
+            resultContainer.classList.remove('d-none');
+            document.getElementById('result-alert').className = 'alert alert-danger';
+            document.getElementById('result-message').textContent = 'Error: ' + error.message;
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

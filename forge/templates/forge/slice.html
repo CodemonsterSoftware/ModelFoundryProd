@@ -1,0 +1,701 @@
+{% extends 'projects/base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Grid Slicer - Forge{% endblock %}
+
+{% block extra_css %}
+<style>
+    #preview-container {
+        width: 100%;
+        height: 500px;
+        background-color: var(--bg-darker);
+        border: 1px solid var(--border-dark);
+        border-radius: 0.375rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    #preview-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: var(--text-muted);
+        text-align: center;
+        pointer-events: none;
+    }
+
+    .slice-legend {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .slice-legend span {
+        margin-right: 12px;
+    }
+
+    .legend-x {
+        color: #ff4444;
+    }
+
+    .legend-y {
+        color: #44ff44;
+    }
+
+    .legend-z {
+        color: #4444ff;
+    }
+
+    /* Drag and drop zone */
+    .dropzone {
+        border: 2px dashed var(--border-dark);
+        border-radius: 0.5rem;
+        padding: 2rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--bg-darker);
+    }
+
+    .dropzone:hover {
+        border-color: var(--primary-color);
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+
+    .dropzone.dragover {
+        border-color: #198754;
+        background-color: rgba(25, 135, 84, 0.15);
+    }
+
+    .dropzone.has-file {
+        border-color: #198754;
+        border-style: solid;
+    }
+
+    .dropzone-icon {
+        font-size: 2.5rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+
+    .dropzone-text {
+        color: var(--text-muted);
+        margin-bottom: 0;
+    }
+
+    .dropzone-filename {
+        color: var(--text-light);
+        font-weight: 500;
+        margin-top: 0.5rem;
+    }
+
+    .dropzone input[type="file"] {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'forge:index' %}">Forge</a></li>
+            <li class="breadcrumb-item active">Grid Slicer</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Left Column: Form -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-grid-3x3"></i> Grid Slicer
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="slice-form" method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- File Upload (Drag & Drop) -->
+                        <div class="mb-4">
+                            <label class="form-label">STL File</label>
+                            <div class="dropzone" id="dropzone">
+                                <input type="file" id="stl_file" name="stl_file" accept=".stl" required>
+                                <div class="dropzone-icon">
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                </div>
+                                <p class="dropzone-text">Drag & drop an STL file here</p>
+                                <p class="dropzone-text small">or click to select</p>
+                                <p class="dropzone-filename d-none" id="filename-display"></p>
+                            </div>
+                        </div>
+
+                        <!-- Grid Configuration -->
+                        <h6 class="border-bottom pb-2 mb-3">Grid Divisions</h6>
+                        <div class="row mb-4">
+                            <div class="col-4">
+                                <label for="grid_x" class="form-label">X <span class="text-danger">(Red)</span></label>
+                                <input type="number" class="form-control" id="grid_x" name="grid_x" value="2" min="1"
+                                    max="10">
+                            </div>
+                            <div class="col-4">
+                                <label for="grid_y" class="form-label">Y <span
+                                        class="text-success">(Green)</span></label>
+                                <input type="number" class="form-control" id="grid_y" name="grid_y" value="2" min="1"
+                                    max="10">
+                            </div>
+                            <div class="col-4">
+                                <label for="grid_z" class="form-label">Z <span
+                                        class="text-primary">(Blue)</span></label>
+                                <input type="number" class="form-control" id="grid_z" name="grid_z" value="1" min="1"
+                                    max="10">
+                            </div>
+                        </div>
+
+                        <!-- Joint Type Selection -->
+                        <h6 class="border-bottom pb-2 mb-3">Joint Type</h6>
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="joint_type" id="joint_none"
+                                        value="none">
+                                    <label class="btn btn-outline-secondary" for="joint_none">
+                                        None
+                                    </label>
+
+                                    <input type="radio" class="btn-check" name="joint_type" id="joint_pins" value="pins"
+                                        checked>
+                                    <label class="btn btn-outline-primary" for="joint_pins">
+                                        Pins
+                                    </label>
+
+                                    <input type="radio" class="btn-check" name="joint_type" id="joint_dowels"
+                                        value="dowels">
+                                    <label class="btn btn-outline-primary" for="joint_dowels">
+                                        Dowels
+                                    </label>
+
+                                    <input type="radio" class="btn-check" name="joint_type" id="joint_dovetails"
+                                        value="dovetails">
+                                    <label class="btn btn-outline-primary" for="joint_dovetails">
+                                        Dovetails
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pin/Dowel Options -->
+                        <div id="pin-options" class="mb-4">
+                            <h6 class="border-bottom pb-2 mb-3">Pin/Dowel Settings</h6>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <label for="joint_diameter" class="form-label">Diameter (mm)</label>
+                                    <input type="number" class="form-control" id="joint_diameter" name="joint_diameter"
+                                        value="4" min="1" max="20" step="0.5">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label for="joint_height" class="form-label">Height (mm)</label>
+                                    <input type="number" class="form-control" id="joint_height" name="joint_height"
+                                        value="5" min="2" max="30" step="0.5">
+                                </div>
+                                <div class="col-6">
+                                    <label for="joint_clearance" class="form-label">Clearance (mm)</label>
+                                    <input type="number" class="form-control" id="joint_clearance"
+                                        name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
+                                </div>
+                                <div class="col-6">
+                                    <label for="joint_count" class="form-label">Count (0=auto)</label>
+                                    <input type="number" class="form-control" id="joint_count" name="joint_count"
+                                        value="0" min="0" max="20">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dovetail Options -->
+                        <div id="dovetail-options" class="mb-4 d-none">
+                            <h6 class="border-bottom pb-2 mb-3">Dovetail Settings</h6>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <label for="dovetail_angle" class="form-label">Angle (°)</label>
+                                    <input type="number" class="form-control" id="dovetail_angle" name="dovetail_angle"
+                                        value="14" min="5" max="30" step="1">
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <label for="dovetail_width" class="form-label">Width (mm)</label>
+                                    <input type="number" class="form-control" id="dovetail_width" name="dovetail_width"
+                                        value="15" min="5" max="50" step="1">
+                                </div>
+                                <div class="col-6">
+                                    <label for="dovetail_depth" class="form-label">Depth (mm)</label>
+                                    <input type="number" class="form-control" id="dovetail_depth" name="dovetail_depth"
+                                        value="10" min="3" max="30" step="1">
+                                </div>
+                                <div class="col-6">
+                                    <label for="dovetail_count" class="form-label">Count (0=auto)</label>
+                                    <input type="number" class="form-control" id="dovetail_count" name="dovetail_count"
+                                        value="0" min="0" max="10">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100" id="submit-btn">
+                            <i class="bi bi-scissors"></i> Slice Model
+                        </button>
+                    </form>
+
+                    <!-- Progress -->
+                    <div id="progress-container" class="mt-4 d-none">
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                                role="progressbar" style="width: 100%">
+                                Slicing...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result -->
+                    <div id="result-container" class="mt-4 d-none">
+                        <div class="alert" id="result-alert">
+                            <span id="result-message"></span>
+                        </div>
+                        <a href="#" id="download-link" class="btn btn-success btn-lg w-100 d-none">
+                            <i class="bi bi-download"></i> Download Sliced Parts (ZIP)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: 3D Preview -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-eye"></i> Preview</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div id="preview-container">
+                        <div id="preview-message">
+                            <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Upload an STL file to preview</p>
+                        </div>
+                        <div class="slice-legend d-none" id="slice-legend">
+                            <span class="legend-x">■ X cuts</span>
+                            <span class="legend-y">■ Y cuts</span>
+                            <span class="legend-z">■ Z cuts</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer small text-muted">
+                    <i class="bi bi-mouse"></i> Drag to rotate • Scroll to zoom • Right-click to pan
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Three.js ES Modules with importmap (modern approach) -->
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    class SlicePreview {
+        constructor(containerId) {
+            this.container = document.getElementById(containerId);
+            if (!this.container) {
+                console.error('Preview container not found:', containerId);
+                return;
+            }
+
+            this.THREE = THREE;
+            this.STLLoader = STLLoader;
+            this.OrbitControls = OrbitControls;
+
+            this.scene = null;
+            this.camera = null;
+            this.renderer = null;
+            this.controls = null;
+            this.model = null;
+            this.slicePlanes = [];
+            this.bounds = null;
+
+            this.init();
+        }
+
+        init() {
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0x1a1a1a);
+
+            const width = this.container.clientWidth;
+            const height = this.container.clientHeight || 400;
+            this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+            this.camera.position.set(100, 100, 100);
+
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            this.renderer.setSize(width, height);
+            this.renderer.setPixelRatio(window.devicePixelRatio);
+            this.container.appendChild(this.renderer.domElement);
+
+            this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.05;
+
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            this.scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(100, 100, 100);
+            this.scene.add(directionalLight);
+
+            const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            backLight.position.set(-100, -100, -100);
+            this.scene.add(backLight);
+
+            const gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
+            this.scene.add(gridHelper);
+
+            const axesHelper = new THREE.AxesHelper(50);
+            this.scene.add(axesHelper);
+
+            window.addEventListener('resize', () => this.onResize());
+            this.animate();
+        }
+
+        onResize() {
+            const width = this.container.clientWidth;
+            const height = this.container.clientHeight || 400;
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(width, height);
+        }
+
+        animate() {
+            requestAnimationFrame(() => this.animate());
+            this.controls.update();
+            this.renderer.render(this.scene, this.camera);
+        }
+
+        loadSTL(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const contents = event.target.result;
+                const loader = new STLLoader();
+
+                try {
+                    const geometry = loader.parse(contents);
+
+                    if (this.model) {
+                        this.scene.remove(this.model);
+                        this.model.geometry.dispose();
+                        this.model.material.dispose();
+                    }
+
+                    const material = new THREE.MeshStandardMaterial({
+                        color: 0x0d6efd,
+                        metalness: 0.3,
+                        roughness: 0.6,
+                        flatShading: false
+                    });
+
+                    this.model = new THREE.Mesh(geometry, material);
+
+                    geometry.computeBoundingBox();
+                    this.bounds = geometry.boundingBox;
+
+                    const center = new THREE.Vector3();
+                    this.bounds.getCenter(center);
+                    geometry.translate(-center.x, -center.y, -center.z);
+
+                    geometry.computeBoundingBox();
+                    this.bounds = geometry.boundingBox;
+
+                    this.scene.add(this.model);
+                    this.fitCameraToModel();
+
+                    this.updateSlicePlanes(
+                        parseInt(document.getElementById('grid_x')?.value) || 2,
+                        parseInt(document.getElementById('grid_y')?.value) || 2,
+                        parseInt(document.getElementById('grid_z')?.value) || 1
+                    );
+
+                } catch (error) {
+                    console.error('Error loading STL:', error);
+                    alert('Error loading STL file. Please ensure it is a valid STL.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        fitCameraToModel() {
+            if (!this.bounds) return;
+            const size = new THREE.Vector3();
+            this.bounds.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = this.camera.fov * (Math.PI / 180);
+            const cameraDistance = maxDim / (2 * Math.tan(fov / 2)) * 1.5;
+            this.camera.position.set(cameraDistance, cameraDistance * 0.8, cameraDistance);
+            this.camera.lookAt(0, 0, 0);
+            this.controls.target.set(0, 0, 0);
+            this.controls.update();
+        }
+
+        updateSlicePlanes(gridX, gridY, gridZ) {
+            this.slicePlanes.forEach(plane => {
+                this.scene.remove(plane);
+                if (plane.geometry) plane.geometry.dispose();
+                if (plane.material) plane.material.dispose();
+            });
+            this.slicePlanes = [];
+
+            if (!this.bounds) return;
+
+            const size = new THREE.Vector3();
+            this.bounds.getSize(size);
+            const min = this.bounds.min;
+            const max = this.bounds.max;
+
+            // X planes (red)
+            for (let i = 1; i < gridX; i++) {
+                const x = min.x + (size.x * i / gridX);
+                const plane = this.createSlicePlane(
+                    new THREE.Vector3(x, (min.y + max.y) / 2, (min.z + max.z) / 2),
+                    new THREE.Vector3(1, 0, 0),
+                    Math.max(size.y, size.z) * 1.2,
+                    0xff4444
+                );
+                this.slicePlanes.push(plane);
+                this.scene.add(plane);
+            }
+
+            // Y planes (green)
+            for (let i = 1; i < gridY; i++) {
+                const y = min.y + (size.y * i / gridY);
+                const plane = this.createSlicePlane(
+                    new THREE.Vector3((min.x + max.x) / 2, y, (min.z + max.z) / 2),
+                    new THREE.Vector3(0, 1, 0),
+                    Math.max(size.x, size.z) * 1.2,
+                    0x44ff44
+                );
+                this.slicePlanes.push(plane);
+                this.scene.add(plane);
+            }
+
+            // Z planes (blue)
+            for (let i = 1; i < gridZ; i++) {
+                const z = min.z + (size.z * i / gridZ);
+                const plane = this.createSlicePlane(
+                    new THREE.Vector3((min.x + max.x) / 2, (min.y + max.y) / 2, z),
+                    new THREE.Vector3(0, 0, 1),
+                    Math.max(size.x, size.y) * 1.2,
+                    0x4444ff
+                );
+                this.slicePlanes.push(plane);
+                this.scene.add(plane);
+            }
+        }
+
+        createSlicePlane(position, normal, size, color) {
+            const geometry = new THREE.PlaneGeometry(size, size);
+            const material = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+
+            const plane = new THREE.Mesh(geometry, material);
+            plane.position.copy(position);
+
+            if (normal.x === 1) {
+                plane.rotation.y = Math.PI / 2;
+            } else if (normal.y === 1) {
+                plane.rotation.x = -Math.PI / 2;
+            }
+
+            const edges = new THREE.EdgesGeometry(geometry);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+            const edgeLines = new THREE.LineSegments(edges, lineMaterial);
+            plane.add(edgeLines);
+
+            return plane;
+        }
+    }
+
+    // Make available globally
+    window.SlicePreview = SlicePreview;
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize 3D preview
+        window.preview = new SlicePreview('preview-container');
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('stl_file');
+        const filenameDisplay = document.getElementById('filename-display');
+
+        // IMPORTANT: Prevent browser default drag-drop behavior on entire document
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // Click to open file dialog
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        // Drag events
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.stl')) {
+                handleFile(files[0]);
+                // Update the file input for form submission
+                const dt = new DataTransfer();
+                dt.items.add(files[0]);
+                fileInput.files = dt.files;
+            }
+        });
+
+        // File input change handler
+        fileInput.addEventListener('change', function (e) {
+            if (this.files.length > 0) {
+                handleFile(this.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            // Update UI
+            dropzone.classList.add('has-file');
+            filenameDisplay.textContent = file.name;
+            filenameDisplay.classList.remove('d-none');
+            dropzone.querySelector('.dropzone-text').textContent = 'File loaded:';
+            const smallText = dropzone.querySelector('.dropzone-text.small');
+            if (smallText) smallText.classList.add('d-none');
+            dropzone.querySelector('.dropzone-icon i').className = 'bi bi-check-circle text-success';
+
+            // Load into 3D preview
+            document.getElementById('preview-message').style.display = 'none';
+            document.getElementById('slice-legend').classList.remove('d-none');
+            window.preview.loadSTL(file);
+        }
+
+        // Grid input handlers - update preview in real-time
+        ['grid_x', 'grid_y', 'grid_z'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+        });
+
+        function updatePreview() {
+            if (!window.preview) return;
+            const gridX = parseInt(document.getElementById('grid_x').value) || 1;
+            const gridY = parseInt(document.getElementById('grid_y').value) || 1;
+            const gridZ = parseInt(document.getElementById('grid_z').value) || 1;
+            window.preview.updateSlicePlanes(gridX, gridY, gridZ);
+        }
+
+        // Toggle joint options visibility
+        document.querySelectorAll('input[name="joint_type"]').forEach(radio => {
+            radio.addEventListener('change', function () {
+                const pinOptions = document.getElementById('pin-options');
+                const dovetailOptions = document.getElementById('dovetail-options');
+
+                if (this.value === 'pins' || this.value === 'dowels') {
+                    pinOptions.classList.remove('d-none');
+                    dovetailOptions.classList.add('d-none');
+                } else if (this.value === 'dovetails') {
+                    pinOptions.classList.add('d-none');
+                    dovetailOptions.classList.remove('d-none');
+                } else {
+                    pinOptions.classList.add('d-none');
+                    dovetailOptions.classList.add('d-none');
+                }
+            });
+        });
+    });
+</script>
+<!-- File input and form handlers (non-module for form submission) -->
+<script>
+    // Form submission must be in non-module script for Django template URL
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('slice-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('submit-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const resultContainer = document.getElementById('result-container');
+
+            submitBtn.disabled = true;
+            progressContainer.classList.remove('d-none');
+            resultContainer.classList.add('d-none');
+
+            try {
+                const response = await fetch('{% url "forge:api_slice" %}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                progressContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+
+                const resultAlert = document.getElementById('result-alert');
+                const resultMessage = document.getElementById('result-message');
+                const downloadLink = document.getElementById('download-link');
+
+                if (data.success) {
+                    resultAlert.className = 'alert alert-success';
+                    resultMessage.textContent = `Slicing complete! ${data.part_count} parts created.`;
+                    downloadLink.href = `/forge/api/download/${data.job_id}/`;
+                    downloadLink.classList.remove('d-none');
+                } else {
+                    resultAlert.className = 'alert alert-danger';
+                    resultMessage.textContent = data.error || data.message || 'Slicing failed';
+                    downloadLink.classList.add('d-none');
+                }
+            } catch (error) {
+                progressContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+                document.getElementById('result-alert').className = 'alert alert-danger';
+                document.getElementById('result-message').textContent = 'Error: ' + error.message;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    });
+</script>
+{% endblock %}
