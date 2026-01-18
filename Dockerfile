@@ -27,7 +27,7 @@ COPY . .
 
 # Copy and set permissions for entrypoint
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/media /app/staticfiles /app/logs \
