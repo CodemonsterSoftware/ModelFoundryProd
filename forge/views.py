@@ -157,16 +157,39 @@ def api_slice(request):
                 f.write(chunk)
         
         # Extract form data
+        slice_mode = form.cleaned_data.get('slice_mode', 'uniform')
+        
+        # Prepare grid and planes data
+        grid_config = {'x': 1, 'y': 1, 'z': 1}
+        planes_config = {}
+        
+        if slice_mode == 'freeform':
+            try:
+                # Parse the unified freeform planes JSON
+                planes_json = request.POST.get('freeform_planes', '[]')
+                # Slicer service now expects a list of plane dicts directly
+                planes_config = json.loads(planes_json)
+            except json.JSONDecodeError:
+                logger.warning("Failed to decode plane data")
+                return JsonResponse({'success': False, 'error': 'Invalid plane data'}, status=400)
+        else:
+            # Uniform mode: Input is number of planes (cuts).
+            # Slicer expects number of sections (grid divisions).
+            # Sections = Planes + 1
+            grid_config = {
+                'x': form.cleaned_data['grid_x'] + 1,
+                'y': form.cleaned_data['grid_y'] + 1,
+                'z': form.cleaned_data['grid_z'] + 1,
+            }
+
         job_meta = {
             'id': job_id,
             'type': 'slice',
             'status': 'queued',
             'input_file': str(input_path),
-            'grid': {
-                'x': form.cleaned_data['grid_x'],
-                'y': form.cleaned_data['grid_y'],
-                'z': form.cleaned_data['grid_z'],
-            },
+            'slice_mode': slice_mode,
+            'grid': grid_config,
+            'planes': planes_config,
             'joint_type': form.cleaned_data['joint_type'],
             'joint_params': {
                 'diameter': form.cleaned_data.get('joint_diameter', 4.0),
@@ -193,6 +216,7 @@ def api_slice(request):
                 input_path=str(input_path),
                 output_dir=str(job_dir),
                 grid=job_meta['grid'],
+                planes=job_meta.get('planes'),
                 joint_type=job_meta['joint_type'],
                 joint_params=job_meta['joint_params'],
                 dovetail_params=job_meta['dovetail_params']

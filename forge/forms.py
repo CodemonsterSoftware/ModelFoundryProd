@@ -30,6 +30,20 @@ class ConvertForm(STLUploadForm):
 class SliceForm(STLUploadForm):
     """Form for grid-based slicing with joint options."""
     
+    # Mode selection
+    MODE_CHOICES = [
+        ('uniform', 'Uniform Grid'),
+        ('freeform', 'Freeform Planes'),
+    ]
+    slice_mode = forms.ChoiceField(
+        choices=MODE_CHOICES,
+        initial='uniform',
+        widget=forms.HiddenInput
+    )
+
+    # Freeform plane data (JSON string of plane objects)
+    freeform_planes = forms.CharField(required=False, widget=forms.HiddenInput)
+
     # Grid configuration
     grid_x = forms.IntegerField(
         initial=2,
