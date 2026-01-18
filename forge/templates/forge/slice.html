@@ -114,7 +114,7 @@
         <!-- Left Column: Form -->
         <div class="col-lg-5">
             <div class="card shadow-sm">
-                <div class="card-header bg-success text-white">
+                <div class="card-header text-white">
                     <h5 class="mb-0">
                         <i class="bi bi-grid-3x3"></i> Grid Slicer
                     </h5>
@@ -275,15 +275,17 @@
 
         <!-- Right Column: 3D Preview -->
         <!-- Right Column: 3D Preview -->
+        <!-- Right Column: 3D Preview -->
         <div class="col-lg-7">
             <div class="card shadow-sm h-100">
-                <div class="card-header bg-light py-2">
+                <div class="card-header py-2">
                     <h6 class="mb-0"><i class="bi bi-eye"></i> Preview</h6>
                 </div>
 
                 <!-- 3D Viewport Area -->
-                <div class="card-body p-0 position-relative" style="min-height: 500px;">
-                    <div id="preview-container" class="h-100 w-100 position-absolute" style="top:0; left:0;">
+                <div class="card-body p-0 position-relative" style="min-height: 500px; background-color: #1a1a1a;">
+                    <div id="preview-container" class="position-absolute"
+                        style="top:0; left:0; right:0; bottom:0; overflow: hidden;">
                         <div id="preview-message">
                             <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
                             <p class="mt-2">Upload an STL file to preview</p>
@@ -297,8 +299,7 @@
                 </div>
 
                 <!-- Rotation Controls Section -->
-                <!-- Rotation Controls Section -->
-                <div class="card-body border-top bg-white p-3">
+                <div class="card-body border-top p-3">
                     <h6 class="card-subtitle mb-3 text-muted small fw-bold text-uppercase"
                         style="letter-spacing: 0.5px;">Model Rotation</h6>
                     <div class="d-flex flex-column gap-2">
@@ -370,7 +371,7 @@
                     </div>
                 </div>
 
-                <div class="card-footer py-2 d-flex justify-content-between align-items-center bg-white border-top-0">
+                <div class="card-footer py-2 d-flex justify-content-between align-items-center border-top-0">
                     <small class="text-muted">
                         Drag to rotate • Scroll to zoom • Right-click to pan
                     </small>
