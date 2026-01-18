@@ -195,10 +195,10 @@
                             <div class="mb-3">
                                 <div class="d-flex justify-content-end mb-2">
                                     <button type="button" class="btn btn-sm btn-outline-primary" id="add-plane-btn">
-                                        <i class="bi bi-plus-lg"></i> Add Plane
+                                        <i class="fas fa-plus"></i> Add Plane
                                     </button>
                                 </div>
-                                <div class="border rounded mb-3 bg-white" style="height: 150px; overflow-y: auto;">
+                                <div class="border rounded mb-3" style="height: 150px; overflow-y: auto;">
                                     <div id="plane-selection-list" class="list-group list-group-flush small">
                                         <div class="text-muted small fst-italic text-center py-4 empty-msg">No planes
                                             added</div>
@@ -206,14 +206,14 @@
                                 </div>
 
                                 <!-- Plane Controls (Master-Detail Detail View) -->
-                                <div id="plane-controls" class="card border-secondary disabled-controls"
+                                <div id="plane-controls" class="card disabled-controls"
                                     style="opacity: 0.6; pointer-events: none;">
                                     <div
-                                        class="card-header py-1 px-2 bg-light d-flex justify-content-between align-items-center">
+                                        class="card-header py-1 px-2 d-flex justify-content-between align-items-center">
                                         <span class="small fw-bold" id="selected-plane-label">No Selection</span>
                                         <button class="btn btn-sm text-danger" type="button"
                                             id="remove-selected-plane-btn" disabled>
-                                            <i class="bi bi-trash"></i>
+                                            <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
                                     <div class="card-body p-2">
@@ -865,7 +865,7 @@
             dropzone.querySelector('.dropzone-text').textContent = 'File loaded:';
             const smallText = dropzone.querySelector('.dropzone-text.small');
             if (smallText) smallText.classList.add('d-none');
-            dropzone.querySelector('.dropzone-icon i').className = 'bi bi-check-circle text-success';
+            dropzone.querySelector('.dropzone-icon i').className = 'fas fa-check-circle text-success';
 
             // Load into 3D preview
             document.getElementById('preview-message').style.display = 'none';
@@ -961,15 +961,66 @@
             }
 
             planes.forEach((plane, index) => {
-                const item = document.createElement('button');
-                item.type = 'button';
-                item.className = `list-group-item list-group-item-action py-2 ${index === selectedPlaneIndex ? 'active' : ''}`;
-                item.textContent = `Plane #${index + 1}`;
-                item.onclick = () => {
+                // Use a DIV container for flex layout
+                const item = document.createElement('div');
+                item.className = `list-group-item list-group-item-action py-2 d-flex justify-content-between align-items-center ${index === selectedPlaneIndex ? 'active' : 'bg-transparent'}`;
+
+                // Label span (clickable for selection)
+                const label = document.createElement('span');
+                label.textContent = `Plane #${index + 1}`;
+                label.style.flexGrow = '1';
+                label.style.cursor = 'pointer';
+                label.onclick = (e) => {
+                    e.stopPropagation(); // Prevent bubbling if needed, though separate elements help
                     selectedPlaneIndex = index;
-                    renderPlaneSelectionList(); // Re-render to update active state
+                    renderPlaneSelectionList();
                     updateControlsState();
                 };
+
+                // Remove X button
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-sm btn-link text-decoration-none p-0';
+                // Style based on active state - if active, text is white, otherwise danger/muted
+                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                removeBtn.style.color = index === selectedPlaneIndex ? 'white' : '#dc3545';
+
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    // Remove this plane
+                    window.preview.planes.splice(index, 1);
+
+                    // Adjust selected index
+                    if (window.preview.planes.length === 0) {
+                        selectedPlaneIndex = -1;
+                    } else if (selectedPlaneIndex >= index) {
+                        // If we removed the selected plane or one before it, shift/reset
+                        if (selectedPlaneIndex === index) {
+                            selectedPlaneIndex = Math.max(0, index - 1);
+                            if (window.preview.planes.length === 0) selectedPlaneIndex = -1;
+                        } else {
+                            selectedPlaneIndex--;
+                        }
+                    }
+
+                    renderPlaneSelectionList();
+                    updateControlsState();
+                    window.preview.updateSlicePlanes();
+                };
+
+                item.appendChild(label);
+                item.appendChild(removeBtn);
+
+                // Clicking the container background also selects
+                item.onclick = (e) => {
+                    // Only if not clicked on children handling their own events
+                    if (e.target !== removeBtn && !removeBtn.contains(e.target)) {
+                        selectedPlaneIndex = index;
+                        renderPlaneSelectionList();
+                        updateControlsState();
+                    }
+                };
+
                 listContainer.appendChild(item);
             });
         }
