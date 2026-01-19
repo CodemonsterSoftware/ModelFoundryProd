@@ -286,88 +286,90 @@
                             <input type="hidden" name="freeform_planes" id="input_freeform_planes" value="[]">
                         </div>
 
-                        <!-- Joint Type Selection -->
-                        <h6 class="border-bottom pb-2 mb-3">Joint Type</h6>
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <div class="btn-group w-100" role="group">
-                                    <input type="radio" class="btn-check" name="joint_type" id="joint_none"
-                                        value="none">
-                                    <label class="btn btn-outline-secondary" for="joint_none">
-                                        None
-                                    </label>
+                        <!-- Joint Type Selection - HIDDEN (To be implemented later) -->
+                        <div class="d-none">
+                            <h6 class="border-bottom pb-2 mb-3">Joint Type</h6>
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <div class="btn-group w-100" role="group">
+                                        <input type="radio" class="btn-check" name="joint_type" id="joint_none"
+                                            value="none" checked>
+                                        <label class="btn btn-outline-secondary" for="joint_none">
+                                            None
+                                        </label>
 
-                                    <input type="radio" class="btn-check" name="joint_type" id="joint_pins" value="pins"
-                                        checked>
-                                    <label class="btn btn-outline-primary" for="joint_pins">
-                                        Pins
-                                    </label>
+                                        <input type="radio" class="btn-check" name="joint_type" id="joint_pins"
+                                            value="pins">
+                                        <label class="btn btn-outline-primary" for="joint_pins">
+                                            Pins
+                                        </label>
 
-                                    <input type="radio" class="btn-check" name="joint_type" id="joint_dowels"
-                                        value="dowels">
-                                    <label class="btn btn-outline-primary" for="joint_dowels">
-                                        Dowels
-                                    </label>
+                                        <input type="radio" class="btn-check" name="joint_type" id="joint_dowels"
+                                            value="dowels">
+                                        <label class="btn btn-outline-primary" for="joint_dowels">
+                                            Dowels
+                                        </label>
 
-                                    <input type="radio" class="btn-check" name="joint_type" id="joint_dovetails"
-                                        value="dovetails">
-                                    <label class="btn btn-outline-primary" for="joint_dovetails">
-                                        Dovetails
-                                    </label>
+                                        <input type="radio" class="btn-check" name="joint_type" id="joint_dovetails"
+                                            value="dovetails">
+                                        <label class="btn btn-outline-primary" for="joint_dovetails">
+                                            Dovetails
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Pin/Dowel Options -->
-                        <div id="pin-options" class="mb-4">
-                            <h6 class="border-bottom pb-2 mb-3">Pin/Dowel Settings</h6>
-                            <div class="row">
-                                <div class="col-6 mb-2">
-                                    <label for="joint_diameter" class="form-label">Diameter (mm)</label>
-                                    <input type="number" class="form-control" id="joint_diameter" name="joint_diameter"
-                                        value="4" min="1" max="20" step="0.5">
-                                </div>
-                                <div class="col-6 mb-2">
-                                    <label for="joint_height" class="form-label">Height (mm)</label>
-                                    <input type="number" class="form-control" id="joint_height" name="joint_height"
-                                        value="5" min="2" max="30" step="0.5">
-                                </div>
-                                <div class="col-6">
-                                    <label for="joint_clearance" class="form-label">Clearance (mm)</label>
-                                    <input type="number" class="form-control" id="joint_clearance"
-                                        name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
-                                </div>
-                                <div class="col-6">
-                                    <label for="joint_count" class="form-label">Count (0=auto)</label>
-                                    <input type="number" class="form-control" id="joint_count" name="joint_count"
-                                        value="0" min="0" max="20">
+                            <!-- Pin/Dowel Options -->
+                            <div id="pin-options" class="mb-4">
+                                <h6 class="border-bottom pb-2 mb-3">Pin/Dowel Settings</h6>
+                                <div class="row">
+                                    <div class="col-6 mb-2">
+                                        <label for="joint_diameter" class="form-label">Diameter (mm)</label>
+                                        <input type="number" class="form-control" id="joint_diameter"
+                                            name="joint_diameter" value="4" min="1" max="20" step="0.5">
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <label for="joint_height" class="form-label">Height (mm)</label>
+                                        <input type="number" class="form-control" id="joint_height" name="joint_height"
+                                            value="5" min="2" max="30" step="0.5">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="joint_clearance" class="form-label">Clearance (mm)</label>
+                                        <input type="number" class="form-control" id="joint_clearance"
+                                            name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="joint_count" class="form-label">Count (0=auto)</label>
+                                        <input type="number" class="form-control" id="joint_count" name="joint_count"
+                                            value="0" min="0" max="20">
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Dovetail Options -->
-                        <div id="dovetail-options" class="mb-4 d-none">
-                            <h6 class="border-bottom pb-2 mb-3">Dovetail Settings</h6>
-                            <div class="row">
-                                <div class="col-6 mb-2">
-                                    <label for="dovetail_angle" class="form-label">Angle (°)</label>
-                                    <input type="number" class="form-control" id="dovetail_angle" name="dovetail_angle"
-                                        value="14" min="5" max="30" step="1">
-                                </div>
-                                <div class="col-6 mb-2">
-                                    <label for="dovetail_width" class="form-label">Width (mm)</label>
-                                    <input type="number" class="form-control" id="dovetail_width" name="dovetail_width"
-                                        value="15" min="5" max="50" step="1">
-                                </div>
-                                <div class="col-6">
-                                    <label for="dovetail_depth" class="form-label">Depth (mm)</label>
-                                    <input type="number" class="form-control" id="dovetail_depth" name="dovetail_depth"
-                                        value="10" min="3" max="30" step="1">
-                                </div>
-                                <div class="col-6">
-                                    <label for="dovetail_count" class="form-label">Count (0=auto)</label>
-                                    <input type="number" class="form-control" id="dovetail_count" name="dovetail_count"
-                                        value="0" min="0" max="10">
+                            <!-- Dovetail Options -->
+                            <div id="dovetail-options" class="mb-4 d-none">
+                                <h6 class="border-bottom pb-2 mb-3">Dovetail Settings</h6>
+                                <div class="row">
+                                    <div class="col-6 mb-2">
+                                        <label for="dovetail_angle" class="form-label">Angle (°)</label>
+                                        <input type="number" class="form-control" id="dovetail_angle"
+                                            name="dovetail_angle" value="14" min="5" max="30" step="1">
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <label for="dovetail_width" class="form-label">Width (mm)</label>
+                                        <input type="number" class="form-control" id="dovetail_width"
+                                            name="dovetail_width" value="15" min="5" max="50" step="1">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="dovetail_depth" class="form-label">Depth (mm)</label>
+                                        <input type="number" class="form-control" id="dovetail_depth"
+                                            name="dovetail_depth" value="10" min="3" max="30" step="1">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="dovetail_count" class="form-label">Count (0=auto)</label>
+                                        <input type="number" class="form-control" id="dovetail_count"
+                                            name="dovetail_count" value="0" min="0" max="10">
+                                    </div>
                                 </div>
                             </div>
                         </div>
