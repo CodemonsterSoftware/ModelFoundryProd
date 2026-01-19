@@ -740,7 +740,7 @@
             this.renderer.render(this.scene, this.camera);
         }
 
-        loadSTL(file) {
+        loadSTL(file, showSlicePlanes = true) {
             const reader = new FileReader();
             reader.onload = (event) => {
                 const contents = event.target.result;
@@ -784,7 +784,13 @@
                     this.scene.add(this.model);
                     this.fitCameraToModel();
 
-                    this.updateSlicePlanes();
+                    // Only show slice planes if requested (e.g., when loading original model, not when previewing parts)
+                    if (showSlicePlanes) {
+                        this.updateSlicePlanes();
+                    } else {
+                        // Clear any existing slice planes when previewing individual parts
+                        this.clearSlicePlanes();
+                    }
 
                 } catch (error) {
                     console.error('Error loading STL:', error);
@@ -823,13 +829,25 @@
             this.controls.update();
         }
 
-        updateSlicePlanes() {
+        clearSlicePlanes() {
             this.slicePlanes.forEach(plane => {
                 this.scene.remove(plane);
                 if (plane.geometry) plane.geometry.dispose();
                 if (plane.material) plane.material.dispose();
+                // Also dispose edges if they exist (child of the plane mesh)
+                if (plane.children) {
+                    plane.children.forEach(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) child.material.dispose();
+                    });
+                }
             });
             this.slicePlanes = [];
+        }
+
+        updateSlicePlanes() {
+            // Remove existing slice planes
+            this.clearSlicePlanes();
 
             if (!this.bounds) return;
 
@@ -1665,8 +1683,8 @@
                         previewMessage.style.display = 'none';
                     }
 
-                    // Load the STL
-                    window.preview.loadSTL(file);
+                    // Load the STL without slice planes
+                    window.preview.loadSTL(file, false);
 
                     // Small delay to ensure loading starts, then scroll
                     setTimeout(() => {

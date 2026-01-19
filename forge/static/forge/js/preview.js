@@ -87,7 +87,7 @@ class SlicePreview {
         this.renderer.render(this.scene, this.camera);
     }
 
-    loadSTL(file) {
+    loadSTL(file, showPlanes = true) {
         const reader = new FileReader();
 
         reader.onload = (event) => {
@@ -133,12 +133,16 @@ class SlicePreview {
                 // Fit camera to model
                 this.fitCameraToModel();
 
-                // Trigger initial slice plane update
-                this.updateSlicePlanes(
-                    parseInt(document.getElementById('grid_x')?.value) || 2,
-                    parseInt(document.getElementById('grid_y')?.value) || 2,
-                    parseInt(document.getElementById('grid_z')?.value) || 1
-                );
+                // Handle slice planes
+                if (showPlanes) {
+                    this.updateSlicePlanes(
+                        parseInt(document.getElementById('grid_x')?.value) || 2,
+                        parseInt(document.getElementById('grid_y')?.value) || 2,
+                        parseInt(document.getElementById('grid_z')?.value) || 1
+                    );
+                } else {
+                    this.clearSlicePlanes();
+                }
 
             } catch (error) {
                 console.error('Error loading STL:', error);
@@ -165,14 +169,25 @@ class SlicePreview {
         this.controls.update();
     }
 
-    updateSlicePlanes(gridX, gridY, gridZ) {
-        // Remove existing slice planes
+    clearSlicePlanes() {
         this.slicePlanes.forEach(plane => {
             this.scene.remove(plane);
             if (plane.geometry) plane.geometry.dispose();
             if (plane.material) plane.material.dispose();
+            // Also dispose edges if they exist (child of the plane mesh)
+            if (plane.children) {
+                plane.children.forEach(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+            }
         });
         this.slicePlanes = [];
+    }
+
+    updateSlicePlanes(gridX, gridY, gridZ) {
+        // Remove existing slice planes
+        this.clearSlicePlanes();
 
         if (!this.bounds) return;
 
