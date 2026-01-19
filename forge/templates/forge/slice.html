@@ -387,14 +387,14 @@
                         </div>
                     </div>
 
-                    <!-- Result -->
-                    <div id="result-container" class="mt-4 d-none">
-                        <div class="alert" id="result-alert">
-                            <span id="result-message"></span>
+                    <!-- Result Section -->
+                    <div id="result-container" class="d-none">
+                        <div id="result-alert" class="alert text-dark" role="alert">
+                            <strong id="result-message"></strong>
+                            <a href="#" id="download-link" class="btn btn-success btn-sm ms-3 d-none">
+                                <i class="bi bi-download"></i> Download
+                            </a>
                         </div>
-                        <a href="#" id="download-link" class="btn btn-success btn-lg w-100 d-none">
-                            <i class="bi bi-download"></i> Download Sliced Parts (ZIP)
-                        </a>
                     </div>
                 </div>
             </div>
@@ -1545,7 +1545,8 @@
                         const material = new THREE.MeshStandardMaterial({
                             color: 0x0d6efd,
                             metalness: 0.3,
-                            roughness: 0.6
+                            roughness: 0.6,
+                            flatShading: false
                         });
                         const mesh = new THREE.Mesh(geometry, material);
 
@@ -1559,13 +1560,26 @@
 
                         scene.add(mesh);
 
-                        // Lighting
-                        const light1 = new THREE.DirectionalLight(0xffffff, 1);
+                        // Add edge lines for better visibility
+                        const edges = new THREE.EdgesGeometry(geometry, 15);
+                        const edgeMaterial = new THREE.LineBasicMaterial({
+                            color: 0x000000,
+                            linewidth: 1
+                        });
+                        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+                        mesh.add(edgeLines);
+
+                        // Enhanced lighting for better visibility
+                        const light1 = new THREE.DirectionalLight(0xffffff, 1.2);
                         light1.position.set(1, 1, 1);
                         scene.add(light1);
 
-                        const light2 = new THREE.AmbientLight(0x404040, 2);
+                        const light2 = new THREE.DirectionalLight(0xffffff, 0.8);
+                        light2.position.set(-1, -0.5, -1);
                         scene.add(light2);
+
+                        const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+                        scene.add(ambientLight);
 
                         // Camera
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
@@ -1595,6 +1609,8 @@
                         const imageDataUrl = renderer.domElement.toDataURL('image/png');
 
                         // IMMEDIATELY dispose of WebGL context to prevent context limit
+                        edges.dispose();
+                        edgeMaterial.dispose();
                         geometry.dispose();
                         material.dispose();
                         renderer.dispose();
@@ -1723,17 +1739,16 @@
                 const downloadLink = document.getElementById('download-link');
 
                 if (data.success) {
-                    resultAlert.className = 'alert alert-success';
-                    resultMessage.textContent = `Slicing complete! ${data.part_count} parts created.`;
-                    downloadLink.href = `/forge/api/download/${data.job_id}/`;
-                    downloadLink.classList.remove('d-none');
+                    // Hide result container on success as we show parts preview instead
+                    resultContainer.classList.add('d-none');
 
                     // Generate part preview cards
                     if (data.parts && data.parts.length > 0) {
                         await window.generatePartPreviews(data.job_id, data.parts);
                     }
                 } else {
-                    resultAlert.className = 'alert alert-danger';
+                    resultContainer.classList.remove('d-none');
+                    resultAlert.className = 'alert alert-danger text-dark';
                     resultMessage.textContent = data.error || data.message || 'Slicing failed';
                     downloadLink.classList.add('d-none');
                     console.error('Slicing error:', data);
