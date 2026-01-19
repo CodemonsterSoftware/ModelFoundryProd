@@ -536,6 +536,28 @@
             </div>
         </div>
     </div>
+
+    <!-- Parts Preview Section -->
+    <div class="row mt-4" id="parts-preview-section" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-grid-3x3"></i> Sliced Parts
+                        <span class="badge bg-primary ms-2" id="parts-count-badge">0</span>
+                    </h5>
+                    <button class="btn btn-sm btn-success" id="download-all-parts-btn">
+                        <i class="bi bi-download"></i> Download All (ZIP)
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3" id="parts-grid">
+                        <!-- Part cards will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Three.js ES Modules with importmap (modern approach) -->
@@ -675,6 +697,33 @@
             if (this.transformControl) {
                 this.transformControl.setMode(mode);
             }
+        }
+
+        updatePlaneStyles(selectedIndex) {
+            // Update styles for freeform planes based on selection
+            this.slicePlanes.forEach((planeMesh, index) => {
+                if (planeMesh.userData.index !== undefined) {
+                    const isSelected = planeMesh.userData.index === selectedIndex;
+                    const activeColor = 0xffaa00;  // Orange for active
+                    const inactiveColor = 0x888888;  // Light grey for inactive
+
+                    // Update plane opacity and color
+                    planeMesh.material.opacity = isSelected ? 0.3 : 0.15;
+                    planeMesh.material.color.setHex(isSelected ? activeColor : inactiveColor);
+
+                    // Update edge line style and color
+                    const edgeLines = planeMesh.children[0];
+                    if (edgeLines && edgeLines.material) {
+                        edgeLines.material.color.setHex(isSelected ? activeColor : inactiveColor);
+                        edgeLines.material.dashSize = isSelected ? 0 : 3;
+                        edgeLines.material.gapSize = isSelected ? 0 : 2;
+                        if (!isSelected) {
+                            edgeLines.computeLineDistances();
+                        }
+                        edgeLines.material.needsUpdate = true;
+                    }
+                }
+            });
         }
 
         onResize() {
@@ -837,12 +886,12 @@
             }
         }
 
-        createSlicePlane(position, rotation, size, color) {
+        createSlicePlane(position, rotation, size, color, opacity = 0.3, lineDashed = false) {
             const geometry = new THREE.PlaneGeometry(size, size);
             const material = new THREE.MeshBasicMaterial({
                 color: color,
                 transparent: true,
-                opacity: 0.3,
+                opacity: opacity,
                 side: THREE.DoubleSide,
                 depthWrite: false
             });
@@ -852,8 +901,16 @@
             plane.rotation.copy(rotation);
 
             const edges = new THREE.EdgesGeometry(geometry);
-            const lineMaterial = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+            const lineMaterial = new THREE.LineDashedMaterial({
+                color: color,
+                linewidth: 2,
+                dashSize: lineDashed ? 3 : 0,
+                gapSize: lineDashed ? 2 : 0
+            });
             const edgeLines = new THREE.LineSegments(edges, lineMaterial);
+            if (lineDashed) {
+                edgeLines.computeLineDistances();
+            }
             plane.add(edgeLines);
 
             return plane;
@@ -1175,7 +1232,10 @@
                     if (el) el.value = '';
                 });
                 // Detach Gizmo
-                if (window.preview) window.preview.attachGizmo(-1);
+                if (window.preview) {
+                    window.preview.attachGizmo(-1);
+                    window.preview.updatePlaneStyles(-1);
+                }
                 return;
             }
 
@@ -1195,8 +1255,11 @@
             if (yRot) yRot.value = plane.rotation.y;
             if (zRot) zRot.value = plane.rotation.z;
 
-            // Attach Gizmo
-            if (window.preview) window.preview.attachGizmo(selectedPlaneIndex);
+            // Attach Gizmo and update plane styles
+            if (window.preview) {
+                window.preview.attachGizmo(selectedPlaneIndex);
+                window.preview.updatePlaneStyles(selectedPlaneIndex);
+            }
         }
 
         // Listen for gizmo transformations
@@ -1359,6 +1422,252 @@
         document.getElementById('reset-rotation').addEventListener('click', () => {
             if (window.preview) window.preview.resetRotation();
         });
+
+        // ========================================================================
+        // Part Preview Functions (exposed globally for use in non-module scripts)
+        // ========================================================================
+
+        window.generatePartPreviews = async function (jobId, parts) {
+            const partsGrid = document.getElementById('parts-grid');
+            const partsSection = document.getElementById('parts-preview-section');
+            const countBadge = document.getElementById('parts-count-badge');
+            const downloadAllBtn = document.getElementById('download-all-parts-btn');
+
+            // Clear previous parts
+            partsGrid.innerHTML = '';
+
+            // Update badge
+            countBadge.textContent = parts.length;
+
+            // Set download all button
+            downloadAllBtn.onclick = () => {
+                window.location.href = `/forge/api/download/${jobId}/`;
+            };
+
+            // Show parts section
+            partsSection.style.display = 'block';
+
+            // Scroll to parts section
+            partsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Create cards for each part
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i];
+                await createPartCard(jobId, part, i);
+            }
+        };
+
+        async function createPartCard(jobId, part, index) {
+            const partsGrid = document.getElementById('parts-grid');
+
+            // Create card element
+            const col = document.createElement('div');
+            col.className = 'col-lg-2 col-md-3 col-sm-4 col-6';
+
+            const card = document.createElement('div');
+            card.className = 'card h-100 part-card';
+            card.style.cursor = 'pointer';
+            card.setAttribute('data-part-index', index);
+
+            // Thumbnail container
+            const thumbnailContainer = document.createElement('div');
+            thumbnailContainer.className = 'card-img-top bg-dark d-flex align-items-center justify-content-center';
+            thumbnailContainer.style.height = '150px';
+            thumbnailContainer.style.position = 'relative';
+            thumbnailContainer.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Loading...</span></div>';
+
+            // Card body
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body p-2';
+
+            const title = document.createElement('h6');
+            title.className = 'card-title mb-1 small text-center';
+            title.textContent = `Part ${index + 1}`;
+
+            const previewBtn = document.createElement('button');
+            previewBtn.className = 'btn btn-sm btn-outline-primary w-100 mt-1';
+            previewBtn.innerHTML = '<i class="bi bi-eye"></i> Preview';
+            previewBtn.onclick = (e) => {
+                e.stopPropagation();
+                loadPartIntoViewer(jobId, part, index);
+            };
+
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'btn btn-sm btn-outline-secondary w-100 mt-1';
+            downloadBtn.innerHTML = '<i class="bi bi-download"></i> Download';
+            downloadBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.location.href = `/forge/api/download/${jobId}/part/${index}/`;
+            };
+
+            cardBody.appendChild(title);
+            cardBody.appendChild(previewBtn);
+            cardBody.appendChild(downloadBtn);
+
+            card.appendChild(thumbnailContainer);
+            card.appendChild(cardBody);
+            col.appendChild(card);
+            partsGrid.appendChild(col);
+
+            // Card click to preview
+            card.onclick = () => {
+                loadPartIntoViewer(jobId, part, index);
+            };
+
+            // Generate thumbnail
+            generateThumbnail(jobId, part, index, thumbnailContainer);
+        }
+
+        async function generateThumbnail(jobId, part, index, container) {
+            try {
+                const response = await fetch(`/forge/api/download/${jobId}/part/${index}/`);
+                const blob = await response.blob();
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const loader = new STLLoader();
+                        const geometry = loader.parse(e.target.result);
+
+                        // Ensure geometry is valid
+                        if (!geometry || !geometry.attributes || !geometry.attributes.position || geometry.attributes.position.count === 0) {
+                            throw new Error('Invalid or empty geometry');
+                        }
+
+                        // Compute normals for proper lighting
+                        geometry.computeVertexNormals();
+                        geometry.computeBoundingBox();
+
+                        // Create small scene for thumbnail
+                        const scene = new THREE.Scene();
+                        scene.background = new THREE.Color(0x2a2a2a);
+
+                        const material = new THREE.MeshStandardMaterial({
+                            color: 0x0d6efd,
+                            metalness: 0.3,
+                            roughness: 0.6
+                        });
+                        const mesh = new THREE.Mesh(geometry, material);
+
+                        // Center geometry
+                        const center = new THREE.Vector3();
+                        geometry.boundingBox.getCenter(center);
+                        geometry.translate(-center.x, -center.y, -center.z);
+
+                        // Recompute after translation
+                        geometry.computeBoundingBox();
+
+                        scene.add(mesh);
+
+                        // Lighting
+                        const light1 = new THREE.DirectionalLight(0xffffff, 1);
+                        light1.position.set(1, 1, 1);
+                        scene.add(light1);
+
+                        const light2 = new THREE.AmbientLight(0x404040, 2);
+                        scene.add(light2);
+
+                        // Camera
+                        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+                        const size = new THREE.Vector3();
+                        geometry.boundingBox.getSize(size);
+                        const maxDim = Math.max(size.x, size.y, size.z);
+
+                        // Avoid division by zero
+                        if (maxDim === 0) {
+                            throw new Error('Model has zero size');
+                        }
+
+                        const distance = maxDim / (2 * Math.tan((45 * Math.PI / 180) / 2)) * 1.5;
+                        camera.position.set(distance, distance * 0.8, distance);
+                        camera.lookAt(0, 0, 0);
+
+                        // Renderer - create, render, capture, dispose immediately
+                        const renderer = new THREE.WebGLRenderer({
+                            antialias: true,
+                            preserveDrawingBuffer: true,
+                            alpha: false
+                        });
+                        renderer.setSize(200, 200);
+                        renderer.render(scene, camera);
+
+                        // Convert canvas to image data URL
+                        const imageDataUrl = renderer.domElement.toDataURL('image/png');
+
+                        // IMMEDIATELY dispose of WebGL context to prevent context limit
+                        geometry.dispose();
+                        material.dispose();
+                        renderer.dispose();
+                        renderer.forceContextLoss();
+
+                        // Create img element from data URL
+                        const img = document.createElement('img');
+                        img.src = imageDataUrl;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'cover';
+                        img.alt = `Part ${index + 1} thumbnail`;
+
+                        // Replace spinner with image
+                        container.innerHTML = '';
+                        container.appendChild(img);
+
+                    } catch (innerError) {
+                        console.error(`Error rendering thumbnail for part ${index}:`, innerError);
+                        container.innerHTML = `<div class="text-light small text-center">Render Error<br><small>${innerError.message}</small></div>`;
+                    }
+                };
+                reader.readAsArrayBuffer(blob);
+            } catch (error) {
+                console.error(`Error loading part ${index} for thumbnail:`, error);
+                container.innerHTML = '<div class="text-light small text-center">Load Failed</div>';
+            }
+        }
+
+        async function loadPartIntoViewer(jobId, part, index) {
+            console.log(`Loading part ${index} into viewer`);
+
+            try {
+                const response = await fetch(`/forge/api/download/${jobId}/part/${index}/`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const blob = await response.blob();
+
+                // Create a proper File object with correct MIME type
+                const file = new File([blob], part.filename, {
+                    type: 'model/stl',
+                    lastModified: new Date().getTime()
+                });
+
+                // Load into main viewer
+                if (window.preview) {
+                    // Hide the preview message
+                    const previewMessage = document.getElementById('preview-message');
+                    if (previewMessage) {
+                        previewMessage.style.display = 'none';
+                    }
+
+                    // Load the STL
+                    window.preview.loadSTL(file);
+
+                    // Small delay to ensure loading starts, then scroll
+                    setTimeout(() => {
+                        document.getElementById('preview-container').scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center'
+                        });
+                    }, 100);
+                } else {
+                    console.error('Preview instance not found');
+                    alert('3D viewer not initialized');
+                }
+            } catch (error) {
+                console.error(`Error loading part ${index}:`, error);
+                alert(`Failed to load part: ${error.message}`);
+            }
+        }
     });
 </script>
 <!-- File input and form handlers (non-module for form submission) -->
@@ -1373,6 +1682,26 @@
             const submitBtn = document.getElementById('submit-btn');
             const progressContainer = document.getElementById('progress-container');
             const resultContainer = document.getElementById('result-container');
+
+            // Validate freeform mode has planes
+            const mode = document.querySelector('input[name="slice_mode"]:checked')?.value;
+            if (mode === 'freeform') {
+                const planesData = document.getElementById('input_freeform_planes')?.value;
+                let planes = [];
+                try {
+                    planes = JSON.parse(planesData || '[]');
+                } catch (e) {
+                    alert('Error: Invalid plane data. Please refresh and try again.');
+                    return;
+                }
+
+                if (planes.length === 0) {
+                    alert('Please add at least one cutting plane in Freeform mode.');
+                    return;
+                }
+
+                console.log(`Submitting ${planes.length} plane(s) for slicing:`, planes);
+            }
 
             submitBtn.disabled = true;
             progressContainer.classList.remove('d-none');
@@ -1398,16 +1727,23 @@
                     resultMessage.textContent = `Slicing complete! ${data.part_count} parts created.`;
                     downloadLink.href = `/forge/api/download/${data.job_id}/`;
                     downloadLink.classList.remove('d-none');
+
+                    // Generate part preview cards
+                    if (data.parts && data.parts.length > 0) {
+                        await window.generatePartPreviews(data.job_id, data.parts);
+                    }
                 } else {
                     resultAlert.className = 'alert alert-danger';
                     resultMessage.textContent = data.error || data.message || 'Slicing failed';
                     downloadLink.classList.add('d-none');
+                    console.error('Slicing error:', data);
                 }
             } catch (error) {
                 progressContainer.classList.add('d-none');
                 resultContainer.classList.remove('d-none');
                 document.getElementById('result-alert').className = 'alert alert-danger';
                 document.getElementById('result-message').textContent = 'Error: ' + error.message;
+                console.error('Network error:', error);
             } finally {
                 submitBtn.disabled = false;
             }

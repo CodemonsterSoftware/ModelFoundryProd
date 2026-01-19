@@ -13,4 +13,5 @@ urlpatterns = [
     path('api/slice/', views.api_slice, name='api_slice'),
     path('api/job/<str:job_id>/', views.api_job_status, name='api_job_status'),
     path('api/download/<str:job_id>/', views.api_download, name='api_download'),
+    path('api/download/<str:job_id>/part/<int:part_index>/', views.api_download_part, name='api_download_part'),
 ]

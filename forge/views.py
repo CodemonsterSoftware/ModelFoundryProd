@@ -167,11 +167,29 @@ def api_slice(request):
             try:
                 # Parse the unified freeform planes JSON
                 planes_json = request.POST.get('freeform_planes', '[]')
-                # Slicer service now expects a list of plane dicts directly
                 planes_config = json.loads(planes_json)
-            except json.JSONDecodeError:
-                logger.warning("Failed to decode plane data")
-                return JsonResponse({'success': False, 'error': 'Invalid plane data'}, status=400)
+                
+                # Validate plane data structure
+                if not isinstance(planes_config, list):
+                    logger.error("freeform_planes is not a list")
+                    return JsonResponse({'success': False, 'error': 'Invalid plane data format'}, status=400)
+                
+                # Validate each plane has required fields
+                for idx, plane in enumerate(planes_config):
+                    if not isinstance(plane, dict):
+                        return JsonResponse({'success': False, 'error': f'Plane {idx+1} is not a valid object'}, status=400)
+                    if 'origin' not in plane or 'rotation' not in plane:
+                        return JsonResponse({'success': False, 'error': f'Plane {idx+1} missing origin or rotation'}, status=400)
+                    if not all(k in plane['origin'] for k in ['x', 'y', 'z']):
+                        return JsonResponse({'success': False, 'error': f'Plane {idx+1} origin missing x, y, or z'}, status=400)
+                    if not all(k in plane['rotation'] for k in ['x', 'y', 'z']):
+                        return JsonResponse({'success': False, 'error': f'Plane {idx+1} rotation missing x, y, or z'}, status=400)
+                
+                logger.info(f"Validated {len(planes_config)} freeform planes for slicing")
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to decode plane data: {e}")
+                return JsonResponse({'success': False, 'error': 'Invalid plane data JSON'}, status=400)
         else:
             # Uniform mode: Input is number of planes (cuts).
             # Slicer expects number of sections (grid divisions).
@@ -228,9 +246,20 @@ def api_slice(request):
                 for output_file in output_files:
                     zf.write(output_file, Path(output_file).name)
             
+            # Build part information for response
+            parts_info = []
+            for idx, output_file in enumerate(output_files):
+                part_path = Path(output_file)
+                parts_info.append({
+                    'index': idx,
+                    'filename': part_path.name,
+                    'path': str(part_path.relative_to(FORGE_JOBS_DIR))  # Relative path from media root
+                })
+            
             job_meta['status'] = 'completed'
             job_meta['output_file'] = str(zip_path)
             job_meta['part_count'] = len(output_files)
+            job_meta['parts'] = parts_info
             
         except Exception as e:
             job_meta['status'] = 'failed'
@@ -245,6 +274,7 @@ def api_slice(request):
             'job_id': job_id,
             'status': job_meta['status'],
             'part_count': job_meta.get('part_count', 0),
+            'parts': job_meta.get('parts', []),
             'message': job_meta.get('error', 'Slicing complete')
         })
         
@@ -309,4 +339,49 @@ def api_download(request, job_id: str):
         open(output_path, 'rb'),
         as_attachment=True,
         filename=output_path.name
+    )
+
+
+@login_required
+def api_download_part(request, job_id: str, part_index: int):
+    """API: Download individual part file."""
+    job_dir = FORGE_JOBS_DIR / job_id
+    job_file = job_dir / 'job.json'
+    
+    if not job_file.exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Job not found'
+        }, status=404)
+    
+    with open(job_file) as f:
+        job_meta = json.load(f)
+    
+    if job_meta.get('status') != 'completed':
+        return JsonResponse({
+            'success': False,
+            'error': f"Job status: {job_meta.get('status')}"
+        }, status=400)
+    
+    # Get part information
+    parts = job_meta.get('parts', [])
+    if part_index < 0 or part_index >= len(parts):
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid part index'
+        }, status=400)
+    
+    part_info = parts[part_index]
+    part_path = FORGE_JOBS_DIR / part_info['path']
+    
+    if not part_path.exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Part file not found'
+        }, status=404)
+    
+    return FileResponse(
+        open(part_path, 'rb'),
+        as_attachment=False,  # Allow viewing in browser
+        filename=part_info['filename']
     )

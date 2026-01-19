@@ -98,53 +98,92 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> List
     """
     Iteratively slice mesh with arbitrary planes.
     Each plane splits every existing part into two (Positive/Negative).
+    
+    Args:
+        mesh: Input mesh to slice
+        planes: List of plane definitions, each with 'origin' and 'rotation' dicts
+        
+    Returns:
+        List of sliced mesh parts
     """
+    if not planes:
+        logger.warning("No planes provided for slicing")
+        return [mesh]
+    
     current_parts = [mesh]
     
     for i, plane_def in enumerate(planes):
         next_parts = []
         
-        origin_dict = plane_def['origin']
-        rot_dict = plane_def['rotation']
+        # Validate plane data structure
+        if 'origin' not in plane_def or 'rotation' not in plane_def:
+            logger.error(f"Plane {i+1} missing 'origin' or 'rotation' key. Skipping.")
+            continue
+            
+        try:
+            origin_dict = plane_def['origin']
+            rot_dict = plane_def['rotation']
+            
+            # Validate origin coordinates
+            origin = [
+                float(origin_dict.get('x', 0)),
+                float(origin_dict.get('y', 0)),
+                float(origin_dict.get('z', 0))
+            ]
+            
+            # Validate rotation angles
+            normal = _euler_to_normal(
+                float(rot_dict.get('x', 0)),
+                float(rot_dict.get('y', 0)),
+                float(rot_dict.get('z', 0))
+            )
+            
+            logger.info(f"Processing Plane {i+1}/{len(planes)}: Origin={origin}, Normal={normal}")
+            
+        except (KeyError, TypeError, ValueError) as e:
+            logger.error(f"Invalid plane data at index {i}: {e}. Skipping this plane.")
+            continue
         
-        origin = [origin_dict['x'], origin_dict['y'], origin_dict['z']]
-        normal = _euler_to_normal(rot_dict['x'], rot_dict['y'], rot_dict['z'])
-        
-        logger.info(f"Processing Plane {i+1}: Origin={origin}, Normal={normal}")
-        
-        for part in current_parts:
+        for part_idx, part in enumerate(current_parts):
             try:
-                # Slice logic: slice_mesh_plane returns the "positive" side (normal direction) logic?
-                # Actually trimesh.slice_mesh_plane(cap=True) returns specific side or splits?
-                # slice_mesh_plane returns a NEW mesh of the portion IN FRONT of the plane (normal direction)?
-                # Wait, documentation check: 
-                # slice_mesh_plane(plane_normal, plane_origin, cap=True) 
-                # "Returns a new mesh that is the portion of the mesh in the direction of the normal."
+                # Slice logic: slice_mesh_plane returns the portion in the direction of the normal
+                # To get both sides, we slice twice with opposite normals
                 
-                # To get BOTH sides, we need to run it twice or use split?
-                # Trimesh doesn't have a simple "split_by_plane" that caps both sides easily in one go usually.
-                # Standard approach: Slice keeping positive, Slice keeping negative (invert normal).
-                
-                # Positive Side
+                # Positive Side (in direction of normal)
                 pos_part = part.slice_plane(plane_origin=origin, plane_normal=normal, cap=True)
                 
-                # Negative Side (invert normal)
+                # Negative Side (opposite direction)
                 neg_normal = [-n for n in normal]
                 neg_part = part.slice_plane(plane_origin=origin, plane_normal=neg_normal, cap=True)
                 
+                # Keep non-empty parts
                 if pos_part is not None and len(pos_part.vertices) > 0:
                     next_parts.append(pos_part)
+                    logger.debug(f"  Part {part_idx+1}: Positive side has {len(pos_part.vertices)} vertices")
                 
                 if neg_part is not None and len(neg_part.vertices) > 0:
                     next_parts.append(neg_part)
+                    logger.debug(f"  Part {part_idx+1}: Negative side has {len(neg_part.vertices)} vertices")
+                    
+                # If both slices failed, keep original part
+                if (pos_part is None or len(pos_part.vertices) == 0) and \
+                   (neg_part is None or len(neg_part.vertices) == 0):
+                    logger.warning(f"  Plane {i+1} did not intersect part {part_idx+1}, keeping original")
+                    next_parts.append(part)
                     
             except Exception as e:
-                logger.error(f"Error slicing part with plane {i}: {e}")
-                # If fail, keep original
+                logger.error(f"Error slicing part {part_idx+1} with plane {i+1}: {e}")
+                # If slicing fails, keep the original part
                 next_parts.append(part)
         
+        if not next_parts:
+            logger.error(f"No valid parts after plane {i+1}, returning current parts")
+            return current_parts
+            
         current_parts = next_parts
+        logger.info(f"After plane {i+1}: {len(current_parts)} parts")
         
+    logger.info(f"Slicing complete: {len(current_parts)} total parts created")
     return current_parts
 
 
