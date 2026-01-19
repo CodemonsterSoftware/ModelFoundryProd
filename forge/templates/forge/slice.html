@@ -986,6 +986,10 @@
             if (smallText) smallText.classList.add('d-none');
             dropzone.querySelector('.dropzone-icon i').className = 'fas fa-check-circle text-success';
 
+            // Hide the file upload section to save space
+            const fileUploadSection = dropzone.closest('.mb-4');
+            if (fileUploadSection) fileUploadSection.classList.add('d-none');
+
             // Load into 3D preview
             document.getElementById('preview-message').style.display = 'none';
             document.getElementById('slice-legend').classList.remove('d-none');
