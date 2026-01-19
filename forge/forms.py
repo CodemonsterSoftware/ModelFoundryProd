@@ -47,19 +47,19 @@ class SliceForm(STLUploadForm):
     # Grid configuration
     grid_x = forms.IntegerField(
         initial=2,
-        min_value=1,
+        min_value=0,
         max_value=10,
         label='X divisions'
     )
     grid_y = forms.IntegerField(
         initial=2,
-        min_value=1,
+        min_value=0,
         max_value=10,
         label='Y divisions'
     )
     grid_z = forms.IntegerField(
         initial=1,
-        min_value=1,
+        min_value=0,
         max_value=10,
         label='Z divisions'
     )

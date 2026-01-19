@@ -135,10 +135,20 @@ class SlicePreview {
 
                 // Handle slice planes
                 if (showPlanes) {
+                    const getGridValue = (id, defaultVal) => {
+                        const el = document.getElementById(id);
+                        // If element not found or value is empty, return default.
+                        // Otherwise, parse as int. If NaN, return default.
+                        // This allows 0 to be a valid input.
+                        if (!el || el.value === '') return defaultVal;
+                        const val = parseInt(el.value);
+                        return isNaN(val) ? defaultVal : val;
+                    };
+
                     this.updateSlicePlanes(
-                        parseInt(document.getElementById('grid_x')?.value) || 2,
-                        parseInt(document.getElementById('grid_y')?.value) || 2,
-                        parseInt(document.getElementById('grid_z')?.value) || 1
+                        getGridValue('grid_x', 2),
+                        getGridValue('grid_y', 2),
+                        getGridValue('grid_z', 1)
                     );
                 } else {
                     this.clearSlicePlanes();

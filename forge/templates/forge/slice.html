@@ -166,22 +166,22 @@
                                     <label for="grid_x" class="form-label">X Planes <span
                                             class="text-danger">●</span></label>
                                     <input type="number" class="form-control" id="grid_x" name="grid_x" value="2"
-                                        min="1" max="10">
-                                    <div class="form-text small lh-1">1 = 1 cut (2 sections)</div>
+                                        min="0" max="10">
+                                    <div class="form-text small lh-1">0 = no cuts, 1 = 1 cut (2 sections)</div>
                                 </div>
                                 <div class="col-4">
                                     <label for="grid_y" class="form-label">Y Planes <span
                                             class="text-success">●</span></label>
                                     <input type="number" class="form-control" id="grid_y" name="grid_y" value="2"
-                                        min="1" max="10">
-                                    <div class="form-text small lh-1">2 = 2 cuts (3 sections)</div>
+                                        min="0" max="10">
+                                    <div class="form-text small lh-1">0 = no cuts, 2 = 2 cuts (3 sections)</div>
                                 </div>
                                 <div class="col-4">
                                     <label for="grid_z" class="form-label">Z Planes <span
                                             class="text-primary">●</span></label>
                                     <input type="number" class="form-control" id="grid_z" name="grid_z" value="1"
-                                        min="1" max="10">
-                                    <div class="form-text small lh-1">1 = 1 cut (2 sections)</div>
+                                        min="0" max="10">
+                                    <div class="form-text small lh-1">0 = no cuts, 1 = 1 cut (2 sections)</div>
                                 </div>
                             </div>
                         </div>
@@ -237,21 +237,21 @@
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text px-1 text-danger">X</span>
                                                     <input type="number" class="form-control plane-control-input px-1"
-                                                        id="plane-origin-x" step="1">
+                                                        id="plane-origin-x" step="0.01">
                                                 </div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text px-1 text-success">Y</span>
                                                     <input type="number" class="form-control plane-control-input px-1"
-                                                        id="plane-origin-y" step="1">
+                                                        id="plane-origin-y" step="0.01">
                                                 </div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text px-1 text-primary">Z</span>
                                                     <input type="number" class="form-control plane-control-input px-1"
-                                                        id="plane-origin-z" step="1">
+                                                        id="plane-origin-z" step="0.01">
                                                 </div>
                                             </div>
                                         </div>
@@ -860,9 +860,16 @@
 
             if (mode === 'uniform') {
                 const min = this.bounds.min;
-                const gridX = parseInt(document.getElementById('grid_x')?.value) || 2;
-                const gridY = parseInt(document.getElementById('grid_y')?.value) || 2;
-                const gridZ = parseInt(document.getElementById('grid_z')?.value) || 1;
+                const getGridValue = (id, defaultVal) => {
+                    const el = document.getElementById(id);
+                    if (!el || el.value === '') return defaultVal;
+                    const val = parseInt(el.value);
+                    return isNaN(val) ? defaultVal : val;
+                };
+
+                const gridX = getGridValue('grid_x', 2);
+                const gridY = getGridValue('grid_y', 2);
+                const gridZ = getGridValue('grid_z', 1);
 
                 const createUniformPlanes = (axis, count, color) => {
                     for (let i = 1; i < count; i++) {
@@ -885,9 +892,9 @@
                     }
                 };
 
-                createUniformPlanes('x', gridX + 1, 0xff4444);
-                createUniformPlanes('y', gridY + 1, 0x44ff44);
-                createUniformPlanes('z', gridZ + 1, 0x4444ff);
+                createUniformPlanes('x', gridX === 0 ? 1 : gridX + 1, 0xff4444);
+                createUniformPlanes('y', gridY === 0 ? 1 : gridY + 1, 0x44ff44);
+                createUniformPlanes('z', gridZ === 0 ? 1 : gridZ + 1, 0x4444ff);
             } else {
                 // Freeform Arbitrary Mode
                 this.planes.forEach((planeData, index) => {
@@ -987,11 +994,7 @@
             this.bounds = this.model.geometry.boundingBox;
 
             // Update slice planes
-            this.updateSlicePlanes(
-                parseInt(document.getElementById('grid_x')?.value) || 2,
-                parseInt(document.getElementById('grid_y')?.value) || 2,
-                parseInt(document.getElementById('grid_z')?.value) || 1
-            );
+            this.updateSlicePlanes();
         }
     }
 

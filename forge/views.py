@@ -193,11 +193,12 @@ def api_slice(request):
         else:
             # Uniform mode: Input is number of planes (cuts).
             # Slicer expects number of sections (grid divisions).
-            # Sections = Planes + 1
+            # Sections = Planes + 1, BUT 0 cuts should mean 1 section (no slicing on that axis)
+            # So: 0 input -> 1 section (no cuts), 1 input -> 2 sections (1 cut), etc.
             grid_config = {
-                'x': form.cleaned_data['grid_x'] + 1,
-                'y': form.cleaned_data['grid_y'] + 1,
-                'z': form.cleaned_data['grid_z'] + 1,
+                'x': 1 if form.cleaned_data['grid_x'] == 0 else form.cleaned_data['grid_x'] + 1,
+                'y': 1 if form.cleaned_data['grid_y'] == 0 else form.cleaned_data['grid_y'] + 1,
+                'z': 1 if form.cleaned_data['grid_z'] == 0 else form.cleaned_data['grid_z'] + 1,
             }
 
         job_meta = {
