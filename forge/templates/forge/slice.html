@@ -211,6 +211,19 @@
                                     <div
                                         class="card-header py-1 px-2 d-flex justify-content-between align-items-center">
                                         <span class="small fw-bold" id="selected-plane-label">No Selection</span>
+
+                                        <!-- Gizmo Mode Toggles -->
+                                        <div class="btn-group btn-group-sm" role="group" id="gizmo-mode-toggles">
+                                            <button type="button" class="btn btn-outline-secondary active"
+                                                data-mode="translate" title="Translate (T)">
+                                                <i class="fas fa-arrows-alt"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" data-mode="rotate"
+                                                title="Rotate (R)">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+
                                         <button class="btn btn-sm text-danger" type="button"
                                             id="remove-selected-plane-btn" disabled>
                                             <i class="fas fa-trash"></i>
@@ -401,9 +414,36 @@
                     <div id="preview-container" class="position-absolute"
                         style="top:0; left:0; right:0; bottom:0; overflow: hidden;">
                         <div id="preview-message">
-                            <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 3rem;"></i>
                             <p class="mt-2">Upload an STL file to preview</p>
                         </div>
+
+                        <!-- Gizmo Viewer Toolbar -->
+                        <div id="viewer-gizmo-toolbar" class="position-absolute top-0 end-0 p-3 d-none"
+                            style="z-index: 10;">
+                            <style>
+                                #viewer-gizmo-toolbar .btn.active {
+                                    color: #fff !important;
+                                    background-color: #333 !important;
+                                }
+
+                                #viewer-gizmo-toolbar .btn:hover {
+                                    color: #000 !important;
+                                    background-color: #eee !important;
+                                }
+                            </style>
+                            <div class="btn-group rounded shadow-sm" role="group">
+                                <button type="button" class="btn btn-outline-light btn-sm active" data-mode="translate"
+                                    title="Translate (T)">
+                                    <i class="fas fa-arrows-alt"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" data-mode="rotate"
+                                    title="Rotate (R)">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="slice-legend d-none" id="slice-legend">
                             <span class="legend-x">■ X cuts</span>
                             <span class="legend-y">■ Y cuts</span>
@@ -512,6 +552,7 @@
     import * as THREE from 'three';
     import { STLLoader } from 'three/addons/loaders/STLLoader.js';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
     class SlicePreview {
         constructor(containerId) {
@@ -524,6 +565,7 @@
             this.THREE = THREE;
             this.STLLoader = STLLoader;
             this.OrbitControls = OrbitControls;
+            this.TransformControls = TransformControls;
 
             this.scene = null;
             this.camera = null;
@@ -555,6 +597,8 @@
             this.controls.dampingFactor = 0.05;
             this.controls.zoomSpeed = 0.5;
 
+            this.setupTransformControl();
+
             const ambientLight = new THREE.AmbientLight(0x404040, 2);
             this.scene.add(ambientLight);
 
@@ -574,6 +618,63 @@
 
             window.addEventListener('resize', () => this.onResize());
             this.animate();
+        }
+
+        setupTransformControl() {
+            this.transformControl = new this.TransformControls(this.camera, this.renderer.domElement);
+
+            // Disable OrbitControls while dragging gizmo
+            this.transformControl.addEventListener('dragging-changed', (event) => {
+                this.controls.enabled = !event.value;
+            });
+
+            // Update data model on transformation
+            this.transformControl.addEventListener('change', () => {
+                const object = this.transformControl.object;
+                if (!object) return;
+
+                const index = object.userData.index;
+                if (index !== undefined && this.planes[index]) {
+                    // Update internal data model
+                    this.planes[index].origin = {
+                        x: object.position.x,
+                        y: object.position.y,
+                        z: object.position.z
+                    };
+
+                    // Convert Euler (radians) to Degrees for data model
+                    this.planes[index].rotation = {
+                        x: THREE.MathUtils.radToDeg(object.rotation.x),
+                        y: THREE.MathUtils.radToDeg(object.rotation.y),
+                        z: THREE.MathUtils.radToDeg(object.rotation.z)
+                    };
+
+                    // Dispatch event for UI updates
+                    const event = new CustomEvent('plane-transformed', {
+                        detail: { index: index, plane: this.planes[index] }
+                    });
+                    this.container.dispatchEvent(event);
+                }
+            });
+
+            this.scene.add(this.transformControl);
+        }
+
+        attachGizmo(index) {
+            if (!this.transformControl) return;
+
+            if (index === -1 || !this.slicePlanes[index]) {
+                this.transformControl.detach();
+                return;
+            }
+
+            this.transformControl.attach(this.slicePlanes[index]);
+        }
+
+        setGizmoMode(mode) {
+            if (this.transformControl) {
+                this.transformControl.setMode(mode);
+            }
         }
 
         onResize() {
@@ -720,7 +821,7 @@
                 createUniformPlanes('z', gridZ + 1, 0x4444ff);
             } else {
                 // Freeform Arbitrary Mode
-                this.planes.forEach(planeData => {
+                this.planes.forEach((planeData, index) => {
                     const position = new THREE.Vector3(planeData.origin.x, planeData.origin.y, planeData.origin.z);
                     const rotation = new THREE.Euler(
                         planeData.rotation.x * (Math.PI / 180),
@@ -729,6 +830,7 @@
                     );
 
                     const planeMesh = this.createSlicePlane(position, rotation, maxDim * 1.5, 0xffaa00);
+                    planeMesh.userData.index = index;
                     this.slicePlanes.push(planeMesh);
                     this.scene.add(planeMesh);
                 });
@@ -907,6 +1009,7 @@
                 freeformSettings.classList.add('d-none');
             }
             if (window.preview) window.preview.updateSlicePlanes();
+            updateToolbarVisibility();
         }
 
         modeRadios.forEach(radio => radio.addEventListener('change', updateModeVisibility));
@@ -940,8 +1043,8 @@
             selectedPlaneIndex = window.preview.planes.length - 1;
 
             renderPlaneSelectionList();
-            updateControlsState();
             window.preview.updateSlicePlanes();
+            updateControlsState();
         });
 
         // Remove Selected Plane Button
@@ -1067,6 +1170,8 @@
                 [xOrigin, yOrigin, zOrigin, xRot, yRot, zRot].forEach(el => {
                     if (el) el.value = '';
                 });
+                // Detach Gizmo
+                if (window.preview) window.preview.attachGizmo(-1);
                 return;
             }
 
@@ -1085,7 +1190,87 @@
             if (xRot) xRot.value = plane.rotation.x;
             if (yRot) yRot.value = plane.rotation.y;
             if (zRot) zRot.value = plane.rotation.z;
+
+            // Attach Gizmo
+            if (window.preview) window.preview.attachGizmo(selectedPlaneIndex);
         }
+
+        // Listen for gizmo transformations
+        document.getElementById('preview-container').addEventListener('plane-transformed', (e) => {
+            const index = e.detail.index;
+            const plane = e.detail.plane;
+
+            // Sync with invisible input
+            document.getElementById('input_freeform_planes').value = JSON.stringify(window.preview.planes);
+
+            // Sync with UI controls if the transformed plane is currently selected
+            if (index === selectedPlaneIndex) {
+                const xOrigin = document.getElementById('plane-origin-x');
+                const yOrigin = document.getElementById('plane-origin-y');
+                const zOrigin = document.getElementById('plane-origin-z');
+                const xRot = document.getElementById('plane-rot-x');
+                const yRot = document.getElementById('plane-rot-y');
+                const zRot = document.getElementById('plane-rot-z');
+
+                // Update values without triggering 'input' event (to avoid loop)
+                if (xOrigin) xOrigin.value = plane.origin.x.toFixed(2);
+                if (yOrigin) yOrigin.value = plane.origin.y.toFixed(2);
+                if (zOrigin) zOrigin.value = plane.origin.z.toFixed(2);
+
+                if (xRot) xRot.value = plane.rotation.x;
+                if (yRot) yRot.value = plane.rotation.y;
+                if (zRot) zRot.value = plane.rotation.z;
+            }
+        });
+
+        // Gizmo Mode Toggle Handlers
+        // Select buttons from both the control panel AND the viewer toolbar
+        const allGizmoButtons = document.querySelectorAll('#gizmo-mode-toggles button, #viewer-gizmo-toolbar button');
+
+        function updateGizmoMode(mode) {
+            if (!window.preview) return;
+            window.preview.setGizmoMode(mode);
+
+            // Update UI state for ALL buttons
+            allGizmoButtons.forEach(btn => {
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        allGizmoButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                updateGizmoMode(btn.dataset.mode);
+            });
+        });
+
+        // Helper to manage toolbar visibility
+        function updateToolbarVisibility() {
+            const mode = document.querySelector('input[name="slice_mode"]:checked').value;
+            const toolbar = document.getElementById('viewer-gizmo-toolbar');
+            if (toolbar) {
+                if (mode === 'freeform') {
+                    toolbar.classList.remove('d-none');
+                } else {
+                    toolbar.classList.add('d-none');
+                }
+            }
+        }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ignore if in input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key.toLowerCase() === 't') {
+                updateGizmoMode('translate');
+            } else if (e.key.toLowerCase() === 'r') {
+                updateGizmoMode('rotate');
+            }
+        });
 
         // Input Change Listeners for Detail View
         document.querySelectorAll('.plane-control-input').forEach(input => {
@@ -1121,6 +1306,11 @@
         function updatePreview() {
             if (!window.preview) return;
             window.preview.updateSlicePlanes();
+
+            // Re-attach gizmo if we have a selection (since meshes were recreated)
+            if (typeof selectedPlaneIndex !== 'undefined' && selectedPlaneIndex !== -1) {
+                window.preview.attachGizmo(selectedPlaneIndex);
+            }
         }
 
         // Toggle joint options visibility
