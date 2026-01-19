@@ -262,21 +262,21 @@
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text px-1 text-danger">X</span>
                                                     <input type="number" class="form-control plane-control-input px-1"
-                                                        id="plane-rot-x" step="15">
+                                                        id="plane-rot-x" step="0.1">
                                                 </div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text px-1 text-success">Y</span>
                                                     <input type="number" class="form-control plane-control-input px-1"
-                                                        id="plane-rot-y" step="15">
+                                                        id="plane-rot-y" step="0.1">
                                                 </div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text px-1 text-primary">Z</span>
                                                     <input type="number" class="form-control plane-control-input px-1"
-                                                        id="plane-rot-z" step="15">
+                                                        id="plane-rot-z" step="0.1">
                                                 </div>
                                             </div>
                                         </div>
@@ -657,18 +657,18 @@
 
                 const index = object.userData.index;
                 if (index !== undefined && this.planes[index]) {
-                    // Update internal data model
+                    // Update internal data model with rounded values to prevent precision errors
                     this.planes[index].origin = {
-                        x: object.position.x,
-                        y: object.position.y,
-                        z: object.position.z
+                        x: Math.round(object.position.x * 100) / 100,
+                        y: Math.round(object.position.y * 100) / 100,
+                        z: Math.round(object.position.z * 100) / 100
                     };
 
-                    // Convert Euler (radians) to Degrees for data model
+                    // Convert Euler (radians) to Degrees for data model, rounded to 1 decimal
                     this.planes[index].rotation = {
-                        x: THREE.MathUtils.radToDeg(object.rotation.x),
-                        y: THREE.MathUtils.radToDeg(object.rotation.y),
-                        z: THREE.MathUtils.radToDeg(object.rotation.z)
+                        x: Math.round(THREE.MathUtils.radToDeg(object.rotation.x) * 10) / 10,
+                        y: Math.round(THREE.MathUtils.radToDeg(object.rotation.y) * 10) / 10,
+                        z: Math.round(THREE.MathUtils.radToDeg(object.rotation.z) * 10) / 10
                     };
 
                     // Dispatch event for UI updates
