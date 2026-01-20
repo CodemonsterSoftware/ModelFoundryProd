@@ -514,21 +514,23 @@
                             <p class="mt-2">Upload an STL file to preview</p>
                         </div>
 
-                        <!-- Gizmo Viewer Toolbar -->
-                        <div id="viewer-gizmo-toolbar" class="position-absolute top-0 end-0 p-3 d-none"
+                        <!-- Viewer Toolbar -->
+                        <div id="viewer-toolbar" class="position-absolute top-0 end-0 p-3 d-flex gap-2"
                             style="z-index: 10;">
                             <style>
-                                #viewer-gizmo-toolbar .btn.active {
+                                #viewer-toolbar .btn.active {
                                     color: #fff !important;
                                     background-color: #333 !important;
                                 }
 
-                                #viewer-gizmo-toolbar .btn:hover {
+                                #viewer-toolbar .btn:hover {
                                     color: #000 !important;
                                     background-color: #eee !important;
                                 }
                             </style>
-                            <div class="btn-group rounded shadow-sm" role="group">
+
+                            <!-- Gizmo Controls (Freeform Mode Only) -->
+                            <div id="gizmo-controls" class="btn-group rounded shadow-sm d-none" role="group">
                                 <button type="button" class="btn btn-outline-light btn-sm active" data-mode="translate"
                                     title="Translate (T)">
                                     <i class="fas fa-arrows-alt"></i>
@@ -536,6 +538,14 @@
                                 <button type="button" class="btn btn-outline-light btn-sm" data-mode="rotate"
                                     title="Rotate (R)">
                                     <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+
+                            <!-- Global Controls -->
+                            <div class="btn-group rounded shadow-sm" role="group">
+                                <button type="button" class="btn btn-outline-light btn-sm active" id="toggle-grid-btn"
+                                    title="Toggle Grid (G)">
+                                    <i class="fas fa-border-all"></i>
                                 </button>
                             </div>
                         </div>
@@ -728,8 +738,8 @@
             backLight.position.set(-100, -100, -100);
             this.scene.add(backLight);
 
-            const gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
-            this.scene.add(gridHelper);
+            this.gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
+            this.scene.add(this.gridHelper);
 
             const axesHelper = new THREE.AxesHelper(50);
             this.scene.add(axesHelper);
@@ -1172,6 +1182,15 @@
             // Update slice planes
             this.updateSlicePlanes();
         }
+
+        // Toggle grid visibility
+        toggleGrid() {
+            if (this.gridHelper) {
+                this.gridHelper.visible = !this.gridHelper.visible;
+                return this.gridHelper.visible;
+            }
+            return false;
+        }
     }
 
     // Make available globally
@@ -1357,6 +1376,17 @@
             window.preview.updateSlicePlanes();
         });
 
+        // Toggle Grid Button
+        const toggleGridBtn = document.getElementById('toggle-grid-btn');
+        if (toggleGridBtn) {
+            toggleGridBtn.addEventListener('click', () => {
+                if (window.preview) {
+                    const isVisible = window.preview.toggleGrid();
+                    toggleGridBtn.classList.toggle('active', isVisible);
+                }
+            });
+        }
+
         function renderPlaneSelectionList() {
             const listContainer = document.getElementById('plane-selection-list');
             const planes = window.preview?.planes || [];
@@ -1522,8 +1552,8 @@
         });
 
         // Gizmo Mode Toggle Handlers
-        // Select buttons from both the control panel AND the viewer toolbar
-        const allGizmoButtons = document.querySelectorAll('#gizmo-mode-toggles button, #viewer-gizmo-toolbar button');
+        // Select buttons from both the control panel AND the viewer toolbar (only gizmo controls)
+        const allGizmoButtons = document.querySelectorAll('#gizmo-mode-toggles button, #gizmo-controls button');
 
         function updateGizmoMode(mode) {
             if (!window.preview) return;
@@ -1548,12 +1578,12 @@
         // Helper to manage toolbar visibility
         function updateToolbarVisibility() {
             const mode = document.querySelector('input[name="slice_mode"]:checked').value;
-            const toolbar = document.getElementById('viewer-gizmo-toolbar');
-            if (toolbar) {
+            const gizmoControls = document.getElementById('gizmo-controls');
+            if (gizmoControls) {
                 if (mode === 'freeform') {
-                    toolbar.classList.remove('d-none');
+                    gizmoControls.classList.remove('d-none');
                 } else {
-                    toolbar.classList.add('d-none');
+                    gizmoControls.classList.add('d-none');
                 }
             }
         }

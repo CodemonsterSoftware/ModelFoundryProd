@@ -417,9 +417,15 @@ def validate_mesh(mesh: 'trimesh.Trimesh') -> Dict[str, Any]:
         
         # Check for split bodies (disconnected meshes)
         try:
-            split_meshes = mesh.split()
-            if len(split_meshes) > 1:
-                issues.append(f"Contains {len(split_meshes)} disconnected bodies")
+            # only_watertight=False ensures we split even if parts have holes
+            split_meshes = mesh.split(only_watertight=False)
+            
+            # Filter out noise (tiny artifacts with few faces)
+            # Slicing can sometimes create tiny floating shards
+            significant_bodies = [m for m in split_meshes if len(m.faces) > 50]
+            
+            if len(significant_bodies) > 1:
+                issues.append(f"Contains {len(significant_bodies)} disconnected bodies")
         except Exception as e:
             logger.debug(f"Could not check for split bodies: {e}")
         
