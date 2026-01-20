@@ -98,6 +98,43 @@
     .dropzone input[type="file"] {
         display: none;
     }
+
+    /* Validation Warning Overlay */
+    .validation-warning-overlay {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        color: #dc3545;
+        /* Bootstrap danger color */
+        background-color: rgba(0, 0, 0, 0.7);
+        /* Dark background for better contrast */
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: help;
+        box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+        /* Glowing effect */
+    }
+
+    .validation-warning-overlay i {
+        font-size: 1.2rem;
+        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+    }
+
+    .validation-tooltip .tooltip-inner {
+        background-color: #dc3545;
+        color: white;
+        max-width: 250px;
+        text-align: left;
+    }
+
+    .validation-tooltip .tooltip-arrow::before {
+        border-top-color: #dc3545;
+    }
 </style>
 {% endblock %}
 
@@ -1250,6 +1287,28 @@
         updateModeVisibility();
 
         // ---------------------------------------------------------
+        // Fit Mode: Auto-update planes
+        // ---------------------------------------------------------
+        const fitInputs = [
+            'printer_x', 'printer_y', 'printer_z',
+            'model_units', 'desired_size'
+        ];
+
+        fitInputs.forEach(inputId => {
+            const el = document.getElementById(inputId);
+            if (el) {
+                // Listen to both input (for typing) and change (for select/blur)
+                ['input', 'change'].forEach(evt => {
+                    el.addEventListener(evt, () => {
+                        if (window.preview && document.querySelector('input[name="slice_mode"]:checked')?.value === 'fit') {
+                            window.preview.updateSlicePlanes();
+                        }
+                    });
+                });
+            }
+        });
+
+        // ---------------------------------------------------------
         // Arbitrary Plane Management
         // ---------------------------------------------------------
 
@@ -1648,6 +1707,24 @@
             thumbnailContainer.style.position = 'relative';
             thumbnailContainer.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Loading...</span></div>';
 
+            // Add Validation Warning if invalid
+            if (part.validation && part.validation.valid === false) {
+                const issues = part.validation.issues.join('<br>');
+                const warningOverlay = document.createElement('div');
+                warningOverlay.className = 'validation-warning-overlay';
+                warningOverlay.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                warningOverlay.setAttribute('data-bs-toggle', 'tooltip');
+                warningOverlay.setAttribute('data-bs-placement', 'left');
+                warningOverlay.setAttribute('data-bs-html', 'true');
+                warningOverlay.setAttribute('data-bs-custom-class', 'validation-tooltip');
+                warningOverlay.setAttribute('title', issues);
+
+                thumbnailContainer.appendChild(warningOverlay);
+
+                // Initialize Bootstrap tooltip
+                new bootstrap.Tooltip(warningOverlay);
+            }
+
             // Card body
             const cardBody = document.createElement('div');
             cardBody.className = 'card-body p-2';
@@ -1891,24 +1968,11 @@
                 console.log(`Submitting ${planes.length} plane(s) for slicing:`, planes);
             }
 
-            // ---------------------------------------------------------
-            // Fit Mode: Auto-update planes when parameters change
-            // ---------------------------------------------------------
-            const fitInputs = [
-                'printer_x', 'printer_y', 'printer_z',
-                'model_units', 'desired_size'
-            ];
 
-            fitInputs.forEach(inputId => {
-                const el = document.getElementById(inputId);
-                if (el) {
-                    el.addEventListener('input', () => {
-                        if (window.preview && document.querySelector('input[name="slice_mode"]:checked')?.value === 'fit') {
-                            window.preview.updateSlicePlanes();
-                        }
-                    });
-                }
-            });
+            // ---------------------------------------------------------
+            // Fit Mode: Auto-update planes logic moved to main script
+            // ---------------------------------------------------------
+
 
             submitBtn.disabled = true;
             progressContainer.classList.remove('d-none');

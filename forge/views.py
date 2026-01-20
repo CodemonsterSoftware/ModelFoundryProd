@@ -286,17 +286,30 @@ def api_slice(request):
             # Create ZIP of all parts
             zip_path = job_dir / f"{Path(stl_file.name).stem}_sliced.zip"
             with zipfile.ZipFile(zip_path, 'w') as zf:
-                for output_file in output_files:
-                    zf.write(output_file, Path(output_file).name)
+                for part_data in output_files:
+                    # Handle both dict (new) and string (legacy/fallback) formats
+                    if isinstance(part_data, dict):
+                        file_path = part_data['filepath']
+                    else:
+                        file_path = part_data
+                    
+                    zf.write(file_path, Path(file_path).name)
             
             # Build part information for response
             parts_info = []
-            for idx, output_file in enumerate(output_files):
-                part_path = Path(output_file)
+            for idx, part_data in enumerate(output_files):
+                if isinstance(part_data, dict):
+                    part_path = Path(part_data['filepath'])
+                    validation = part_data.get('validation', {'valid': True, 'issues': []})
+                else:
+                    part_path = Path(part_data)
+                    validation = {'valid': True, 'issues': []}
+                
                 parts_info.append({
                     'index': idx,
                     'filename': part_path.name,
-                    'path': str(part_path.relative_to(FORGE_JOBS_DIR))  # Relative path from media root
+                    'path': str(part_path.relative_to(FORGE_JOBS_DIR)),  # Relative path from media root
+                    'validation': validation
                 })
             
             job_meta['status'] = 'completed'

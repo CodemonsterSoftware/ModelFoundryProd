@@ -79,7 +79,7 @@ def slice_mesh_grid(
          # To keep grid joints working, we need _slice_uniform_grid to return coords.
          pass
     
-    # Export parts
+    # Export parts with validation
     output_files = []
     base_name = input_path.stem
     
@@ -88,8 +88,22 @@ def slice_mesh_grid(
         filename = f"{base_name}_part_{i+1:03d}.stl"
         filepath = output_dir / filename
         part.export(str(filepath))
-        output_files.append(str(filepath))
-        logger.info(f"Exported part {i+1}/{len(parts)}: {filename}")
+        
+        # Validate the part
+        validation_result = validate_mesh(part)
+        
+        # Build result dictionary
+        part_info = {
+            'filepath': str(filepath),
+            'filename': filename,
+            'validation': validation_result
+        }
+        
+        output_files.append(part_info)
+        
+        # Log validation results
+        status = "✓ Valid" if validation_result['valid'] else f"⚠ Issues: {', '.join(validation_result['issues'])}"
+        logger.info(f"Exported part {i+1}/{len(parts)}: {filename} - {status}")
     
     return output_files
 
@@ -370,5 +384,62 @@ def calculate_fit_planes(
             planes[axis] = sections_needed - 1
         
         logger.info(f"Axis {axis.upper()}: Model={model_dim:.1f}mm, Printer={printer_dim:.1f}mm, Planes={planes[axis]}")
-    
+
     return planes
+
+
+def validate_mesh(mesh: 'trimesh.Trimesh') -> Dict[str, Any]:
+    """
+    Validate mesh for common 3D printing issues.
+    
+    Args:
+        mesh: Input trimesh mesh to validate
+        
+    Returns:
+        Dictionary containing:
+        - valid (bool): True if mesh passes all checks
+        - issues (List[str]): List of human-readable issue descriptions
+    """
+    if not TRIMESH_AVAILABLE:
+        return {'valid': True, 'issues': ['Validation unavailable']}
+    
+    issues = []
+    
+    try:
+        # Check if mesh is empty
+        if mesh.is_empty:
+            issues.append("Empty geometry")
+            return {'valid': False, 'issues': issues}
+        
+        # Check if watertight (no open edges/holes)
+        if not mesh.is_watertight:
+            issues.append("Open edges detected (not watertight)")
+        
+        # Check for split bodies (disconnected meshes)
+        try:
+            split_meshes = mesh.split()
+            if len(split_meshes) > 1:
+                issues.append(f"Contains {len(split_meshes)} disconnected bodies")
+        except Exception as e:
+            logger.debug(f"Could not check for split bodies: {e}")
+        
+        # Check if it's a valid volume
+        if not mesh.is_volume:
+            issues.append("Not a valid volume")
+        
+        # Additional basic checks
+        if len(mesh.vertices) == 0:
+            issues.append("No vertices")
+        
+        if len(mesh.faces) == 0:
+            issues.append("No faces")
+            
+    except Exception as e:
+        logger.error(f"Error during mesh validation: {e}")
+        issues.append(f"Validation error: {str(e)}")
+    
+    return {
+        'valid': len(issues) == 0,
+        'issues': issues
+    }
+
