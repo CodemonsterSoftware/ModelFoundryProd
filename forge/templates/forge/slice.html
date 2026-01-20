@@ -153,6 +153,11 @@
                                     <label class="btn btn-outline-primary" for="mode_freeform">
                                         <i class="bi bi-sliders me-2"></i>Freeform
                                     </label>
+
+                                    <input type="radio" class="btn-check" name="slice_mode" id="mode_fit" value="fit">
+                                    <label class="btn btn-outline-primary" for="mode_fit">
+                                        <i class="bi bi-printer me-2"></i>Fit
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -167,21 +172,18 @@
                                             class="text-danger">●</span></label>
                                     <input type="number" class="form-control" id="grid_x" name="grid_x" value="2"
                                         min="0" max="10">
-                                    <div class="form-text small lh-1">0 = no cuts, 1 = 1 cut (2 sections)</div>
                                 </div>
                                 <div class="col-4">
                                     <label for="grid_y" class="form-label">Y Planes <span
                                             class="text-success">●</span></label>
                                     <input type="number" class="form-control" id="grid_y" name="grid_y" value="2"
                                         min="0" max="10">
-                                    <div class="form-text small lh-1">0 = no cuts, 2 = 2 cuts (3 sections)</div>
                                 </div>
                                 <div class="col-4">
                                     <label for="grid_z" class="form-label">Z Planes <span
                                             class="text-primary">●</span></label>
                                     <input type="number" class="form-control" id="grid_z" name="grid_z" value="1"
                                         min="0" max="10">
-                                    <div class="form-text small lh-1">0 = no cuts, 1 = 1 cut (2 sections)</div>
                                 </div>
                             </div>
                         </div>
@@ -284,6 +286,61 @@
                                 </div>
                             </div>
                             <input type="hidden" name="freeform_planes" id="input_freeform_planes" value="[]">
+                        </div>
+
+                        <!-- Fit Mode Configuration -->
+                        <div id="fit-settings" class="d-none">
+                            <h6 class="border-bottom pb-2 mb-3">Fit to Printer</h6>
+                            <p class="small text-muted mb-3">Automatically calculate cuts needed to fit your printer's
+                                build volume.</p>
+
+                            <!-- Printer Dimensions -->
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Printer Build Volume (mm)</label>
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text text-danger">X</span>
+                                            <input type="number" class="form-control" id="printer_x" name="printer_x"
+                                                value="220" min="10" max="1000" step="1">
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text text-success">Y</span>
+                                            <input type="number" class="form-control" id="printer_y" name="printer_y"
+                                                value="220" min="10" max="1000" step="1">
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text text-primary">Z</span>
+                                            <input type="number" class="form-control" id="printer_z" name="printer_z"
+                                                value="250" min="10" max="1000" step="1">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-text small">Common: Ender 3 (220×220×250), Prusa MK3 (250×210×210)
+                                </div>
+                            </div>
+
+                            <!-- Model Configuration -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label for="model_units" class="form-label small fw-bold">Model Units</label>
+                                    <select class="form-select form-select-sm" id="model_units" name="model_units">
+                                        <option value="mm" selected>Millimeters (mm)</option>
+                                        <option value="cm">Centimeters (cm)</option>
+                                        <option value="in">Inches (in)</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label for="desired_size" class="form-label small fw-bold">Desired Size (mm)</label>
+                                    <input type="number" class="form-control form-control-sm" id="desired_size"
+                                        name="desired_size" placeholder="Optional" min="1" step="1">
+                                    <div class="form-text small">Longest dimension</div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Joint Type Selection - HIDDEN (To be implemented later) -->
@@ -895,6 +952,88 @@
                 createUniformPlanes('x', gridX === 0 ? 1 : gridX + 1, 0xff4444);
                 createUniformPlanes('y', gridY === 0 ? 1 : gridY + 1, 0x44ff44);
                 createUniformPlanes('z', gridZ === 0 ? 1 : gridZ + 1, 0x4444ff);
+            } else if (mode === 'fit') {
+                // Fit Mode: Calculate planes based on printer dimensions
+                const min = this.bounds.min;
+
+                // Get fit parameters
+                const getPrinterDim = (id, defaultVal) => {
+                    const el = document.getElementById(id);
+                    if (!el || el.value === '') return defaultVal;
+                    const val = parseFloat(el.value);
+                    return isNaN(val) ? defaultVal : val;
+                };
+
+                const printerX = getPrinterDim('printer_x', 220);
+                const printerY = getPrinterDim('printer_y', 220);
+                const printerZ = getPrinterDim('printer_z', 250);
+
+                const modelUnitsEl = document.getElementById('model_units');
+                const modelUnits = modelUnitsEl ? modelUnitsEl.value : 'mm';
+
+                const desiredSizeEl = document.getElementById('desired_size');
+                const desiredSize = desiredSizeEl && desiredSizeEl.value ? parseFloat(desiredSizeEl.value) : null;
+
+                // Calculate fit planes using same logic as backend
+                const unitFactors = { 'mm': 1.0, 'cm': 10.0, 'in': 25.4 };
+                const factor = unitFactors[modelUnits] || 1.0;
+
+                let modelDims = {
+                    x: size.x * factor,
+                    y: size.y * factor,
+                    z: size.z * factor
+                };
+
+                // Apply scaling if desired size specified
+                if (desiredSize && desiredSize > 0) {
+                    const maxModelDim = Math.max(modelDims.x, modelDims.y, modelDims.z);
+                    if (maxModelDim > 0) {
+                        const scaleFactor = desiredSize / maxModelDim;
+                        modelDims.x *= scaleFactor;
+                        modelDims.y *= scaleFactor;
+                        modelDims.z *= scaleFactor;
+                    }
+                }
+
+                // Calculate planes needed per axis
+                const calculatePlanes = (modelDim, printerDim) => {
+                    if (modelDim <= printerDim) return 0;
+                    return Math.ceil(modelDim / printerDim) - 1;
+                };
+
+                const fitPlanes = {
+                    x: calculatePlanes(modelDims.x, printerX),
+                    y: calculatePlanes(modelDims.y, printerY),
+                    z: calculatePlanes(modelDims.z, printerZ)
+                };
+
+                // Create planes for visualization (same color scheme as uniform but with teal/cyan for Fit)
+                const createFitPlanes = (axis, count, color) => {
+                    const sections = count + 1;
+                    for (let i = 1; i < sections; i++) {
+                        const posVal = min[axis] + (size[axis] * i / sections);
+
+                        let position;
+                        if (axis === 'x') position = new THREE.Vector3(posVal, (min.y + this.bounds.max.y) / 2, (min.z + this.bounds.max.z) / 2);
+                        if (axis === 'y') position = new THREE.Vector3((min.x + this.bounds.max.x) / 2, posVal, (min.z + this.bounds.max.z) / 2);
+                        if (axis === 'z') position = new THREE.Vector3((min.x + this.bounds.max.x) / 2, (min.y + this.bounds.max.y) / 2, posVal);
+
+                        const rotation = new THREE.Euler(
+                            axis === 'y' ? Math.PI / 2 : 0,
+                            axis === 'x' ? Math.PI / 2 : 0,
+                            0
+                        );
+
+                        const plane = this.createSlicePlane(position, rotation, maxDim * 1.5, color);
+                        this.slicePlanes.push(plane);
+                        this.scene.add(plane);
+                    }
+                };
+
+                // Use distinctive teal/cyan color for Fit mode planes
+                createFitPlanes('x', fitPlanes.x, 0xff4444);  // Red for X
+                createFitPlanes('y', fitPlanes.y, 0x44ff44);  // Green for Y
+                createFitPlanes('z', fitPlanes.z, 0x4444ff);  // Blue for Z
             } else {
                 // Freeform Arbitrary Mode
                 this.planes.forEach((planeData, index) => {
@@ -1080,18 +1219,28 @@
         const modeRadios = document.querySelectorAll('input[name="slice_mode"]');
         const uniformSettings = document.getElementById('uniform-settings');
         const freeformSettings = document.getElementById('freeform-settings');
+        const fitSettings = document.getElementById('fit-settings');
 
         function updateModeVisibility() {
             const mode = document.querySelector('input[name="slice_mode"]:checked').value;
+
+            // Hide all mode panels
+            uniformSettings.classList.add('d-none');
+            freeformSettings.classList.add('d-none');
+            fitSettings.classList.add('d-none');
+
+            // Show selected mode panel
             if (mode === 'freeform') {
-                uniformSettings.classList.add('d-none');
                 freeformSettings.classList.remove('d-none');
                 renderPlaneSelectionList();
                 updateControlsState();
+            } else if (mode === 'fit') {
+                fitSettings.classList.remove('d-none');
             } else {
+                // Uniform mode
                 uniformSettings.classList.remove('d-none');
-                freeformSettings.classList.add('d-none');
             }
+
             if (window.preview) window.preview.updateSlicePlanes();
             updateToolbarVisibility();
         }
@@ -1741,6 +1890,25 @@
 
                 console.log(`Submitting ${planes.length} plane(s) for slicing:`, planes);
             }
+
+            // ---------------------------------------------------------
+            // Fit Mode: Auto-update planes when parameters change
+            // ---------------------------------------------------------
+            const fitInputs = [
+                'printer_x', 'printer_y', 'printer_z',
+                'model_units', 'desired_size'
+            ];
+
+            fitInputs.forEach(inputId => {
+                const el = document.getElementById(inputId);
+                if (el) {
+                    el.addEventListener('input', () => {
+                        if (window.preview && document.querySelector('input[name="slice_mode"]:checked')?.value === 'fit') {
+                            window.preview.updateSlicePlanes();
+                        }
+                    });
+                }
+            });
 
             submitBtn.disabled = true;
             progressContainer.classList.remove('d-none');

@@ -34,6 +34,7 @@ class SliceForm(STLUploadForm):
     MODE_CHOICES = [
         ('uniform', 'Uniform Grid'),
         ('freeform', 'Freeform Planes'),
+        ('fit', 'Fit to Printer'),
     ]
     slice_mode = forms.ChoiceField(
         choices=MODE_CHOICES,
@@ -136,4 +137,41 @@ class SliceForm(STLUploadForm):
         min_value=0,
         max_value=10,
         label='Dovetails per edge (0 = auto)'
+    )
+    
+    # Fit mode - Printer dimensions
+    printer_x = forms.FloatField(
+        required=False,
+        initial=220.0,
+        min_value=10.0,
+        max_value=1000.0,
+        label='Printer X (mm)'
+    )
+    printer_y = forms.FloatField(
+        required=False,
+        initial=220.0,
+        min_value=10.0,
+        max_value=1000.0,
+        label='Printer Y (mm)'
+    )
+    printer_z = forms.FloatField(
+        required=False,
+        initial=250.0,
+        min_value=10.0,
+        max_value=1000.0,
+        label='Printer Z (mm)'
+    )
+    
+    # Fit mode - Model configuration
+    model_units = forms.ChoiceField(
+        required=False,
+        choices=[('mm', 'Millimeters'), ('cm', 'Centimeters'), ('in', 'Inches')],
+        initial='mm',
+        label='Model Units'
+    )
+    desired_size = forms.FloatField(
+        required=False,
+        min_value=1.0,
+        label='Desired Model Size (mm)',
+        help_text='Target size of the longest dimension'
     )

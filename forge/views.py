@@ -190,6 +190,48 @@ def api_slice(request):
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode plane data: {e}")
                 return JsonResponse({'success': False, 'error': 'Invalid plane data JSON'}, status=400)
+        elif slice_mode == 'fit':
+            # Fit mode: Calculate planes needed to fit printer build volume
+            import trimesh
+            from .services.slicer import calculate_fit_planes
+            
+            # Load mesh to get dimensions
+            mesh = trimesh.load(str(input_path))
+            
+            # Extract printer dimensions from form
+            printer_dims = {
+                'x': form.cleaned_data.get('printer_x', 220.0),
+                'y': form.cleaned_data.get('printer_y', 220.0),
+                'z': form.cleaned_data.get('printer_z', 250.0),
+            }
+            
+            model_units = form.cleaned_data.get('model_units', 'mm')
+            desired_size = form.cleaned_data.get('desired_size')
+            
+            # Get model dimensions from bounds
+            bounds = mesh.bounds
+            model_dims = {
+                'x': bounds[1][0] - bounds[0][0],
+                'y': bounds[1][1] - bounds[0][1],
+                'z': bounds[1][2] - bounds[0][2],
+            }
+            
+            # Calculate required planes
+            fit_grid = calculate_fit_planes(
+                model_dims=model_dims,
+                printer_dims=printer_dims,
+                model_units=model_units,
+                desired_size=desired_size
+            )
+            
+            logger.info(f"Fit mode calculated planes: {fit_grid}")
+            
+            # Convert planes to sections (same logic as uniform mode)
+            grid_config = {
+                'x': 1 if fit_grid['x'] == 0 else fit_grid['x'] + 1,
+                'y': 1 if fit_grid['y'] == 0 else fit_grid['y'] + 1,
+                'z': 1 if fit_grid['z'] == 0 else fit_grid['z'] + 1,
+            }
         else:
             # Uniform mode: Input is number of planes (cuts).
             # Slicer expects number of sections (grid divisions).

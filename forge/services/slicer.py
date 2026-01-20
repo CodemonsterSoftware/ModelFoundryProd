@@ -287,3 +287,88 @@ def _euler_to_normal(x_deg, y_deg, z_deg):
     v_rot = r_comb @ v
     
     return v_rot.tolist()
+
+
+def calculate_model_dimensions(mesh: 'trimesh.Trimesh') -> Dict[str, float]:
+    """
+    Calculate the dimensions of a mesh from its bounding box.
+    
+    Args:
+        mesh: Input trimesh mesh
+        
+    Returns:
+        Dictionary with x, y, z dimensions in mm
+    """
+    bounds = mesh.bounds
+    dimensions = {
+        'x': float(bounds[1][0] - bounds[0][0]),
+        'y': float(bounds[1][1] - bounds[0][1]),
+        'z': float(bounds[1][2] - bounds[0][2]),
+    }
+    return dimensions
+
+
+def calculate_fit_planes(
+    model_dims: Dict[str, float],
+    printer_dims: Dict[str, float],
+    model_units: str = 'mm',
+    desired_size: float = None
+) -> Dict[str, int]:
+    """
+    Calculate the number of cutting planes needed to fit a model into a printer's build volume.
+    
+    Args:
+        model_dims: Model dimensions dict with x, y, z in model units
+        printer_dims: Printer build volume dict with x, y, z in mm
+        model_units: Units of the model ('mm', 'cm', or 'in')
+        desired_size: Optional target size for the longest dimension in mm
+        
+    Returns:
+        Dictionary with number of planes needed per axis {x, y, z}
+    """
+    # Unit conversion factors to mm
+    unit_factors = {
+        'mm': 1.0,
+        'cm': 10.0,
+        'in': 25.4,
+    }
+    
+    # Convert model dimensions to mm
+    factor = unit_factors.get(model_units, 1.0)
+    model_dims_mm = {
+        'x': model_dims['x'] * factor,
+        'y': model_dims['y'] * factor,
+        'z': model_dims['z'] * factor,
+    }
+    
+    # Apply scaling if desired size is specified
+    if desired_size is not None and desired_size > 0:
+        # Find longest dimension
+        max_dim = max(model_dims_mm.values())
+        if max_dim > 0:
+            scale_factor = desired_size / max_dim
+            model_dims_mm = {
+                axis: dim * scale_factor
+                for axis, dim in model_dims_mm.items()
+            }
+            logger.info(f"Scaling model by {scale_factor:.3f}x to achieve desired size of {desired_size}mm")
+    
+    # Calculate planes needed per axis
+    # If model_dim <= printer_dim: 0 planes (no cutting needed)
+    # If model_dim > printer_dim: ceil(model_dim / printer_dim) - 1 planes
+    planes = {}
+    for axis in ['x', 'y', 'z']:
+        model_dim = model_dims_mm[axis]
+        printer_dim = printer_dims[axis]
+        
+        if model_dim <= printer_dim:
+            planes[axis] = 0
+        else:
+            # Number of sections needed
+            sections_needed = math.ceil(model_dim / printer_dim)
+            # Number of cuts = sections - 1
+            planes[axis] = sections_needed - 1
+        
+        logger.info(f"Axis {axis.upper()}: Model={model_dim:.1f}mm, Printer={printer_dim:.1f}mm, Planes={planes[axis]}")
+    
+    return planes
