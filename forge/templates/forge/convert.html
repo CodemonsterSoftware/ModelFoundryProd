@@ -3,6 +3,77 @@
 
 {% block title %}STL to STEP Conversion - Forge{% endblock %}
 
+{% block extra_css %}
+<style>
+    #preview-container {
+        width: 100%;
+        height: 500px;
+        background-color: var(--bg-darker);
+        border: 1px solid var(--border-dark);
+        border-radius: 0.375rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    #preview-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: var(--text-muted);
+        text-align: center;
+        pointer-events: none;
+    }
+
+    /* Drag and drop zone */
+    .dropzone {
+        border: 2px dashed var(--border-dark);
+        border-radius: 0.5rem;
+        padding: 2rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--bg-darker);
+    }
+
+    .dropzone:hover {
+        border-color: var(--primary-color);
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+
+    .dropzone.dragover {
+        border-color: #198754;
+        background-color: rgba(25, 135, 84, 0.15);
+    }
+
+    .dropzone.has-file {
+        border-color: #198754;
+        border-style: solid;
+    }
+
+    .dropzone-icon {
+        font-size: 2.5rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+
+    .dropzone-text {
+        color: var(--text-muted);
+        margin-bottom: 0;
+    }
+
+    .dropzone-filename {
+        color: var(--text-light);
+        font-weight: 500;
+        margin-top: 0.5rem;
+    }
+
+    .dropzone input[type="file"] {
+        display: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <nav aria-label="breadcrumb" class="mb-3">
@@ -13,9 +84,10 @@
     </nav>
 
     <div class="row">
-        <div class="col-lg-8">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
+        <!-- Left Column: Form -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header text-white">
                     <h5 class="mb-0">
                         <i class="bi bi-arrow-repeat"></i> Convert STL to STEP
                     </h5>
@@ -24,27 +96,35 @@
                     <form id="convert-form" method="post" enctype="multipart/form-data">
                         {% csrf_token %}
 
+                        <!-- File Upload (Drag & Drop) -->
                         <div class="mb-4">
-                            <label for="stl_file" class="form-label">STL File</label>
-                            <input type="file" class="form-control form-control-lg" id="stl_file" name="stl_file"
-                                accept=".stl" required>
-                            <div class="form-text">Select an STL file to convert</div>
+                            <label class="form-label">STL File</label>
+                            <div class="dropzone" id="dropzone">
+                                <input type="file" id="stl_file" name="stl_file" accept=".stl" required>
+                                <div class="dropzone-icon">
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                </div>
+                                <p class="dropzone-text">Drag & drop an STL file here</p>
+                                <p class="dropzone-text small">or click to select</p>
+                                <p class="dropzone-filename d-none" id="filename-display"></p>
+                            </div>
                         </div>
 
+                        <!-- Conversion Options -->
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <div class="form-check">
+                                <div class="form-check mt-3">
                                     <input type="checkbox" class="form-check-input" id="repair_mesh" name="repair_mesh"
                                         checked>
                                     <label class="form-check-label" for="repair_mesh">
-                                        Repair mesh before conversion
+                                        Repair mesh
                                     </label>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="tolerance" class="form-label">Tolerance (mm)</label>
                                 <input type="number" class="form-control" id="tolerance" name="tolerance" value="0.1"
-                                    min="0.001" max="1" step="0.01">
+                                    min="0.001" max="1" step="0.001">
                             </div>
                         </div>
 
@@ -74,10 +154,9 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-lg-4">
-            <div class="card">
+            <!-- Info Card -->
+            <div class="card shadow-sm">
                 <div class="card-header">
                     <h6 class="mb-0"><i class="bi bi-info-circle"></i> About this tool</h6>
                 </div>
@@ -94,56 +173,363 @@
                 </div>
             </div>
         </div>
+
+        <!-- Right Column: 3D Preview -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="bi bi-eye"></i> Preview</h6>
+                </div>
+
+                <!-- 3D Viewport Area -->
+                <div class="card-body p-0 position-relative" style="min-height: 500px; background-color: #1a1a1a;">
+                    <div id="preview-container" class="position-absolute"
+                        style="top:0; left:0; right:0; bottom:0; overflow: hidden;">
+                        <div id="preview-message">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Upload an STL file to preview</p>
+                        </div>
+
+                        <!-- Viewer Toolbar -->
+                        <div id="viewer-toolbar" class="position-absolute top-0 end-0 p-3 d-flex gap-2"
+                            style="z-index: 10;">
+                            <style>
+                                #viewer-toolbar .btn.active {
+                                    color: #fff !important;
+                                    background-color: #333 !important;
+                                }
+
+                                #viewer-toolbar .btn:hover {
+                                    color: #000 !important;
+                                    background-color: #eee !important;
+                                }
+                            </style>
+
+                            <!-- Global Controls -->
+                            <div class="btn-group rounded shadow-sm" role="group">
+                                <button type="button" class="btn btn-outline-light btn-sm active" id="toggle-grid-btn"
+                                    title="Toggle Grid (G)">
+                                    <i class="fas fa-border-all"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer py-2 d-flex justify-content-between align-items-center border-top-0">
+                    <small class="text-muted">
+                        Drag to rotate • Scroll to zoom • Right-click to pan
+                    </small>
+                    <button type="button" class="btn btn-outline-dark btn-sm" id="reset-view-btn">
+                        Reset View
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<script>
-    document.getElementById('convert-form').addEventListener('submit', async function (e) {
-        e.preventDefault();
+<!-- Three.js ES Modules with importmap -->
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
 
-        const form = e.target;
-        const formData = new FormData(form);
-        const submitBtn = document.getElementById('submit-btn');
-        const progressContainer = document.getElementById('progress-container');
-        const resultContainer = document.getElementById('result-container');
+<script type="module">
+    import * as THREE from 'three';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        submitBtn.disabled = true;
-        progressContainer.classList.remove('d-none');
-        resultContainer.classList.add('d-none');
+    class ModelPreview {
+        constructor(containerId) {
+            this.container = document.getElementById(containerId);
+            if (!this.container) return;
 
-        try {
-            const response = await fetch('{% url "forge:api_convert" %}', {
-                method: 'POST',
-                body: formData
-            });
+            this.scene = null;
+            this.camera = null;
+            this.renderer = null;
+            this.controls = null;
+            this.model = null;
+            this.bounds = null;
 
-            const data = await response.json();
-
-            progressContainer.classList.add('d-none');
-            resultContainer.classList.remove('d-none');
-
-            const resultAlert = document.getElementById('result-alert');
-            const resultMessage = document.getElementById('result-message');
-            const downloadLink = document.getElementById('download-link');
-
-            if (data.success) {
-                resultAlert.className = 'alert alert-success';
-                resultMessage.textContent = 'Conversion complete!';
-                downloadLink.href = `/forge/api/download/${data.job_id}/`;
-                downloadLink.classList.remove('d-none');
-            } else {
-                resultAlert.className = 'alert alert-danger';
-                resultMessage.textContent = data.error || data.message || 'Conversion failed';
-                downloadLink.classList.add('d-none');
-            }
-        } catch (error) {
-            progressContainer.classList.add('d-none');
-            resultContainer.classList.remove('d-none');
-            document.getElementById('result-alert').className = 'alert alert-danger';
-            document.getElementById('result-message').textContent = 'Error: ' + error.message;
-        } finally {
-            submitBtn.disabled = false;
+            this.init();
         }
+
+        init() {
+            this.scene = new THREE.Scene();
+            this.scene.background = new THREE.Color(0x1a1a1a);
+
+            const width = this.container.clientWidth;
+            const height = this.container.clientHeight || 400;
+            this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+            this.camera.position.set(100, 100, 100);
+
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            this.renderer.setSize(width, height);
+            this.renderer.setPixelRatio(window.devicePixelRatio);
+            this.container.appendChild(this.renderer.domElement);
+
+            this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.05;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            this.scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(100, 100, 100);
+            this.scene.add(directionalLight);
+
+            const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            backLight.position.set(-100, -100, -100);
+            this.scene.add(backLight);
+
+            // Grid helper
+            this.gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
+            this.scene.add(this.gridHelper);
+
+            const axesHelper = new THREE.AxesHelper(50);
+            this.scene.add(axesHelper);
+
+            window.addEventListener('resize', () => this.onResize());
+            this.animate();
+        }
+
+        onResize() {
+            const width = this.container.clientWidth;
+            const height = this.container.clientHeight || 400;
+            this.camera.aspect = width / height;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(width, height);
+        }
+
+        animate() {
+            requestAnimationFrame(() => this.animate());
+            this.controls.update();
+            this.renderer.render(this.scene, this.camera);
+        }
+
+        loadSTL(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const contents = event.target.result;
+                const loader = new STLLoader();
+
+                try {
+                    const geometry = loader.parse(contents);
+
+                    if (this.model) {
+                        this.scene.remove(this.model);
+                        this.model.geometry.dispose();
+                        this.model.material.dispose();
+                    }
+
+                    const material = new THREE.MeshStandardMaterial({
+                        color: 0x0d6efd,
+                        metalness: 0.3,
+                        roughness: 0.6,
+                        flatShading: false
+                    });
+
+                    this.model = new THREE.Mesh(geometry, material);
+
+                    geometry.computeBoundingBox();
+                    this.bounds = geometry.boundingBox;
+
+                    const center = new THREE.Vector3();
+                    this.bounds.getCenter(center);
+                    geometry.translate(-center.x, -center.y, -center.z);
+
+                    geometry.computeBoundingBox();
+                    this.bounds = geometry.boundingBox;
+
+                    this.scene.add(this.model);
+                    this.fitCameraToModel();
+                } catch (error) {
+                    console.error('Error loading STL:', error);
+                    alert('Error loading STL file. Please ensure it is a valid STL.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        fitCameraToModel() {
+            if (!this.bounds) return;
+            const size = new THREE.Vector3();
+            this.bounds.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            if (maxDim === 0) return;
+
+            this.camera.near = maxDim / 1000;
+            this.camera.far = maxDim * 100;
+            this.camera.updateProjectionMatrix();
+
+            const fov = this.camera.fov * (Math.PI / 180);
+            const cameraDistance = maxDim / (2 * Math.tan(fov / 2)) * 1.5;
+
+            this.camera.position.set(cameraDistance, cameraDistance * 0.8, cameraDistance);
+            this.camera.lookAt(0, 0, 0);
+            this.controls.target.set(0, 0, 0);
+            this.controls.maxDistance = cameraDistance * 5;
+            this.controls.minDistance = maxDim / 100;
+            this.controls.update();
+        }
+
+        toggleGrid() {
+            if (this.gridHelper) {
+                this.gridHelper.visible = !this.gridHelper.visible;
+                return this.gridHelper.visible;
+            }
+            return false;
+        }
+
+        resetView() {
+            this.fitCameraToModel();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize 3D preview
+        window.preview = new ModelPreview('preview-container');
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('stl_file');
+        const filenameDisplay = document.getElementById('filename-display');
+
+        // Prevent browser default drag-drop behavior
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // Click to open file dialog
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        // Drag events
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('dragover');
+        });
+
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].name.toLowerCase().endsWith('.stl')) {
+                handleFile(files[0]);
+                const dt = new DataTransfer();
+                dt.items.add(files[0]);
+                fileInput.files = dt.files;
+            }
+        });
+
+        fileInput.addEventListener('change', function (e) {
+            if (this.files.length > 0) {
+                handleFile(this.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            dropzone.classList.add('has-file');
+            filenameDisplay.textContent = file.name;
+            filenameDisplay.classList.remove('d-none');
+            dropzone.querySelector('.dropzone-text').textContent = 'File loaded:';
+            const smallText = dropzone.querySelector('.dropzone-text.small');
+            if (smallText) smallText.classList.add('d-none');
+            dropzone.querySelector('.dropzone-icon i').className = 'fas fa-check-circle text-success';
+
+            // Hide/Show logic for upload section can be added here if desired
+
+            document.getElementById('preview-message').style.display = 'none';
+            window.preview.loadSTL(file);
+        }
+
+        // Toggle Grid Button
+        const toggleGridBtn = document.getElementById('toggle-grid-btn');
+        if (toggleGridBtn) {
+            toggleGridBtn.addEventListener('click', () => {
+                if (window.preview) {
+                    const isVisible = window.preview.toggleGrid();
+                    toggleGridBtn.classList.toggle('active', isVisible);
+                }
+            });
+        }
+
+        // Reset View Button
+        const resetViewBtn = document.getElementById('reset-view-btn');
+        if (resetViewBtn) {
+            resetViewBtn.addEventListener('click', () => {
+                if (window.preview) {
+                    window.preview.resetView();
+                }
+            });
+        }
+
+        // Form Submission Logic
+        document.getElementById('convert-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('submit-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const resultContainer = document.getElementById('result-container');
+
+            submitBtn.disabled = true;
+            progressContainer.classList.remove('d-none');
+            resultContainer.classList.add('d-none');
+
+            try {
+                const response = await fetch('{% url "forge:api_convert" %}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                progressContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+
+                const resultAlert = document.getElementById('result-alert');
+                const resultMessage = document.getElementById('result-message');
+                const downloadLink = document.getElementById('download-link');
+
+                if (data.success) {
+                    resultAlert.className = 'alert alert-success';
+                    resultMessage.textContent = 'Conversion complete!';
+                    downloadLink.href = `/forge/api/download/${data.job_id}/`;
+                    downloadLink.classList.remove('d-none');
+                } else {
+                    resultAlert.className = 'alert alert-danger';
+                    resultMessage.textContent = data.error || data.message || 'Conversion failed';
+                    downloadLink.classList.add('d-none');
+                }
+            } catch (error) {
+                progressContainer.classList.add('d-none');
+                resultContainer.classList.remove('d-none');
+                document.getElementById('result-alert').className = 'alert alert-danger';
+                document.getElementById('result-message').textContent = 'Error: ' + error.message;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
     });
 </script>
 {% endblock %}

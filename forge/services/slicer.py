@@ -18,6 +18,9 @@ except ImportError:
     TRIMESH_AVAILABLE = False
     logger.warning("trimesh not available. Slicing features disabled.")
 
+# Blender service availability (checked lazily)
+BLENDER_AVAILABLE = None  # None = not checked yet
+
 
 def slice_mesh_grid(
     input_path: str,

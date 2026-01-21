@@ -9,18 +9,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Try to import pythonocc-core
-PYTHONOCC_AVAILABLE = False
+# Try to import BlenderClient
 try:
-    from OCC.Core.STEPControl import STEPControl_Writer, STEPControl_AsIs
-    from OCC.Core.StlAPI import StlAPI_Reader
-    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Sewing, BRepBuilderAPI_MakeSolid
-    from OCC.Core.TopoDS import TopoDS_Shape
-    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
-    PYTHONOCC_AVAILABLE = True
-    logger.info("pythonocc-core is available for STL to STEP conversion")
+    from forge.services.blender_client import BlenderClient
+    BLENDER_CLIENT_AVAILABLE = True
 except ImportError:
-    logger.warning("pythonocc-core not available. STL to STEP conversion will be limited.")
+    BLENDER_CLIENT_AVAILABLE = False
+    logger.warning("BlenderClient could not be imported")
+
+
 
 
 def repair_mesh_with_trimesh(input_path: str, output_path: str) -> bool:
@@ -60,6 +57,48 @@ def repair_mesh_with_trimesh(input_path: str, output_path: str) -> bool:
         return False
 
 
+def repair_mesh_with_blender(input_path: str, output_path: str) -> bool:
+    """
+    Repair a mesh using Blender service.
+    
+    Args:
+        input_path: Path to input STL file
+        output_path: Path to save repaired STL
+        
+    Returns:
+        True if repair was successful
+    """
+    if not BLENDER_CLIENT_AVAILABLE:
+        return False
+        
+    try:
+        client = BlenderClient()
+        if not client.is_available():
+            logger.debug("Blender service unavailable")
+            return False
+            
+        logger.info(f"Attempting mesh repair with Blender: {input_path}")
+        client.process_file(
+            input_path=input_path,
+            output_path=output_path,
+            operation='script',
+            script_path='repair.py'
+        )
+        
+        # Verify output exists
+        if Path(output_path).exists():
+            logger.info("Blender repair successful")
+            return True
+        else:
+            logger.warning("Blender repair reported success but output file missing")
+            return False
+            
+    except Exception as e:
+        logger.warning(f"Blender repair failed: {e}")
+        return False
+
+
+
 def convert_stl_to_step(
     input_path: str,
     output_path: str,
@@ -80,77 +119,38 @@ def convert_stl_to_step(
         
     Raises:
         RuntimeError: If conversion fails
-        ImportError: If pythonocc-core is not available
+        RuntimeError: If conversion fails
     """
-    if not PYTHONOCC_AVAILABLE:
-        raise ImportError(
-            "pythonocc-core is required for STL to STEP conversion. "
-            "Install with: conda install -c conda-forge pythonocc-core"
-        )
     
-    input_path = Path(input_path)
-    output_path = Path(output_path)
     
-    if not input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {input_path}")
-    
-    # Optionally repair mesh first
-    working_path = input_path
-    if repair:
-        repaired_path = input_path.parent / f"{input_path.stem}_repaired.stl"
-        if repair_mesh_with_trimesh(str(input_path), str(repaired_path)):
-            working_path = repaired_path
-    
+    if not BLENDER_CLIENT_AVAILABLE:
+        raise RuntimeError("BlenderClient module not found")
+
     try:
-        # Step 1: Read STL file
-        logger.info(f"Reading STL file: {working_path}")
-        stl_reader = StlAPI_Reader()
-        shape = TopoDS_Shape()
-        
-        if not stl_reader.Read(shape, str(working_path)):
-            raise RuntimeError(f"Failed to read STL file: {working_path}")
-        
-        # Step 2: Sew the faces together
-        logger.info(f"Sewing faces with tolerance {tolerance}")
-        sewer = BRepBuilderAPI_Sewing(tolerance)
-        sewer.Add(shape)
-        sewer.Perform()
-        sewn_shape = sewer.SewedShape()
-        
-        # Step 3: Try to create a solid
-        logger.info("Creating solid from sewn shape")
-        try:
-            solid_maker = BRepBuilderAPI_MakeSolid()
-            solid_maker.Add(sewn_shape)
-            if solid_maker.IsDone():
-                final_shape = solid_maker.Solid()
+        client = BlenderClient()
+        if client.is_available():
+            logger.info(f"Delegating conversion to Blender service: {input_path}")
+            result = client.process_file(
+                input_path=str(input_path),
+                output_path=str(output_path),
+                operation='script',
+                script_path='convert.py',
+                params={
+                    'repair_mesh': repair,
+                    'tolerance': tolerance
+                }
+            )
+            
+            if Path(output_path).exists():
+                logger.info(f"Blender conversion successful: {output_path}")
+                return True
             else:
-                logger.warning("Could not create solid, using sewn shell instead")
-                final_shape = sewn_shape
-        except Exception as e:
-            logger.warning(f"Solid creation failed: {e}, using sewn shell")
-            final_shape = sewn_shape
-        
-        # Step 4: Write STEP file
-        logger.info(f"Writing STEP file: {output_path}")
-        step_writer = STEPControl_Writer()
-        step_writer.Transfer(final_shape, STEPControl_AsIs)
-        
-        status = step_writer.Write(str(output_path))
-        if status != 1:  # IFSelect_RetDone = 1
-            raise RuntimeError(f"Failed to write STEP file, status: {status}")
-        
-        logger.info(f"Successfully converted {input_path} to {output_path}")
-        return True
-        
+                raise RuntimeError("Blender service reported success but output file missing")
+        else:
+            raise RuntimeError("Blender service unavailable, cannot convert.")
     except Exception as e:
-        logger.error(f"STL to STEP conversion failed: {e}")
-        raise RuntimeError(f"Conversion failed: {e}")
+        logger.error(f"Blender conversion failed: {e}")
+        raise RuntimeError(f"Blender conversion failed: {e}")
+
     
-    finally:
-        # Clean up repaired file if created
-        if repair and working_path != input_path:
-            try:
-                working_path.unlink()
-            except:
-                pass
+
