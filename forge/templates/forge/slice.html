@@ -1958,6 +1958,16 @@
                     // Load the STL without slice planes
                     window.preview.loadSTL(file, false);
 
+                    // Show connector markers if part has connectors
+                    if (part.has_connectors && part.connectors && part.connectors.length > 0) {
+                        // Small delay to ensure model is loaded
+                        setTimeout(() => {
+                            window.preview.showConnectorMarkers(part.connectors);
+                        }, 200);
+                    } else {
+                        window.preview.clearConnectorMarkers();
+                    }
+
                     // Small delay to ensure loading starts, then scroll
                     setTimeout(() => {
                         document.getElementById('preview-container').scrollIntoView({
@@ -2048,13 +2058,16 @@
 
                     // Show dowel info if any
                     if (data.dowels && data.dowels.length > 0) {
+                        // Remove any existing dowel info alerts first
+                        document.querySelectorAll('.dowel-info-alert').forEach(el => el.remove());
+
                         const dowelInfo = data.dowels.map(d =>
                             `<li><strong>${d.filename}</strong> - Print <strong>${d.count_needed}</strong> copies (${d.diameter}mm x ${d.height}mm)</li>`
                         ).join('');
 
                         // Append to result or show separate info
                         const dowelAlert = document.createElement('div');
-                        dowelAlert.className = 'alert alert-info mt-3';
+                        dowelAlert.className = 'alert text-dark mt-3 dowel-info-alert';
                         dowelAlert.innerHTML = `
                             <strong><i class="bi bi-printer me-2"></i>Dowels Needed:</strong>
                             <ul class="mb-0 mt-2">${dowelInfo}</ul>

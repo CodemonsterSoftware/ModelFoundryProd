@@ -919,12 +919,13 @@ def _apply_connectors(
                 # NOTE: Skipping repair step as it was destroying connector holes
                 # The Blender boolean operations produce clean enough geometry
                 
-                # Update part info with connector path
+                # Update part info with connector path and positions for visualization
                 modified_parts[idx] = {
                     **part_info,
                     'filepath': output_path,
                     'filename': Path(output_path).name,
-                    'has_connectors': True
+                    'has_connectors': True,
+                    'connector_positions': connectors  # Include positions for 3D viewer
                 }
                 logger.info(f"  Successfully applied connectors to part {idx + 1}")
             else:

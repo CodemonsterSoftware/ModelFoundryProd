@@ -18,6 +18,7 @@ class SlicePreview {
         this.controls = null;
         this.model = null;
         this.slicePlanes = [];
+        this.connectorMarkers = [];  // For visualizing connector positions
         this.bounds = null;
 
         this.init();
@@ -287,6 +288,64 @@ class SlicePreview {
             existingText.textContent = text;
             existingText.style.display = text ? 'block' : 'none';
         }
+    }
+
+    clearConnectorMarkers() {
+        this.connectorMarkers.forEach(marker => {
+            this.scene.remove(marker);
+            if (marker.geometry) marker.geometry.dispose();
+            if (marker.material) marker.material.dispose();
+        });
+        this.connectorMarkers = [];
+    }
+
+    showConnectorMarkers(connectors) {
+        if (!connectors || connectors.length === 0) return;
+
+        this.clearConnectorMarkers();
+
+        connectors.forEach(conn => {
+            const pos = conn.position;
+            const type = conn.type;
+            const diameter = conn.diameter || 4;
+            const depth = conn.depth || 5;
+
+            // Create cylinder geometry for connector marker
+            const geometry = new THREE.CylinderGeometry(
+                diameter / 2 * 1.2,  // Slightly larger for visibility
+                diameter / 2 * 1.2,
+                depth * 0.5,  // Shorter for preview
+                16
+            );
+
+            // Color: green for pins, red for holes
+            const color = type === 'pin' ? 0x00ff00 : 0xff4444;
+            const material = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            const marker = new THREE.Mesh(geometry, material);
+
+            // Position the marker
+            marker.position.set(pos[0], pos[1], pos[2]);
+
+            // Rotate based on normal direction
+            const normal = conn.normal || [0, 0, 1];
+            if (Math.abs(normal[0]) > 0.9) {
+                marker.rotation.z = Math.PI / 2;
+            } else if (Math.abs(normal[1]) > 0.9) {
+                // Y-axis is default for cylinder, no rotation needed
+            } else {
+                marker.rotation.x = Math.PI / 2;
+            }
+
+            this.scene.add(marker);
+            this.connectorMarkers.push(marker);
+        });
+
+        console.log(`Added ${connectors.length} connector markers`);
     }
 }
 

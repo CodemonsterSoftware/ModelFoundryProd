@@ -312,17 +312,20 @@ def api_slice(request):
                     part_path = Path(part_data['filepath'])
                     validation = part_data.get('validation', {'valid': True, 'issues': []})
                     has_connectors = part_data.get('has_connectors', False)
+                    connector_positions = part_data.get('connector_positions', [])
                 else:
                     part_path = Path(part_data)
                     validation = {'valid': True, 'issues': []}
                     has_connectors = False
+                    connector_positions = []
                 
                 parts_info.append({
                     'index': idx,
                     'filename': part_path.name,
                     'path': str(part_path.relative_to(FORGE_JOBS_DIR)),  # Relative path from media root
                     'validation': validation,
-                    'has_connectors': has_connectors
+                    'has_connectors': has_connectors,
+                    'connectors': connector_positions  # For 3D preview visualization
                 })
             
             # Build dowel info for response
