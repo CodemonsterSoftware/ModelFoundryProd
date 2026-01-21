@@ -574,39 +574,59 @@ def _get_profile_connector_positions(
             width = usable_max_1 - usable_min_1
             height = usable_max_2 - usable_min_2
             
-            if width > height:
-                n_cols = min(count, max(2, int(np.sqrt(count * 2))))
-                n_rows = max(1, (count + n_cols - 1) // n_cols)
-            else:
-                n_rows = min(count, max(2, int(np.sqrt(count * 2))))
-                n_cols = max(1, (count + n_rows - 1) // n_rows)
+            # Check if there's enough space for multiple connectors
+            # Each connector needs at least 2x diameter of space
+            min_spacing = margin * 2  # Minimum space between connector centers
+            max_per_axis_1 = max(1, int(width / min_spacing)) if width > 0 else 1
+            max_per_axis_2 = max(1, int(height / min_spacing)) if height > 0 else 1
+            max_connectors = max_per_axis_1 * max_per_axis_2
             
-            step_1 = width / max(n_cols, 1)
-            step_2 = height / max(n_rows, 1)
+            if count > max_connectors:
+                logger.warning(f"Requested {count} connectors but only room for {max_connectors}. Reducing count.")
+                count = max_connectors
             
-            found = 0
-            for row in range(n_rows):
-                for col in range(n_cols):
-                    if found >= count:
-                        break
-                    
-                    pos = np.zeros(3)
-                    pos[axis] = interface_pos
-                    pos[ax1] = usable_min_1 + (col + 0.5) * step_1
-                    pos[ax2] = usable_min_2 + (row + 0.5) * step_2
-                    
-                    positions_3d.append(pos)
-                    found += 1
-                if found >= count:
-                    break
-            
-            # Fallback to centroid if no positions found
-            if len(positions_3d) == 0:
+            # If space is too small, just use 1 connector at center
+            if width < margin or height < margin:
+                logger.warning(f"Cut face too small for multiple connectors ({width:.1f}x{height:.1f}), using single centered connector")
                 centroid = np.zeros(3)
                 centroid[axis] = interface_pos
                 centroid[ax1] = (min_1 + max_1) / 2
                 centroid[ax2] = (min_2 + max_2) / 2
                 positions_3d.append(centroid)
+            else:
+                if width > height:
+                    n_cols = min(count, max(2, int(np.sqrt(count * 2))))
+                    n_rows = max(1, (count + n_cols - 1) // n_cols)
+                else:
+                    n_rows = min(count, max(2, int(np.sqrt(count * 2))))
+                    n_cols = max(1, (count + n_rows - 1) // n_rows)
+                
+                step_1 = width / max(n_cols, 1)
+                step_2 = height / max(n_rows, 1)
+                
+                found = 0
+                for row in range(n_rows):
+                    for col in range(n_cols):
+                        if found >= count:
+                            break
+                        
+                        pos = np.zeros(3)
+                        pos[axis] = interface_pos
+                        pos[ax1] = usable_min_1 + (col + 0.5) * step_1
+                        pos[ax2] = usable_min_2 + (row + 0.5) * step_2
+                        
+                        positions_3d.append(pos)
+                        found += 1
+                    if found >= count:
+                        break
+                
+                # Fallback to centroid if no positions found
+                if len(positions_3d) == 0:
+                    centroid = np.zeros(3)
+                    centroid[axis] = interface_pos
+                    centroid[ax1] = (min_1 + max_1) / 2
+                    centroid[ax2] = (min_2 + max_2) / 2
+                    positions_3d.append(centroid)
         
         logger.info(f"Calculated {len(positions_3d)} connector positions: {positions_3d}")
         return positions_3d
@@ -792,6 +812,16 @@ def _apply_connectors(
         normal_b = [0.0, 0.0, 0.0]
         normal_b[axis] = -1.0
         
+        # Calculate safe depth to prevent holes from intersecting in the center
+        # Max depth should be less than half the minimum part dimension
+        part_size = part_a_bounds[1] - part_a_bounds[0]  # [x, y, z] dimensions
+        min_dimension = min(part_size[0], part_size[1], part_size[2])
+        max_safe_depth = min_dimension * 0.4  # 40% of smallest dimension
+        
+        effective_height = min(height, max_safe_depth)
+        if effective_height < height:
+            logger.warning(f"Reducing connector depth from {height} to {effective_height:.1f} to prevent intersection")
+        
         for pos in connector_positions:
             pos_list = list(pos)
             
@@ -806,7 +836,7 @@ def _apply_connectors(
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,  # Hole slightly larger
-                    'depth': height + 1,
+                    'depth': effective_height + 1,  # Hole slightly deeper than pin
                     'type': 'hole'
                 })
                 
@@ -815,7 +845,7 @@ def _apply_connectors(
                     'position': pos_b_list,
                     'normal': normal_b.copy(),
                     'diameter': diameter,
-                    'depth': height,
+                    'depth': effective_height,
                     'type': 'pin'
                 })
             elif joint_type == 'dowels':
@@ -824,7 +854,7 @@ def _apply_connectors(
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,
-                    'depth': height / 2 + 1,
+                    'depth': effective_height / 2 + 1,
                     'type': 'hole'
                 })
                 
@@ -832,7 +862,7 @@ def _apply_connectors(
                     'position': pos_b_list,
                     'normal': normal_b.copy(),
                     'diameter': diameter + clearance,
-                    'depth': height / 2 + 1,
+                    'depth': effective_height / 2 + 1,
                     'type': 'hole'
                 })
     
@@ -876,7 +906,7 @@ def _apply_connectors(
         try:
             logger.info(f"Applying {len(connectors)} connectors to part {idx + 1}")
             
-            # Call Blender service
+            # Call Blender service to add connectors
             response = client.process_file(
                 input_path=input_path,
                 output_path=output_path,
@@ -886,7 +916,10 @@ def _apply_connectors(
             )
             
             if response.get('status') == 'success':
-                # Update part info with new path
+                # NOTE: Skipping repair step as it was destroying connector holes
+                # The Blender boolean operations produce clean enough geometry
+                
+                # Update part info with connector path
                 modified_parts[idx] = {
                     **part_info,
                     'filepath': output_path,

@@ -39,8 +39,8 @@ bpy.ops.mesh.select_all(action='SELECT')
 # Remove doubles (merge by distance)
 bpy.ops.mesh.remove_doubles(threshold=0.0001)
 
-# Fill holes (limited effectiveness in simple script, but better than nothing)
-bpy.ops.mesh.fill_holes(sides=4) # Fill chunks up to 4 sides
+# NOTE: Do NOT fill holes - we intentionally have holes for connectors!
+# bpy.ops.mesh.fill_holes(sides=4)
 
 # Recalculate normals
 bpy.ops.mesh.normals_make_consistent(inside=False)

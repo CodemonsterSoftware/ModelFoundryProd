@@ -39,24 +39,14 @@ def create_cylinder(position, normal, diameter, depth, centered=False):
     IMPORTANT: We must set rotation BEFORE setting position, because
     applying rotation to matrix_world also rotates the position!
     """
-    from mathutils import Vector
+    from mathutils import Vector, Quaternion
+    import math
     
     # Calculate rotation to align Z-up cylinder with target normal
     z_axis = Vector((0, 0, 1))
     target = Vector(normal).normalized()
     
-    # Calculate the rotation quaternion
-    if z_axis.dot(target) < -0.9999:
-        # Nearly opposite - rotate 180 around X axis
-        rotation = z_axis.rotation_difference(-z_axis)
-        rotation = (1, 0, 0, 0)  # 180 deg around any perpendicular
-    elif z_axis.dot(target) > 0.9999:
-        # Same direction - no rotation needed
-        rotation = (1, 0, 0, 0)  # Identity quaternion
-    else:
-        rotation = z_axis.rotation_difference(target)
-    
-    # Calculate final position
+    # Calculate final position FIRST (before creating cylinder)
     # For holes: offset so the cylinder is buried into the part
     # For pins (centered): keep at position so half sticks out
     pos = Vector(position)
@@ -65,21 +55,28 @@ def create_cylinder(position, normal, diameter, depth, centered=False):
         offset = target * (depth / 2)
         pos = pos - offset
     
-    # Create cylinder at ORIGIN first (to avoid rotation issues)
+    # Create cylinder at the FINAL position directly
+    # (avoiding the origin-then-move approach which was causing issues)
     bpy.ops.mesh.primitive_cylinder_add(
         radius=diameter / 2,
         depth=depth,
         vertices=32,
-        location=(0, 0, 0)  # Create at origin
+        location=pos
     )
     cylinder = bpy.context.active_object
     
-    # Apply rotation FIRST (while at origin)
-    if hasattr(rotation, 'to_euler'):
+    # Now apply rotation if needed (rotation around the cylinder's own center)
+    dot = z_axis.dot(target)
+    if dot < -0.9999:
+        # Nearly opposite (pointing down) - rotate 180 around X
+        cylinder.rotation_euler = (math.pi, 0, 0)
+    elif dot > 0.9999:
+        # Same direction (pointing up) - no rotation needed
+        pass
+    else:
+        # General case - use quaternion rotation
+        rotation = z_axis.rotation_difference(target)
         cylinder.rotation_euler = rotation.to_euler()
-    
-    # NOW set the position (after rotation is applied)
-    cylinder.location = pos
     
     return cylinder
 
