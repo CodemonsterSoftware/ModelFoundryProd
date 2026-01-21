@@ -273,7 +273,7 @@ def api_slice(request):
         from .services.slicer import slice_mesh_grid
         
         try:
-            output_files = slice_mesh_grid(
+            slice_result = slice_mesh_grid(
                 input_path=str(input_path),
                 output_dir=str(job_dir),
                 grid=job_meta['grid'],
@@ -283,7 +283,13 @@ def api_slice(request):
                 dovetail_params=job_meta['dovetail_params']
             )
             
-            # Create ZIP of all parts
+            # Extract results from new dict format
+            output_files = slice_result.get('parts', [])
+            warnings = slice_result.get('warnings', [])
+            blender_required = slice_result.get('blender_required', False)
+            dowel_files = slice_result.get('dowel_files', [])
+            
+            # Create ZIP of all parts (and dowels if present)
             zip_path = job_dir / f"{Path(stl_file.name).stem}_sliced.zip"
             with zipfile.ZipFile(zip_path, 'w') as zf:
                 for part_data in output_files:
@@ -294,6 +300,10 @@ def api_slice(request):
                         file_path = part_data
                     
                     zf.write(file_path, Path(file_path).name)
+                
+                # Add dowel files to zip
+                for dowel_data in dowel_files:
+                    zf.write(dowel_data['filepath'], Path(dowel_data['filepath']).name)
             
             # Build part information for response
             parts_info = []
@@ -301,21 +311,39 @@ def api_slice(request):
                 if isinstance(part_data, dict):
                     part_path = Path(part_data['filepath'])
                     validation = part_data.get('validation', {'valid': True, 'issues': []})
+                    has_connectors = part_data.get('has_connectors', False)
                 else:
                     part_path = Path(part_data)
                     validation = {'valid': True, 'issues': []}
+                    has_connectors = False
                 
                 parts_info.append({
                     'index': idx,
                     'filename': part_path.name,
                     'path': str(part_path.relative_to(FORGE_JOBS_DIR)),  # Relative path from media root
-                    'validation': validation
+                    'validation': validation,
+                    'has_connectors': has_connectors
+                })
+            
+            # Build dowel info for response
+            dowels_info = []
+            for dowel_data in dowel_files:
+                dowel_path = Path(dowel_data['filepath'])
+                dowels_info.append({
+                    'filename': dowel_path.name,
+                    'path': str(dowel_path.relative_to(FORGE_JOBS_DIR)),
+                    'count_needed': dowel_data.get('count_needed', 0),
+                    'diameter': dowel_data.get('diameter', 0),
+                    'height': dowel_data.get('height', 0)
                 })
             
             job_meta['status'] = 'completed'
             job_meta['output_file'] = str(zip_path)
             job_meta['part_count'] = len(output_files)
             job_meta['parts'] = parts_info
+            job_meta['warnings'] = warnings
+            job_meta['dowels'] = dowels_info
+            job_meta['blender_required'] = blender_required
             
         except Exception as e:
             job_meta['status'] = 'failed'
@@ -331,6 +359,9 @@ def api_slice(request):
             'status': job_meta['status'],
             'part_count': job_meta.get('part_count', 0),
             'parts': job_meta.get('parts', []),
+            'warnings': job_meta.get('warnings', []),
+            'dowels': job_meta.get('dowels', []),
+            'blender_required': job_meta.get('blender_required', False),
             'message': job_meta.get('error', 'Slicing complete')
         })
         

@@ -380,41 +380,45 @@
                             </div>
                         </div>
 
-                        <!-- Joint Type Selection - HIDDEN (To be implemented later) -->
-                        <div class="d-none">
-                            <h6 class="border-bottom pb-2 mb-3">Joint Type</h6>
+                        <!-- Joint Type Selection (Uniform Grid mode only) -->
+                        <div id="joint-settings">
+                            <h6 class="border-bottom pb-2 mb-3">Connectors</h6>
+                            <p class="small text-muted mb-2">Add alignment connectors between parts. <span
+                                    class="badge bg-info">Uniform Grid Only</span></p>
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <div class="btn-group w-100" role="group">
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_none"
                                             value="none" checked>
                                         <label class="btn btn-outline-secondary" for="joint_none">
-                                            None
+                                            <i class="bi bi-x-circle me-1"></i>None
                                         </label>
 
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_pins"
                                             value="pins">
                                         <label class="btn btn-outline-primary" for="joint_pins">
-                                            Pins
+                                            <i class="bi bi-pin-angle me-1"></i>Pins
                                         </label>
 
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_dowels"
                                             value="dowels">
                                         <label class="btn btn-outline-primary" for="joint_dowels">
-                                            Dowels
+                                            <i class="bi bi-grip-vertical me-1"></i>Dowels
                                         </label>
 
+                                        <!-- Dovetails coming soon -->
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_dovetails"
-                                            value="dovetails">
-                                        <label class="btn btn-outline-primary" for="joint_dovetails">
-                                            Dovetails
+                                            value="dovetails" disabled>
+                                        <label class="btn btn-outline-secondary" for="joint_dovetails"
+                                            title="Coming soon">
+                                            <i class="bi bi-puzzle me-1"></i>Dovetails
                                         </label>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Pin/Dowel Options -->
-                            <div id="pin-options" class="mb-4">
+                            <!-- Pin/Dowel Options (shown when pins or dowels selected) -->
+                            <div id="pin-options" class="mb-4 d-none">
                                 <h6 class="border-bottom pb-2 mb-3">Pin/Dowel Settings</h6>
                                 <div class="row">
                                     <div class="col-6 mb-2">
@@ -433,9 +437,9 @@
                                             name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
                                     </div>
                                     <div class="col-6">
-                                        <label for="joint_count" class="form-label">Count (0=auto)</label>
+                                        <label for="joint_count" class="form-label">Count per edge</label>
                                         <input type="number" class="form-control" id="joint_count" name="joint_count"
-                                            value="0" min="0" max="20">
+                                            value="2" min="1" max="20">
                                     </div>
                                 </div>
                             </div>
@@ -1279,6 +1283,7 @@
 
         function updateModeVisibility() {
             const mode = document.querySelector('input[name="slice_mode"]:checked').value;
+            const jointSettings = document.getElementById('joint-settings');
 
             // Hide all mode panels
             uniformSettings.classList.add('d-none');
@@ -1290,11 +1295,17 @@
                 freeformSettings.classList.remove('d-none');
                 renderPlaneSelectionList();
                 updateControlsState();
+                // Hide connectors - not supported in freeform mode
+                if (jointSettings) jointSettings.classList.add('d-none');
             } else if (mode === 'fit') {
                 fitSettings.classList.remove('d-none');
+                // Show connectors in fit mode (it uses uniform grid internally)
+                if (jointSettings) jointSettings.classList.remove('d-none');
             } else {
                 // Uniform mode
                 uniformSettings.classList.remove('d-none');
+                // Show connectors
+                if (jointSettings) jointSettings.classList.remove('d-none');
             }
 
             if (window.preview) window.preview.updateSlicePlanes();
@@ -2026,6 +2037,32 @@
                 if (data.success) {
                     // Hide result container on success as we show parts preview instead
                     resultContainer.classList.add('d-none');
+
+                    // Show warnings if any (e.g., Blender unavailable)
+                    if (data.warnings && data.warnings.length > 0) {
+                        resultContainer.classList.remove('d-none');
+                        resultAlert.className = 'alert alert-warning text-dark';
+                        resultMessage.innerHTML = '<strong>⚠ Warnings:</strong><br>' + data.warnings.join('<br>');
+                        downloadLink.classList.add('d-none');
+                    }
+
+                    // Show dowel info if any
+                    if (data.dowels && data.dowels.length > 0) {
+                        const dowelInfo = data.dowels.map(d =>
+                            `<li><strong>${d.filename}</strong> - Print <strong>${d.count_needed}</strong> copies (${d.diameter}mm x ${d.height}mm)</li>`
+                        ).join('');
+
+                        // Append to result or show separate info
+                        const dowelAlert = document.createElement('div');
+                        dowelAlert.className = 'alert alert-info mt-3';
+                        dowelAlert.innerHTML = `
+                            <strong><i class="bi bi-printer me-2"></i>Dowels Needed:</strong>
+                            <ul class="mb-0 mt-2">${dowelInfo}</ul>
+                            <small class="text-muted">Dowel files are included in the ZIP download.</small>
+                        `;
+                        resultContainer.appendChild(dowelAlert);
+                        resultContainer.classList.remove('d-none');
+                    }
 
                     // Generate part preview cards
                     if (data.parts && data.parts.length > 0) {

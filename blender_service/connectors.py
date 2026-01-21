@@ -33,47 +33,53 @@ def get_file_size_mb(path):
         return os.path.getsize(path) / (1024 * 1024)
     return 0
 
-def align_object_to_normal(obj, normal):
-    """Align object's Z axis to the given normal vector."""
-    from mathutils import Vector, Matrix
+def create_cylinder(position, normal, diameter, depth, centered=False):
+    """Create a cylinder mesh at the given position aligned to normal.
     
+    IMPORTANT: We must set rotation BEFORE setting position, because
+    applying rotation to matrix_world also rotates the position!
+    """
+    from mathutils import Vector
+    
+    # Calculate rotation to align Z-up cylinder with target normal
     z_axis = Vector((0, 0, 1))
     target = Vector(normal).normalized()
     
-    # Calculate rotation
+    # Calculate the rotation quaternion
     if z_axis.dot(target) < -0.9999:
-        # Nearly opposite, rotate 180 around X
-        rotation = Matrix.Rotation(math.pi, 4, 'X')
+        # Nearly opposite - rotate 180 around X axis
+        rotation = z_axis.rotation_difference(-z_axis)
+        rotation = (1, 0, 0, 0)  # 180 deg around any perpendicular
     elif z_axis.dot(target) > 0.9999:
-        # Nearly same direction, no rotation needed
-        rotation = Matrix.Identity(4)
+        # Same direction - no rotation needed
+        rotation = (1, 0, 0, 0)  # Identity quaternion
     else:
-        # General case
-        axis = z_axis.cross(target)
-        angle = z_axis.angle(target)
-        rotation = Matrix.Rotation(angle, 4, axis)
+        rotation = z_axis.rotation_difference(target)
     
-    obj.matrix_world = rotation @ obj.matrix_world
-
-def create_cylinder(position, normal, diameter, depth):
-    """Create a cylinder mesh at the given position aligned to normal."""
-    # Create cylinder
+    # Calculate final position
+    # For holes: offset so the cylinder is buried into the part
+    # For pins (centered): keep at position so half sticks out
+    pos = Vector(position)
+    if not centered:
+        # Offset backwards along normal so cylinder end is at position
+        offset = target * (depth / 2)
+        pos = pos - offset
+    
+    # Create cylinder at ORIGIN first (to avoid rotation issues)
     bpy.ops.mesh.primitive_cylinder_add(
         radius=diameter / 2,
         depth=depth,
         vertices=32,
-        location=position
+        location=(0, 0, 0)  # Create at origin
     )
     cylinder = bpy.context.active_object
     
-    # Offset cylinder so one end is at position (for proper embedding)
-    # Move it along the normal by half the depth
-    from mathutils import Vector
-    offset = Vector(normal).normalized() * (depth / 2)
-    cylinder.location = Vector(position) - offset
+    # Apply rotation FIRST (while at origin)
+    if hasattr(rotation, 'to_euler'):
+        cylinder.rotation_euler = rotation.to_euler()
     
-    # Align to normal
-    align_object_to_normal(cylinder, normal)
+    # NOW set the position (after rotation is applied)
+    cylinder.location = pos
     
     return cylinder
 
@@ -90,9 +96,14 @@ def apply_boolean(target_obj, tool_obj, operation):
     bool_mod.solver = 'FAST'  # FAST solver is more forgiving on non-manifold meshes
     
     # Apply modifier
-    bpy.ops.object.modifier_apply(modifier='Connector')
-    
-    return True
+    try:
+        bpy.ops.object.modifier_apply(modifier='Connector')
+        return True
+    except Exception as e:
+        # If application fails, remove modifier
+        if bool_mod in target_obj.modifiers:
+            target_obj.modifiers.remove(bool_mod)
+        return False
 
 try:
     start_time = time.time()
@@ -158,7 +169,10 @@ try:
         conn_start = time.time()
         
         # Create cylinder tool
-        cylinder = create_cylinder(position, normal, diameter, depth)
+        # Pins should be centered (half in, half out)
+        # Holes should be buried (starting at surface and going in)
+        is_pin = (conn_type == 'pin')
+        cylinder = create_cylinder(position, normal, diameter, depth, centered=is_pin)
         
         # Determine operation
         if conn_type == 'hole':
@@ -168,14 +182,46 @@ try:
         
         log(f"  Applying {operation} boolean...")
         
+        success = False
         try:
-            apply_boolean(mesh_obj, cylinder, operation)
-            log(f"  Boolean applied in {time.time() - conn_start:.2f}s")
+            success = apply_boolean(mesh_obj, cylinder, operation)
         except Exception as e:
-            log(f"  WARNING: Boolean failed: {e}")
+            log(f"  WARNING: Boolean check failed: {e}")
         
-        # Clean up cylinder
-        bpy.data.objects.remove(cylinder, do_unlink=True)
+        if success:
+            log(f"  Boolean applied in {time.time() - conn_start:.2f}s")
+            # Clean up cylinder
+            bpy.data.objects.remove(cylinder, do_unlink=True)
+        else:
+            log(f"  WARNING: Boolean failed for {conn_type}")
+            
+            # Fallback for PINS (Union): Just join the meshes
+            # This creates a single object with intersecting geometry (multi-shell).
+            # Slicers handle this fine.
+            if operation == 'UNION':
+                log("  FALLBACK: Joining pin to mesh (multi-shell)...")
+                try:
+                    # Select both
+                    bpy.ops.object.select_all(action='DESELECT')
+                    mesh_obj.select_set(True)
+                    cylinder.select_set(True)
+                    bpy.context.view_layer.objects.active = mesh_obj
+                    
+                    bpy.ops.object.join()
+                    log("  Fallback join successful")
+                    
+                    # After join, 'cylinder' object is merged into 'mesh_obj'
+                    # No need to remove cylinder, it's gone/merged.
+                    
+                except Exception as ex:
+                    log(f"  ERROR: Fallback join also failed: {ex}")
+                    # Try to cleanup
+                    if cylinder in bpy.data.objects.values():
+                        bpy.data.objects.remove(cylinder, do_unlink=True)
+            else:
+                # For holes (Difference), we can't join. If it fails, we just don't have a hole.
+                # Clean up cylinder
+                bpy.data.objects.remove(cylinder, do_unlink=True)
     
     # Report face count change
     final_faces = len(mesh_obj.data.polygons)
