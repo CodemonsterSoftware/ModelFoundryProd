@@ -15,40 +15,42 @@
     </div>
 
     <div class="row g-4">
-        <!-- STL to STEP Conversion -->
-        <div class="col-md-6">
+        <!-- STL to STEP Conversion - DISABLED: Putting a pin in this feature
+        <div class="col-md-6 col-lg-4">
             <div class="card h-100 shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
+                <img src="https://placehold.co/600x400?text=STL+to+STEP" class="card-img-top"
+                    alt="STL to STEP Converter">
+                <div class="card-body">
+                    <h5 class="card-title">
                         <i class="bi bi-arrow-repeat"></i> STL to STEP Conversion
                     </h5>
-                </div>
-                <div class="card-body">
-                    <p>Convert mesh files (STL) to solid CAD format (STEP) for use in CAD software like Fusion 360, SolidWorks, or FreeCAD.</p>
+                    <p class="card-text">Convert mesh files (STL) to solid CAD format (STEP) for use in CAD software
+                        like Fusion 360, SolidWorks, or FreeCAD.</p>
                     <ul class="list-unstyled text-muted small">
                         <li><i class="bi bi-check-circle text-success"></i> Automatic mesh repair</li>
                         <li><i class="bi bi-check-circle text-success"></i> Creates solid body</li>
                         <li><i class="bi bi-info-circle text-info"></i> Curved surfaces remain faceted</li>
                     </ul>
                 </div>
-                <div class="card-footer">
+                <div class="card-footer bg-transparent border-top-0">
                     <a href="{% url 'forge:convert' %}" class="btn btn-primary w-100">
                         <i class="bi bi-upload"></i> Convert STL to STEP
                     </a>
                 </div>
             </div>
         </div>
+        -->
 
         <!-- Grid Slicer -->
-        <div class="col-md-6">
+        <div class="col-md-6 col-lg-4">
             <div class="card h-100 shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">
+                <img src="https://placehold.co/600x400?text=Grid+Slicer" class="card-img-top" alt="Grid Slicer">
+                <div class="card-body">
+                    <h5 class="card-title">
                         <i class="bi bi-grid-3x3"></i> Grid Slicer
                     </h5>
-                </div>
-                <div class="card-body">
-                    <p>Split large models into smaller printable parts with automatic alignment features.</p>
+                    <p class="card-text">Split large models into smaller printable parts with automatic alignment
+                        features.</p>
                     <ul class="list-unstyled text-muted small">
                         <li><i class="bi bi-check-circle text-success"></i> Configurable grid divisions</li>
                         <li><i class="bi bi-check-circle text-success"></i> Alignment pins (printed)</li>
@@ -56,9 +58,32 @@
                         <li><i class="bi bi-check-circle text-success"></i> Multi-tail dovetails</li>
                     </ul>
                 </div>
-                <div class="card-footer">
-                    <a href="{% url 'forge:slice' %}" class="btn btn-success w-100">
+                <div class="card-footer bg-transparent border-top-0">
+                    <a href="{% url 'forge:slice' %}" class="btn btn-primary w-100">
                         <i class="bi bi-scissors"></i> Slice Model
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rune Etcher -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                <img src="https://placehold.co/600x400?text=Rune+Etcher" class="card-img-top" alt="Rune Etcher">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-shield-lock"></i> Rune Etcher
+                    </h5>
+                    <p class="card-text">Encode data into stl files for theft protection.</p>
+                    <ul class="list-unstyled text-muted small">
+                        <li><i class="bi bi-check-circle text-success"></i> Watermark STL files</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Hidden metadata</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Ownership verification</li>
+                    </ul>
+                </div>
+                <div class="card-footer bg-transparent border-top-0">
+                    <a href="#" class="btn btn-primary w-100 disabled">
+                        <i class="bi bi-magic"></i> Etch Rune (Coming Soon)
                     </a>
                 </div>
             </div>

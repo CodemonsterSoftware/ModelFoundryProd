@@ -56,6 +56,16 @@ services:
   #   networks:
   #     - app_network
 
+  blender:
+    build:
+      context: ./blender_service
+    volumes:
+      - ./media:/app/media
+    ports:
+      - "8081:8081"
+    networks:
+      - app_network
+
 networks:
   app_network:
     driver: bridge

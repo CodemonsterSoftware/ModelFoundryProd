@@ -190,6 +190,48 @@ def api_slice(request):
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to decode plane data: {e}")
                 return JsonResponse({'success': False, 'error': 'Invalid plane data JSON'}, status=400)
+        elif slice_mode == 'fit':
+            # Fit mode: Calculate planes needed to fit printer build volume
+            import trimesh
+            from .services.slicer import calculate_fit_planes
+            
+            # Load mesh to get dimensions
+            mesh = trimesh.load(str(input_path))
+            
+            # Extract printer dimensions from form
+            printer_dims = {
+                'x': form.cleaned_data.get('printer_x', 220.0),
+                'y': form.cleaned_data.get('printer_y', 220.0),
+                'z': form.cleaned_data.get('printer_z', 250.0),
+            }
+            
+            model_units = form.cleaned_data.get('model_units', 'mm')
+            desired_size = form.cleaned_data.get('desired_size')
+            
+            # Get model dimensions from bounds
+            bounds = mesh.bounds
+            model_dims = {
+                'x': bounds[1][0] - bounds[0][0],
+                'y': bounds[1][1] - bounds[0][1],
+                'z': bounds[1][2] - bounds[0][2],
+            }
+            
+            # Calculate required planes
+            fit_grid = calculate_fit_planes(
+                model_dims=model_dims,
+                printer_dims=printer_dims,
+                model_units=model_units,
+                desired_size=desired_size
+            )
+            
+            logger.info(f"Fit mode calculated planes: {fit_grid}")
+            
+            # Convert planes to sections (same logic as uniform mode)
+            grid_config = {
+                'x': 1 if fit_grid['x'] == 0 else fit_grid['x'] + 1,
+                'y': 1 if fit_grid['y'] == 0 else fit_grid['y'] + 1,
+                'z': 1 if fit_grid['z'] == 0 else fit_grid['z'] + 1,
+            }
         else:
             # Uniform mode: Input is number of planes (cuts).
             # Slicer expects number of sections (grid divisions).
@@ -231,7 +273,7 @@ def api_slice(request):
         from .services.slicer import slice_mesh_grid
         
         try:
-            output_files = slice_mesh_grid(
+            slice_result = slice_mesh_grid(
                 input_path=str(input_path),
                 output_dir=str(job_dir),
                 grid=job_meta['grid'],
@@ -241,26 +283,70 @@ def api_slice(request):
                 dovetail_params=job_meta['dovetail_params']
             )
             
-            # Create ZIP of all parts
+            # Extract results from new dict format
+            output_files = slice_result.get('parts', [])
+            warnings = slice_result.get('warnings', [])
+            blender_required = slice_result.get('blender_required', False)
+            dowel_files = slice_result.get('dowel_files', [])
+            
+            # Create ZIP of all parts (and dowels if present)
             zip_path = job_dir / f"{Path(stl_file.name).stem}_sliced.zip"
             with zipfile.ZipFile(zip_path, 'w') as zf:
-                for output_file in output_files:
-                    zf.write(output_file, Path(output_file).name)
+                for part_data in output_files:
+                    # Handle both dict (new) and string (legacy/fallback) formats
+                    if isinstance(part_data, dict):
+                        file_path = part_data['filepath']
+                    else:
+                        file_path = part_data
+                    
+                    zf.write(file_path, Path(file_path).name)
+                
+                # Add dowel files to zip
+                for dowel_data in dowel_files:
+                    zf.write(dowel_data['filepath'], Path(dowel_data['filepath']).name)
             
             # Build part information for response
             parts_info = []
-            for idx, output_file in enumerate(output_files):
-                part_path = Path(output_file)
+            for idx, part_data in enumerate(output_files):
+                if isinstance(part_data, dict):
+                    part_path = Path(part_data['filepath'])
+                    validation = part_data.get('validation', {'valid': True, 'issues': []})
+                    has_connectors = part_data.get('has_connectors', False)
+                    connector_positions = part_data.get('connector_positions', [])
+                else:
+                    part_path = Path(part_data)
+                    validation = {'valid': True, 'issues': []}
+                    has_connectors = False
+                    connector_positions = []
+                
                 parts_info.append({
                     'index': idx,
                     'filename': part_path.name,
-                    'path': str(part_path.relative_to(FORGE_JOBS_DIR))  # Relative path from media root
+                    'path': str(part_path.relative_to(FORGE_JOBS_DIR)),  # Relative path from media root
+                    'validation': validation,
+                    'has_connectors': has_connectors,
+                    'connectors': connector_positions  # For 3D preview visualization
+                })
+            
+            # Build dowel info for response
+            dowels_info = []
+            for dowel_data in dowel_files:
+                dowel_path = Path(dowel_data['filepath'])
+                dowels_info.append({
+                    'filename': dowel_path.name,
+                    'path': str(dowel_path.relative_to(FORGE_JOBS_DIR)),
+                    'count_needed': dowel_data.get('count_needed', 0),
+                    'diameter': dowel_data.get('diameter', 0),
+                    'height': dowel_data.get('height', 0)
                 })
             
             job_meta['status'] = 'completed'
             job_meta['output_file'] = str(zip_path)
             job_meta['part_count'] = len(output_files)
             job_meta['parts'] = parts_info
+            job_meta['warnings'] = warnings
+            job_meta['dowels'] = dowels_info
+            job_meta['blender_required'] = blender_required
             
         except Exception as e:
             job_meta['status'] = 'failed'
@@ -276,6 +362,9 @@ def api_slice(request):
             'status': job_meta['status'],
             'part_count': job_meta.get('part_count', 0),
             'parts': job_meta.get('parts', []),
+            'warnings': job_meta.get('warnings', []),
+            'dowels': job_meta.get('dowels', []),
+            'blender_required': job_meta.get('blender_required', False),
             'message': job_meta.get('error', 'Slicing complete')
         })
         

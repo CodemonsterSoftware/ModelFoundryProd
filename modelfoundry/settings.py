@@ -110,9 +110,12 @@ if IS_DOCKER:
             'USER': db_info.username,
             'PASSWORD': db_info.password,
             'HOST': db_info.hostname,
-            'PORT': db_info.port or '5432',
         }
     }
+    
+    # Blender Service URL in Docker network
+    BLENDER_SERVICE_URL = os.environ.get('BLENDER_SERVICE_URL', 'http://blender:8081')
+
 else:
     # Local development - use SQLite3
     DATABASES = {
@@ -121,6 +124,9 @@ else:
             'NAME': BASE_DIR / 'db' / 'db.sqlite3',
         }
     }
+    
+    # Local development - Blender service exposed on localhost
+    BLENDER_SERVICE_URL = os.environ.get('BLENDER_SERVICE_URL', 'http://localhost:8081')
 
 
 # Password validation

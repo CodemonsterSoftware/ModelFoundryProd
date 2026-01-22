@@ -98,6 +98,43 @@
     .dropzone input[type="file"] {
         display: none;
     }
+
+    /* Validation Warning Overlay */
+    .validation-warning-overlay {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        color: #dc3545;
+        /* Bootstrap danger color */
+        background-color: rgba(0, 0, 0, 0.7);
+        /* Dark background for better contrast */
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: help;
+        box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+        /* Glowing effect */
+    }
+
+    .validation-warning-overlay i {
+        font-size: 1.2rem;
+        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+    }
+
+    .validation-tooltip .tooltip-inner {
+        background-color: #dc3545;
+        color: white;
+        max-width: 250px;
+        text-align: left;
+    }
+
+    .validation-tooltip .tooltip-arrow::before {
+        border-top-color: #dc3545;
+    }
 </style>
 {% endblock %}
 
@@ -153,6 +190,11 @@
                                     <label class="btn btn-outline-primary" for="mode_freeform">
                                         <i class="bi bi-sliders me-2"></i>Freeform
                                     </label>
+
+                                    <input type="radio" class="btn-check" name="slice_mode" id="mode_fit" value="fit">
+                                    <label class="btn btn-outline-primary" for="mode_fit">
+                                        <i class="bi bi-printer me-2"></i>Fit
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -167,21 +209,18 @@
                                             class="text-danger">●</span></label>
                                     <input type="number" class="form-control" id="grid_x" name="grid_x" value="2"
                                         min="0" max="10">
-                                    <div class="form-text small lh-1">0 = no cuts, 1 = 1 cut (2 sections)</div>
                                 </div>
                                 <div class="col-4">
                                     <label for="grid_y" class="form-label">Y Planes <span
                                             class="text-success">●</span></label>
                                     <input type="number" class="form-control" id="grid_y" name="grid_y" value="2"
                                         min="0" max="10">
-                                    <div class="form-text small lh-1">0 = no cuts, 2 = 2 cuts (3 sections)</div>
                                 </div>
                                 <div class="col-4">
                                     <label for="grid_z" class="form-label">Z Planes <span
                                             class="text-primary">●</span></label>
                                     <input type="number" class="form-control" id="grid_z" name="grid_z" value="1"
                                         min="0" max="10">
-                                    <div class="form-text small lh-1">0 = no cuts, 1 = 1 cut (2 sections)</div>
                                 </div>
                             </div>
                         </div>
@@ -286,41 +325,99 @@
                             <input type="hidden" name="freeform_planes" id="input_freeform_planes" value="[]">
                         </div>
 
-                        <!-- Joint Type Selection - HIDDEN (To be implemented later) -->
-                        <div class="d-none">
-                            <h6 class="border-bottom pb-2 mb-3">Joint Type</h6>
+                        <!-- Fit Mode Configuration -->
+                        <div id="fit-settings" class="d-none">
+                            <h6 class="border-bottom pb-2 mb-3">Fit to Printer</h6>
+                            <p class="small text-muted mb-3">Automatically calculate cuts needed to fit your printer's
+                                build volume.</p>
+
+                            <!-- Printer Dimensions -->
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold">Printer Build Volume (mm)</label>
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text text-danger">X</span>
+                                            <input type="number" class="form-control" id="printer_x" name="printer_x"
+                                                value="220" min="10" max="1000" step="1">
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text text-success">Y</span>
+                                            <input type="number" class="form-control" id="printer_y" name="printer_y"
+                                                value="220" min="10" max="1000" step="1">
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text text-primary">Z</span>
+                                            <input type="number" class="form-control" id="printer_z" name="printer_z"
+                                                value="250" min="10" max="1000" step="1">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-text small">Common: Ender 3 (220×220×250), Prusa MK3 (250×210×210)
+                                </div>
+                            </div>
+
+                            <!-- Model Configuration -->
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label for="model_units" class="form-label small fw-bold">Model Units</label>
+                                    <select class="form-select form-select-sm" id="model_units" name="model_units">
+                                        <option value="mm" selected>Millimeters (mm)</option>
+                                        <option value="cm">Centimeters (cm)</option>
+                                        <option value="in">Inches (in)</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label for="desired_size" class="form-label small fw-bold">Desired Size (mm)</label>
+                                    <input type="number" class="form-control form-control-sm" id="desired_size"
+                                        name="desired_size" placeholder="Optional" min="1" step="1">
+                                    <div class="form-text small">Longest dimension</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Joint Type Selection (Uniform Grid mode only) -->
+                        <div id="joint-settings">
+                            <h6 class="border-bottom pb-2 mb-3">Connectors</h6>
+                            <p class="small text-muted mb-2">Add alignment connectors between parts.</p>
                             <div class="row mb-4">
                                 <div class="col-12">
                                     <div class="btn-group w-100" role="group">
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_none"
                                             value="none" checked>
                                         <label class="btn btn-outline-secondary" for="joint_none">
-                                            None
+                                            <i class="bi bi-x-circle me-1"></i>None
                                         </label>
 
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_pins"
                                             value="pins">
                                         <label class="btn btn-outline-primary" for="joint_pins">
-                                            Pins
+                                            <i class="bi bi-pin-angle me-1"></i>Pins
                                         </label>
 
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_dowels"
                                             value="dowels">
                                         <label class="btn btn-outline-primary" for="joint_dowels">
-                                            Dowels
+                                            <i class="bi bi-grip-vertical me-1"></i>Dowels
                                         </label>
 
+                                        <!-- Dovetails coming soon -->
                                         <input type="radio" class="btn-check" name="joint_type" id="joint_dovetails"
-                                            value="dovetails">
-                                        <label class="btn btn-outline-primary" for="joint_dovetails">
-                                            Dovetails
+                                            value="dovetails" disabled>
+                                        <label class="btn btn-outline-secondary" for="joint_dovetails"
+                                            title="Coming soon">
+                                            <i class="bi bi-puzzle me-1"></i>Dovetails
                                         </label>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Pin/Dowel Options -->
-                            <div id="pin-options" class="mb-4">
+                            <!-- Pin/Dowel Options (shown when pins or dowels selected) -->
+                            <div id="pin-options" class="mb-4 d-none">
                                 <h6 class="border-bottom pb-2 mb-3">Pin/Dowel Settings</h6>
                                 <div class="row">
                                     <div class="col-6 mb-2">
@@ -339,9 +436,9 @@
                                             name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
                                     </div>
                                     <div class="col-6">
-                                        <label for="joint_count" class="form-label">Count (0=auto)</label>
+                                        <label for="joint_count" class="form-label">Count per edge</label>
                                         <input type="number" class="form-control" id="joint_count" name="joint_count"
-                                            value="0" min="0" max="20">
+                                            value="2" min="1" max="20">
                                     </div>
                                 </div>
                             </div>
@@ -420,21 +517,23 @@
                             <p class="mt-2">Upload an STL file to preview</p>
                         </div>
 
-                        <!-- Gizmo Viewer Toolbar -->
-                        <div id="viewer-gizmo-toolbar" class="position-absolute top-0 end-0 p-3 d-none"
+                        <!-- Viewer Toolbar -->
+                        <div id="viewer-toolbar" class="position-absolute top-0 end-0 p-3 d-flex gap-2"
                             style="z-index: 10;">
                             <style>
-                                #viewer-gizmo-toolbar .btn.active {
+                                #viewer-toolbar .btn.active {
                                     color: #fff !important;
                                     background-color: #333 !important;
                                 }
 
-                                #viewer-gizmo-toolbar .btn:hover {
+                                #viewer-toolbar .btn:hover {
                                     color: #000 !important;
                                     background-color: #eee !important;
                                 }
                             </style>
-                            <div class="btn-group rounded shadow-sm" role="group">
+
+                            <!-- Gizmo Controls (Freeform Mode Only) -->
+                            <div id="gizmo-controls" class="btn-group rounded shadow-sm d-none" role="group">
                                 <button type="button" class="btn btn-outline-light btn-sm active" data-mode="translate"
                                     title="Translate (T)">
                                     <i class="fas fa-arrows-alt"></i>
@@ -442,6 +541,14 @@
                                 <button type="button" class="btn btn-outline-light btn-sm" data-mode="rotate"
                                     title="Rotate (R)">
                                     <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+
+                            <!-- Global Controls -->
+                            <div class="btn-group rounded shadow-sm" role="group">
+                                <button type="button" class="btn btn-outline-light btn-sm active" id="toggle-grid-btn"
+                                    title="Toggle Grid (G)">
+                                    <i class="fas fa-border-all"></i>
                                 </button>
                             </div>
                         </div>
@@ -634,8 +741,8 @@
             backLight.position.set(-100, -100, -100);
             this.scene.add(backLight);
 
-            const gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
-            this.scene.add(gridHelper);
+            this.gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
+            this.scene.add(this.gridHelper);
 
             const axesHelper = new THREE.AxesHelper(50);
             this.scene.add(axesHelper);
@@ -895,6 +1002,88 @@
                 createUniformPlanes('x', gridX === 0 ? 1 : gridX + 1, 0xff4444);
                 createUniformPlanes('y', gridY === 0 ? 1 : gridY + 1, 0x44ff44);
                 createUniformPlanes('z', gridZ === 0 ? 1 : gridZ + 1, 0x4444ff);
+            } else if (mode === 'fit') {
+                // Fit Mode: Calculate planes based on printer dimensions
+                const min = this.bounds.min;
+
+                // Get fit parameters
+                const getPrinterDim = (id, defaultVal) => {
+                    const el = document.getElementById(id);
+                    if (!el || el.value === '') return defaultVal;
+                    const val = parseFloat(el.value);
+                    return isNaN(val) ? defaultVal : val;
+                };
+
+                const printerX = getPrinterDim('printer_x', 220);
+                const printerY = getPrinterDim('printer_y', 220);
+                const printerZ = getPrinterDim('printer_z', 250);
+
+                const modelUnitsEl = document.getElementById('model_units');
+                const modelUnits = modelUnitsEl ? modelUnitsEl.value : 'mm';
+
+                const desiredSizeEl = document.getElementById('desired_size');
+                const desiredSize = desiredSizeEl && desiredSizeEl.value ? parseFloat(desiredSizeEl.value) : null;
+
+                // Calculate fit planes using same logic as backend
+                const unitFactors = { 'mm': 1.0, 'cm': 10.0, 'in': 25.4 };
+                const factor = unitFactors[modelUnits] || 1.0;
+
+                let modelDims = {
+                    x: size.x * factor,
+                    y: size.y * factor,
+                    z: size.z * factor
+                };
+
+                // Apply scaling if desired size specified
+                if (desiredSize && desiredSize > 0) {
+                    const maxModelDim = Math.max(modelDims.x, modelDims.y, modelDims.z);
+                    if (maxModelDim > 0) {
+                        const scaleFactor = desiredSize / maxModelDim;
+                        modelDims.x *= scaleFactor;
+                        modelDims.y *= scaleFactor;
+                        modelDims.z *= scaleFactor;
+                    }
+                }
+
+                // Calculate planes needed per axis
+                const calculatePlanes = (modelDim, printerDim) => {
+                    if (modelDim <= printerDim) return 0;
+                    return Math.ceil(modelDim / printerDim) - 1;
+                };
+
+                const fitPlanes = {
+                    x: calculatePlanes(modelDims.x, printerX),
+                    y: calculatePlanes(modelDims.y, printerY),
+                    z: calculatePlanes(modelDims.z, printerZ)
+                };
+
+                // Create planes for visualization (same color scheme as uniform but with teal/cyan for Fit)
+                const createFitPlanes = (axis, count, color) => {
+                    const sections = count + 1;
+                    for (let i = 1; i < sections; i++) {
+                        const posVal = min[axis] + (size[axis] * i / sections);
+
+                        let position;
+                        if (axis === 'x') position = new THREE.Vector3(posVal, (min.y + this.bounds.max.y) / 2, (min.z + this.bounds.max.z) / 2);
+                        if (axis === 'y') position = new THREE.Vector3((min.x + this.bounds.max.x) / 2, posVal, (min.z + this.bounds.max.z) / 2);
+                        if (axis === 'z') position = new THREE.Vector3((min.x + this.bounds.max.x) / 2, (min.y + this.bounds.max.y) / 2, posVal);
+
+                        const rotation = new THREE.Euler(
+                            axis === 'y' ? Math.PI / 2 : 0,
+                            axis === 'x' ? Math.PI / 2 : 0,
+                            0
+                        );
+
+                        const plane = this.createSlicePlane(position, rotation, maxDim * 1.5, color);
+                        this.slicePlanes.push(plane);
+                        this.scene.add(plane);
+                    }
+                };
+
+                // Use distinctive teal/cyan color for Fit mode planes
+                createFitPlanes('x', fitPlanes.x, 0xff4444);  // Red for X
+                createFitPlanes('y', fitPlanes.y, 0x44ff44);  // Green for Y
+                createFitPlanes('z', fitPlanes.z, 0x4444ff);  // Blue for Z
             } else {
                 // Freeform Arbitrary Mode
                 this.planes.forEach((planeData, index) => {
@@ -996,6 +1185,15 @@
             // Update slice planes
             this.updateSlicePlanes();
         }
+
+        // Toggle grid visibility
+        toggleGrid() {
+            if (this.gridHelper) {
+                this.gridHelper.visible = !this.gridHelper.visible;
+                return this.gridHelper.visible;
+            }
+            return false;
+        }
     }
 
     // Make available globally
@@ -1080,18 +1278,35 @@
         const modeRadios = document.querySelectorAll('input[name="slice_mode"]');
         const uniformSettings = document.getElementById('uniform-settings');
         const freeformSettings = document.getElementById('freeform-settings');
+        const fitSettings = document.getElementById('fit-settings');
 
         function updateModeVisibility() {
             const mode = document.querySelector('input[name="slice_mode"]:checked').value;
+            const jointSettings = document.getElementById('joint-settings');
+
+            // Hide all mode panels
+            uniformSettings.classList.add('d-none');
+            freeformSettings.classList.add('d-none');
+            fitSettings.classList.add('d-none');
+
+            // Show selected mode panel
             if (mode === 'freeform') {
-                uniformSettings.classList.add('d-none');
                 freeformSettings.classList.remove('d-none');
                 renderPlaneSelectionList();
                 updateControlsState();
+                // Hide connectors - not supported in freeform mode
+                if (jointSettings) jointSettings.classList.add('d-none');
+            } else if (mode === 'fit') {
+                fitSettings.classList.remove('d-none');
+                // Show connectors in fit mode (it uses uniform grid internally)
+                if (jointSettings) jointSettings.classList.remove('d-none');
             } else {
+                // Uniform mode
                 uniformSettings.classList.remove('d-none');
-                freeformSettings.classList.add('d-none');
+                // Show connectors
+                if (jointSettings) jointSettings.classList.remove('d-none');
             }
+
             if (window.preview) window.preview.updateSlicePlanes();
             updateToolbarVisibility();
         }
@@ -1099,6 +1314,28 @@
         modeRadios.forEach(radio => radio.addEventListener('change', updateModeVisibility));
         // Run once on load
         updateModeVisibility();
+
+        // ---------------------------------------------------------
+        // Fit Mode: Auto-update planes
+        // ---------------------------------------------------------
+        const fitInputs = [
+            'printer_x', 'printer_y', 'printer_z',
+            'model_units', 'desired_size'
+        ];
+
+        fitInputs.forEach(inputId => {
+            const el = document.getElementById(inputId);
+            if (el) {
+                // Listen to both input (for typing) and change (for select/blur)
+                ['input', 'change'].forEach(evt => {
+                    el.addEventListener(evt, () => {
+                        if (window.preview && document.querySelector('input[name="slice_mode"]:checked')?.value === 'fit') {
+                            window.preview.updateSlicePlanes();
+                        }
+                    });
+                });
+            }
+        });
 
         // ---------------------------------------------------------
         // Arbitrary Plane Management
@@ -1148,6 +1385,17 @@
             updateControlsState();
             window.preview.updateSlicePlanes();
         });
+
+        // Toggle Grid Button
+        const toggleGridBtn = document.getElementById('toggle-grid-btn');
+        if (toggleGridBtn) {
+            toggleGridBtn.addEventListener('click', () => {
+                if (window.preview) {
+                    const isVisible = window.preview.toggleGrid();
+                    toggleGridBtn.classList.toggle('active', isVisible);
+                }
+            });
+        }
 
         function renderPlaneSelectionList() {
             const listContainer = document.getElementById('plane-selection-list');
@@ -1314,8 +1562,8 @@
         });
 
         // Gizmo Mode Toggle Handlers
-        // Select buttons from both the control panel AND the viewer toolbar
-        const allGizmoButtons = document.querySelectorAll('#gizmo-mode-toggles button, #viewer-gizmo-toolbar button');
+        // Select buttons from both the control panel AND the viewer toolbar (only gizmo controls)
+        const allGizmoButtons = document.querySelectorAll('#gizmo-mode-toggles button, #gizmo-controls button');
 
         function updateGizmoMode(mode) {
             if (!window.preview) return;
@@ -1340,12 +1588,12 @@
         // Helper to manage toolbar visibility
         function updateToolbarVisibility() {
             const mode = document.querySelector('input[name="slice_mode"]:checked').value;
-            const toolbar = document.getElementById('viewer-gizmo-toolbar');
-            if (toolbar) {
+            const gizmoControls = document.getElementById('gizmo-controls');
+            if (gizmoControls) {
                 if (mode === 'freeform') {
-                    toolbar.classList.remove('d-none');
+                    gizmoControls.classList.remove('d-none');
                 } else {
-                    toolbar.classList.add('d-none');
+                    gizmoControls.classList.add('d-none');
                 }
             }
         }
@@ -1498,6 +1746,24 @@
             thumbnailContainer.style.height = '150px';
             thumbnailContainer.style.position = 'relative';
             thumbnailContainer.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Loading...</span></div>';
+
+            // Add Validation Warning if invalid
+            if (part.validation && part.validation.valid === false) {
+                const issues = part.validation.issues.join('<br>');
+                const warningOverlay = document.createElement('div');
+                warningOverlay.className = 'validation-warning-overlay';
+                warningOverlay.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                warningOverlay.setAttribute('data-bs-toggle', 'tooltip');
+                warningOverlay.setAttribute('data-bs-placement', 'left');
+                warningOverlay.setAttribute('data-bs-html', 'true');
+                warningOverlay.setAttribute('data-bs-custom-class', 'validation-tooltip');
+                warningOverlay.setAttribute('title', issues);
+
+                thumbnailContainer.appendChild(warningOverlay);
+
+                // Initialize Bootstrap tooltip
+                new bootstrap.Tooltip(warningOverlay);
+            }
 
             // Card body
             const cardBody = document.createElement('div');
@@ -1691,6 +1957,16 @@
                     // Load the STL without slice planes
                     window.preview.loadSTL(file, false);
 
+                    // Show connector markers if part has connectors
+                    if (part.has_connectors && part.connectors && part.connectors.length > 0) {
+                        // Small delay to ensure model is loaded
+                        setTimeout(() => {
+                            window.preview.showConnectorMarkers(part.connectors);
+                        }, 200);
+                    } else {
+                        window.preview.clearConnectorMarkers();
+                    }
+
                     // Small delay to ensure loading starts, then scroll
                     setTimeout(() => {
                         document.getElementById('preview-container').scrollIntoView({
@@ -1742,6 +2018,12 @@
                 console.log(`Submitting ${planes.length} plane(s) for slicing:`, planes);
             }
 
+
+            // ---------------------------------------------------------
+            // Fit Mode: Auto-update planes logic moved to main script
+            // ---------------------------------------------------------
+
+
             submitBtn.disabled = true;
             progressContainer.classList.remove('d-none');
             resultContainer.classList.add('d-none');
@@ -1764,6 +2046,35 @@
                 if (data.success) {
                     // Hide result container on success as we show parts preview instead
                     resultContainer.classList.add('d-none');
+
+                    // Show warnings if any (e.g., Blender unavailable)
+                    if (data.warnings && data.warnings.length > 0) {
+                        resultContainer.classList.remove('d-none');
+                        resultAlert.className = 'alert alert-warning text-dark';
+                        resultMessage.innerHTML = '<strong>⚠ Warnings:</strong><br>' + data.warnings.join('<br>');
+                        downloadLink.classList.add('d-none');
+                    }
+
+                    // Show dowel info if any
+                    if (data.dowels && data.dowels.length > 0) {
+                        // Remove any existing dowel info alerts first
+                        document.querySelectorAll('.dowel-info-alert').forEach(el => el.remove());
+
+                        const dowelInfo = data.dowels.map(d =>
+                            `<li><strong>${d.filename}</strong> - Print <strong>${d.count_needed}</strong> copies (${d.diameter}mm x ${d.height}mm)</li>`
+                        ).join('');
+
+                        // Append to result or show separate info
+                        const dowelAlert = document.createElement('div');
+                        dowelAlert.className = 'alert text-dark mt-3 dowel-info-alert';
+                        dowelAlert.innerHTML = `
+                            <strong><i class="bi bi-printer me-2"></i>Dowels Needed:</strong>
+                            <ul class="mb-0 mt-2">${dowelInfo}</ul>
+                            <small class="text-muted">Dowel files are included in the ZIP download.</small>
+                        `;
+                        resultContainer.appendChild(dowelAlert);
+                        resultContainer.classList.remove('d-none');
+                    }
 
                     // Generate part preview cards
                     if (data.parts && data.parts.length > 0) {
