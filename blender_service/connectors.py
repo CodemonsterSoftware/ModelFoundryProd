@@ -33,120 +33,52 @@ def get_file_size_mb(path):
         return os.path.getsize(path) / (1024 * 1024)
     return 0
 
-def create_connector_shape(position, normal, diameter, depth, centered=False, profile='cylinder'):
-    """Create a connector mesh at the given position aligned to normal.
+def create_cylinder(position, normal, diameter, depth, centered=False):
+    """Create a cylinder mesh at the given position aligned to normal.
     
-    Args:
-        position: [x, y, z] position for the connector
-        normal: [x, y, z] direction the connector should point
-        diameter: Width/diameter of the connector
-        depth: Length/depth of the connector
-        centered: If True, center on position; if False, offset so end is at position
-        profile: Shape profile - 'cylinder', 'square', 'hexagon', or 'star'
-    
-    Returns:
-        The created Blender object
+    IMPORTANT: We must set rotation BEFORE setting position, because
+    applying rotation to matrix_world also rotates the position!
     """
     from mathutils import Vector, Quaternion
     import math
     
-    # Calculate rotation to align Z-up shape with target normal
+    # Calculate rotation to align Z-up cylinder with target normal
     z_axis = Vector((0, 0, 1))
     target = Vector(normal).normalized()
     
-    # Step 1: Create shape at ORIGIN (so rotations work correctly)
-    if profile == 'square':
-        # Create a cube/box at origin
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
-        shape = bpy.context.active_object
-        # Scale to match dimensions (diameter x diameter x depth)
-        shape.scale = (diameter, diameter, depth)
-        
-    elif profile == 'hexagon':
-        # Create a cylinder with 6 vertices = hexagonal prism
-        bpy.ops.mesh.primitive_cylinder_add(
-            radius=diameter / 2,
-            depth=depth,
-            vertices=6,  # 6 sides = hexagon
-            location=(0, 0, 0)
-        )
-        shape = bpy.context.active_object
-        
-    elif profile == 'star':
-        # Create a star/cross shape by combining two boxes
-        # First box: along X
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
-        box1 = bpy.context.active_object
-        box1.scale = (diameter, diameter * 0.4, depth)
-        
-        # Second box: along Y  
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
-        box2 = bpy.context.active_object
-        box2.scale = (diameter * 0.4, diameter, depth)
-        
-        # Apply scales to both boxes
-        for obj in [box1, box2]:
-            bpy.context.view_layer.objects.active = obj
-            bpy.ops.object.select_all(action='DESELECT')
-            obj.select_set(True)
-            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-        
-        # Join the two boxes
-        bpy.context.view_layer.objects.active = box1
-        box2.select_set(True)
-        box1.select_set(True)
-        bpy.ops.object.join()
-        shape = bpy.context.active_object
-        
-    else:  # Default: cylinder
-        bpy.ops.mesh.primitive_cylinder_add(
-            radius=diameter / 2,
-            depth=depth,
-            vertices=32,
-            location=(0, 0, 0)
-        )
-        shape = bpy.context.active_object
+    # Calculate final position FIRST (before creating cylinder)
+    # For holes: offset so the cylinder is buried into the part
+    # For pins (centered): keep at position so half sticks out
+    pos = Vector(position)
+    if not centered:
+        # Offset backwards along normal so cylinder end is at position
+        offset = target * (depth / 2)
+        pos = pos - offset
     
-    # Step 2: Apply any pending transforms (scale) to mesh data
-    bpy.context.view_layer.objects.active = shape
-    bpy.ops.object.select_all(action='DESELECT')
-    shape.select_set(True)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    # Create cylinder at the FINAL position directly
+    # (avoiding the origin-then-move approach which was causing issues)
+    bpy.ops.mesh.primitive_cylinder_add(
+        radius=diameter / 2,
+        depth=depth,
+        vertices=32,
+        location=pos
+    )
+    cylinder = bpy.context.active_object
     
-    # Step 3: Apply rotation to align with target normal
+    # Now apply rotation if needed (rotation around the cylinder's own center)
     dot = z_axis.dot(target)
     if dot < -0.9999:
         # Nearly opposite (pointing down) - rotate 180 around X
-        shape.rotation_euler = (math.pi, 0, 0)
+        cylinder.rotation_euler = (math.pi, 0, 0)
     elif dot > 0.9999:
         # Same direction (pointing up) - no rotation needed
         pass
     else:
         # General case - use quaternion rotation
         rotation = z_axis.rotation_difference(target)
-        shape.rotation_euler = rotation.to_euler()
+        cylinder.rotation_euler = rotation.to_euler()
     
-    # Step 4: Apply rotation transform to mesh data
-    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
-    
-    # Step 5: Calculate final position and move there
-    pos = Vector(position)
-    if not centered:
-        # Offset backwards along normal so end is at position
-        offset = target * (depth / 2)
-        pos = pos - offset
-    
-    shape.location = pos
-    
-    return shape
-
-
-# Keep old function name for backwards compatibility
-def create_cylinder(position, normal, diameter, depth, centered=False):
-    """Create a cylinder mesh at the given position aligned to normal.
-    Backwards compatible wrapper for create_connector_shape.
-    """
-    return create_connector_shape(position, normal, diameter, depth, centered, profile='cylinder')
+    return cylinder
 
 def apply_boolean(target_obj, tool_obj, operation):
     """Apply boolean modifier to target using tool object."""
@@ -227,18 +159,17 @@ try:
         normal = conn.get('normal', [0, 0, 1])
         diameter = conn.get('diameter', 5.0)
         depth = conn.get('depth', 10.0)
-        profile = conn.get('profile', 'cylinder')  # Get profile shape
         
-        log(f"Connector {i+1}/{len(connectors)}: {conn_type} ({profile}) at {position}")
+        log(f"Connector {i+1}/{len(connectors)}: {conn_type} at {position}")
         log(f"  Diameter: {diameter}, Depth: {depth}")
         
         conn_start = time.time()
         
-        # Create connector shape tool
+        # Create cylinder tool
         # Pins should be centered (half in, half out)
         # Holes should be buried (starting at surface and going in)
         is_pin = (conn_type == 'pin')
-        connector_shape = create_connector_shape(position, normal, diameter, depth, centered=is_pin, profile=profile)
+        cylinder = create_cylinder(position, normal, diameter, depth, centered=is_pin)
         
         # Determine operation
         if conn_type == 'hole':
@@ -250,14 +181,14 @@ try:
         
         success = False
         try:
-            success = apply_boolean(mesh_obj, connector_shape, operation)
+            success = apply_boolean(mesh_obj, cylinder, operation)
         except Exception as e:
             log(f"  WARNING: Boolean check failed: {e}")
         
         if success:
             log(f"  Boolean applied in {time.time() - conn_start:.2f}s")
-            # Clean up connector shape
-            bpy.data.objects.remove(connector_shape, do_unlink=True)
+            # Clean up cylinder
+            bpy.data.objects.remove(cylinder, do_unlink=True)
         else:
             log(f"  WARNING: Boolean failed for {conn_type}")
             
@@ -270,24 +201,24 @@ try:
                     # Select both
                     bpy.ops.object.select_all(action='DESELECT')
                     mesh_obj.select_set(True)
-                    connector_shape.select_set(True)
+                    cylinder.select_set(True)
                     bpy.context.view_layer.objects.active = mesh_obj
                     
                     bpy.ops.object.join()
                     log("  Fallback join successful")
                     
-                    # After join, connector_shape object is merged into 'mesh_obj'
-                    # No need to remove it, it's gone/merged.
+                    # After join, 'cylinder' object is merged into 'mesh_obj'
+                    # No need to remove cylinder, it's gone/merged.
                     
                 except Exception as ex:
                     log(f"  ERROR: Fallback join also failed: {ex}")
                     # Try to cleanup
-                    if connector_shape in bpy.data.objects.values():
-                        bpy.data.objects.remove(connector_shape, do_unlink=True)
+                    if cylinder in bpy.data.objects.values():
+                        bpy.data.objects.remove(cylinder, do_unlink=True)
             else:
                 # For holes (Difference), we can't join. If it fails, we just don't have a hole.
-                # Clean up connector shape
-                bpy.data.objects.remove(connector_shape, do_unlink=True)
+                # Clean up cylinder
+                bpy.data.objects.remove(cylinder, do_unlink=True)
     
     # Report face count change
     final_faces = len(mesh_obj.data.polygons)

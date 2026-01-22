@@ -257,7 +257,6 @@ def api_slice(request):
                 'height': form.cleaned_data.get('joint_height', 5.0),
                 'clearance': form.cleaned_data.get('joint_clearance', 0.2),
                 'count': form.cleaned_data.get('joint_count', 0),
-                'profile': form.cleaned_data.get('dowel_profile', 'cylinder'),
             },
             'dovetail_params': {
                 'angle': form.cleaned_data.get('dovetail_angle', 14.0),

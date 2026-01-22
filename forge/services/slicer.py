@@ -22,49 +22,6 @@ except ImportError:
 BLENDER_AVAILABLE = None  # None = not checked yet
 
 
-def _create_dowel_mesh(diameter: float, height: float, profile: str = 'cylinder') -> 'trimesh.Trimesh':
-    """
-    Create a dowel mesh with the specified profile shape.
-    
-    Args:
-        diameter: Outer diameter of the dowel
-        height: Height of the dowel
-        profile: Shape profile - 'cylinder', 'square', 'hexagon', or 'star'
-        
-    Returns:
-        trimesh.Trimesh object
-    """
-    radius = diameter / 2
-    
-    if profile == 'square':
-        # Create a square prism (box)
-        # Box takes [x, y, z] extents, so we use diameter for x and y
-        dowel = trimesh.creation.box(
-            extents=[diameter, diameter, height]
-        )
-    elif profile == 'hexagon':
-        # Create hexagonal prism using cylinder with 6 sections
-        dowel = trimesh.creation.cylinder(
-            radius=radius,
-            height=height,
-            sections=6  # 6 sides = hexagon
-        )
-    elif profile == 'star':
-        # Create a star/cross shape by combining two boxes at 90 degrees
-        # The cross width is diameter, each arm width is 40% of diameter
-        arm_width = diameter * 0.4
-        box1 = trimesh.creation.box(extents=[diameter, arm_width, height])
-        box2 = trimesh.creation.box(extents=[arm_width, diameter, height])
-        dowel = trimesh.boolean.union([box1, box2])
-    else:  # Default: cylinder
-        dowel = trimesh.creation.cylinder(
-            radius=radius,
-            height=height,
-            sections=32
-        )
-    
-    return dowel
-
 def slice_mesh_grid(
     input_path: str,
     output_dir: str,
@@ -147,21 +104,14 @@ def slice_mesh_grid(
     # Perform slicing
     parts = []
     part_coords = []  # Track grid coordinates for uniform mode
-    freeform_adjacency = []  # Track adjacency for freeform mode
     
     if planes:
         logger.info(f"Slicing with {len(planes)} arbitrary planes")
-        
-        # IMPORTANT: Center the mesh to origin to match frontend preview behavior
-        # The frontend centers the model for display, so plane coordinates from the UI
-        # are relative to a centered model. We must apply the same transformation.
-        mesh_center = mesh.centroid.copy()
-        mesh.apply_translation(-mesh_center)
-        logger.info(f"Centered mesh from {mesh_center} to origin")
-        logger.info(f"New mesh bounds: min={mesh.bounds[0].tolist()}, max={mesh.bounds[1].tolist()}")
-        
-        parts, freeform_adjacency = _slice_arbitrary_planes(mesh, planes)
-        logger.info(f"Freeform slicing produced {len(parts)} parts with {len(freeform_adjacency)} adjacent pairs")
+        parts = _slice_arbitrary_planes(mesh, planes)
+        # Freeform mode doesn't support connectors yet
+        if joint_type != 'none':
+            result['warnings'].append("Connectors are not yet supported for freeform planes. Parts sliced without connectors.")
+            joint_type = 'none'
     else:
         logger.info(f"Slicing with grid: {grid}")
         parts, part_coords = _slice_uniform_grid_with_coords(mesh, grid)
@@ -192,53 +142,36 @@ def slice_mesh_grid(
         status = "✓ Valid" if validation_result['valid'] else f"⚠ Issues: {', '.join(validation_result['issues'])}"
         logger.info(f"Exported part {i+1}/{len(parts)}: {filename} - {status}")
     
-    # Apply connectors if requested
-    if joint_type != 'none' and len(parts) > 1:
-        connector_result = None
+    # Apply connectors if requested (uniform grid mode only)
+    if joint_type != 'none' and len(parts) > 1 and part_coords:
+        connector_result = _apply_connectors(
+            output_dir=output_dir,
+            parts=result['parts'],
+            part_coords=part_coords,
+            grid=grid,
+            original_bounds=original_bounds,
+            joint_type=joint_type,
+            joint_params=joint_params,
+            dovetail_params=dovetail_params,
+            base_name=base_name
+        )
         
-        if freeform_adjacency:
-            # Freeform mode - use adjacency-based connector placement
-            logger.info(f"Applying {joint_type} connectors for freeform mode ({len(freeform_adjacency)} adjacent pairs)")
-            connector_result = _apply_connectors_freeform(
-                output_dir=output_dir,
-                parts=result['parts'],
-                adjacency_list=freeform_adjacency,
-                joint_type=joint_type,
-                joint_params=joint_params,
-                base_name=base_name
-            )
-        elif part_coords:
-            # Uniform grid mode - use coordinate-based connector placement
-            logger.info(f"Applying {joint_type} connectors for uniform mode")
-            connector_result = _apply_connectors(
-                output_dir=output_dir,
-                parts=result['parts'],
-                part_coords=part_coords,
-                grid=grid,
-                original_bounds=original_bounds,
-                joint_type=joint_type,
-                joint_params=joint_params,
-                dovetail_params=dovetail_params,
-                base_name=base_name
-            )
-        
-        # Merge connector results if we got any
-        if connector_result:
-            if connector_result.get('blender_required'):
-                result['blender_required'] = True
-            if connector_result.get('warnings'):
-                result['warnings'].extend(connector_result['warnings'])
-            if connector_result.get('dowel_files'):
-                result['dowel_files'].extend(connector_result['dowel_files'])
-            if connector_result.get('modified_parts'):
-                result['parts'] = connector_result['modified_parts']
+        # Merge connector results
+        if connector_result.get('blender_required'):
+            result['blender_required'] = True
+        if connector_result.get('warnings'):
+            result['warnings'].extend(connector_result['warnings'])
+        if connector_result.get('dowel_files'):
+            result['dowel_files'].extend(connector_result['dowel_files'])
+        if connector_result.get('modified_parts'):
+            result['parts'] = connector_result['modified_parts']
     
     return result
 
 
-def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tuple[List['trimesh.Trimesh'], List[Tuple]]:
+def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> List['trimesh.Trimesh']:
     """
-    Iteratively slice mesh with arbitrary planes, tracking adjacency.
+    Iteratively slice mesh with arbitrary planes.
     Each plane splits every existing part into two (Positive/Negative).
     
     Args:
@@ -246,23 +179,13 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tupl
         planes: List of plane definitions, each with 'origin' and 'rotation' dicts
         
     Returns:
-        Tuple of (parts_list, adjacency_list)
-        - parts_list: List of sliced mesh parts
-        - adjacency_list: List of (part_a_idx, part_b_idx, origin, normal) tuples
-          indicating which parts share a cut face
+        List of sliced mesh parts
     """
     if not planes:
         logger.warning("No planes provided for slicing")
-        return [mesh], []
+        return [mesh]
     
-    # Track parts and their parent relationships
-    # Each entry is (mesh, parent_idx, side) where side is 'pos' or 'neg'
-    current_parts = [(mesh, None, None)]
-    adjacency_list = []  # Will store (idx_a, idx_b, origin, normal) after all slicing
-    
-    # Track which pairs of parts are adjacent (came from same parent split)
-    # We'll build this incrementally and then convert to final indices at the end
-    pending_adjacencies = []  # List of (origin, normal, pos_part_tracker, neg_part_tracker)
+    current_parts = [mesh]
     
     for i, plane_def in enumerate(planes):
         next_parts = []
@@ -270,19 +193,22 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tupl
         # Validate plane data structure
         if 'origin' not in plane_def or 'rotation' not in plane_def:
             logger.error(f"Plane {i+1} missing 'origin' or 'rotation' key. Skipping.")
-            # Pass through all current parts unchanged
-            next_parts = current_parts
             continue
             
         try:
             origin_dict = plane_def['origin']
             rot_dict = plane_def['rotation']
             
-            # Validate origin coordinates
+            # Calculate mesh center to match frontend visualization logic
+            # The frontend centers the model at (0,0,0) based on bounding box
+            mesh_center = mesh.bounds.mean(axis=0)
+            
+            # Validate origin coordinates and apply offset
+            # Plane Origin (Original Space) = Plane Origin (Visual Space) + Mesh Center
             origin = [
-                float(origin_dict.get('x', 0)),
-                float(origin_dict.get('y', 0)),
-                float(origin_dict.get('z', 0))
+                float(origin_dict.get('x', 0)) + mesh_center[0],
+                float(origin_dict.get('y', 0)) + mesh_center[1],
+                float(origin_dict.get('z', 0)) + mesh_center[2]
             ]
             
             # Validate rotation angles
@@ -292,21 +218,14 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tupl
                 float(rot_dict.get('z', 0))
             )
             
-            logger.info(f"Processing Plane {i+1}/{len(planes)}: Origin={origin}, Normal={normal}")
+            logger.info(f"Processing Plane {i+1}/{len(planes)}: VisualOrigin=[{origin_dict.get('x')}, {origin_dict.get('y')}, {origin_dict.get('z')}], AdjustedOrigin={origin}, Normal={normal}")
             
         except (KeyError, TypeError, ValueError) as e:
             logger.error(f"Invalid plane data at index {i}: {e}. Skipping this plane.")
-            next_parts = current_parts
             continue
         
-        for part_data in current_parts:
-            part = part_data[0]  # Extract mesh from tuple
-            
+        for part_idx, part in enumerate(current_parts):
             try:
-                # Log mesh bounds for debugging
-                if hasattr(part, 'bounds'):
-                    logger.info(f"  Part bounds: min={part.bounds[0].tolist()}, max={part.bounds[1].tolist()}")
-                
                 # Slice logic: slice_mesh_plane returns the portion in the direction of the normal
                 # To get both sides, we slice twice with opposite normals
                 
@@ -317,87 +236,45 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tupl
                 neg_normal = [-n for n in normal]
                 neg_part = part.slice_plane(plane_origin=origin, plane_normal=neg_normal, cap=True)
                 
-                pos_valid = pos_part is not None and len(pos_part.vertices) > 0
-                neg_valid = neg_part is not None and len(neg_part.vertices) > 0
+                # Keep non-empty parts
+                if pos_part is not None and len(pos_part.vertices) > 0:
+                    next_parts.append(pos_part)
+                    logger.debug(f"  Part {part_idx+1}: Positive side has {len(pos_part.vertices)} vertices")
                 
-                # Debug logging
-                logger.info(f"  Slice results: pos_valid={pos_valid}, neg_valid={neg_valid}")
-                if pos_part is not None:
-                    logger.info(f"    pos_part: {len(pos_part.vertices)} vertices")
-                if neg_part is not None:
-                    logger.info(f"    neg_part: {len(neg_part.vertices)} vertices")
-                
-                # Track parts and their adjacency
-                if pos_valid and neg_valid:
-                    # Both sides exist - they are adjacent along this plane
-                    pos_tracker = len(next_parts)
-                    next_parts.append((pos_part, part_data, 'pos'))
+                if neg_part is not None and len(neg_part.vertices) > 0:
+                    next_parts.append(neg_part)
+                    logger.debug(f"  Part {part_idx+1}: Negative side has {len(neg_part.vertices)} vertices")
                     
-                    neg_tracker = len(next_parts)
-                    next_parts.append((neg_part, part_data, 'neg'))
-                    
-                    # Record this adjacency for later (indices will change as we continue slicing)
-                    pending_adjacencies.append({
-                        'origin': origin.copy(),
-                        'normal': normal.copy(),
-                        'pos_mesh': pos_part,
-                        'neg_mesh': neg_part
-                    })
-                    
-                    logger.debug(f"  Split created 2 adjacent parts")
-                    
-                elif pos_valid:
-                    next_parts.append((pos_part, part_data, 'pos'))
-                    logger.debug(f"  Only positive side has geometry")
-                elif neg_valid:
-                    next_parts.append((neg_part, part_data, 'neg'))
-                    logger.debug(f"  Only negative side has geometry")
-                else:
-                    # Neither side valid - plane didn't intersect, keep original
-                    logger.warning(f"  Plane {i+1} did not intersect part, keeping original")
-                    next_parts.append(part_data)
+                # If both slices failed, keep original part
+                if (pos_part is None or len(pos_part.vertices) == 0) and \
+                   (neg_part is None or len(neg_part.vertices) == 0):
+                    logger.warning(f"  Plane {i+1} did not intersect part {part_idx+1}, keeping original")
+                    next_parts.append(part)
                     
             except Exception as e:
-                logger.error(f"Error slicing with plane {i+1}: {e}")
-                # If slicing fails, keep the original part
-                next_parts.append(part_data)
+                msg = str(e)
+                logger.error(f"Error slicing part {part_idx+1} with plane {i+1}: {msg}")
+                # Check for known critical errors
+                if "triangulation engine" in msg.lower():
+                    raise ImportError(f"Missing triangulation engine: {msg}. Please install 'mapbox-earcut' or 'triangle'.")
+                
+                # For other errors, keep the original part but warn?
+                # Actually, raising here might be better to alert the user, but let's stick to safe fallback 
+                # and maybe we should propagate this warning up. 
+                # But _slice_arbitrary_planes currently returns a list, not a dict with warnings.
+                # Changing the return signature is risky for compatibility.
+                # For now, we'll log it as error and keep the part.
+                next_parts.append(part)
         
         if not next_parts:
             logger.error(f"No valid parts after plane {i+1}, returning current parts")
-            current_parts = [(p[0], p[1], p[2]) for p in current_parts]
-            break
+            return current_parts
             
         current_parts = next_parts
         logger.info(f"After plane {i+1}: {len(current_parts)} parts")
-    
-    # Extract just the meshes from tracking data
-    final_parts = [p[0] for p in current_parts]
-    
-    # Now build final adjacency list by finding which final parts match the pending adjacencies
-    # We need to find the final index of each mesh by identity
-    mesh_to_idx = {id(mesh): idx for idx, mesh in enumerate(final_parts)}
-    
-    for adj in pending_adjacencies:
-        pos_id = id(adj['pos_mesh'])
-        neg_id = id(adj['neg_mesh'])
         
-        # Check if both meshes are still in the final parts list
-        # (they might have been further split by subsequent planes)
-        if pos_id in mesh_to_idx and neg_id in mesh_to_idx:
-            adjacency_list.append((
-                mesh_to_idx[pos_id],
-                mesh_to_idx[neg_id],
-                adj['origin'],
-                adj['normal']
-            ))
-        else:
-            # One or both parts were further split - find their descendants
-            # For now, we'll skip these complex cases
-            # TODO: Track mesh lineage for complex multi-plane cuts
-            logger.debug(f"Adjacency lost due to subsequent splits - skipping")
-        
-    logger.info(f"Slicing complete: {len(final_parts)} total parts, {len(adjacency_list)} adjacent pairs")
-    return final_parts, adjacency_list
+    logger.info(f"Slicing complete: {len(current_parts)} total parts created")
+    return current_parts
 
 
 
@@ -904,7 +781,6 @@ def _apply_connectors(
     height = joint_params.get('height', 5.0)
     clearance = joint_params.get('clearance', 0.2)
     count = joint_params.get('count', 2)
-    profile = joint_params.get('profile', 'cylinder')  # Shape profile for dowels
     if count == 0:
         count = 2  # Default to 2 connectors per interface
     
@@ -970,14 +846,13 @@ def _apply_connectors(
             pos_b_list[axis] = interface_pos_b  # Use Part B's interface coordinate
             
             if joint_type == 'pins':
-                # Part A gets holes (always cylindrical for pins)
+                # Part A gets holes
                 part_connectors[idx_a].append({
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,  # Hole slightly larger
                     'depth': effective_height + 1,  # Hole slightly deeper than pin
-                    'type': 'hole',
-                    'profile': 'cylinder'  # Pins are always cylindrical
+                    'type': 'hole'
                 })
                 
                 # Part B gets pins at the SAME perpendicular position
@@ -986,18 +861,16 @@ def _apply_connectors(
                     'normal': normal_b.copy(),
                     'diameter': diameter,
                     'depth': effective_height,
-                    'type': 'pin',
-                    'profile': 'cylinder'  # Pins are always cylindrical
+                    'type': 'pin'
                 })
             elif joint_type == 'dowels':
-                # Both parts get holes for external dowel (shape based on selected profile)
+                # Both parts get holes for external dowel
                 part_connectors[idx_a].append({
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,
                     'depth': effective_height / 2 + 1,
-                    'type': 'hole',
-                    'profile': profile  # Use selected dowel profile shape
+                    'type': 'hole'
                 })
                 
                 part_connectors[idx_b].append({
@@ -1005,20 +878,23 @@ def _apply_connectors(
                     'normal': normal_b.copy(),
                     'diameter': diameter + clearance,
                     'depth': effective_height / 2 + 1,
-                    'type': 'hole',
-                    'profile': profile  # Use selected dowel profile shape
+                    'type': 'hole'
                 })
     
     # Generate printable dowel files if using dowels
     if joint_type == 'dowels' and adjacent_pairs:
         dowel_count = len(adjacent_pairs) * count
-        logger.info(f"Generating {dowel_count} printable {profile} dowels")
+        logger.info(f"Generating {dowel_count} printable dowels")
         
-        # Create a single dowel mesh with the specified profile
-        dowel = _create_dowel_mesh(diameter, height, profile)
+        # Create a single dowel mesh
+        dowel = trimesh.creation.cylinder(
+            radius=diameter / 2,
+            height=height,
+            sections=32
+        )
         
         # Export single dowel
-        dowel_path = output_dir / f"{base_name}_dowel_{profile}_d{diameter}mm_h{height}mm.stl"
+        dowel_path = output_dir / f"{base_name}_dowel_d{diameter}mm_h{height}mm.stl"
         dowel.export(str(dowel_path))
         
         result['dowel_files'].append({
@@ -1026,8 +902,7 @@ def _apply_connectors(
             'filename': dowel_path.name,
             'count_needed': dowel_count,
             'diameter': diameter,
-            'height': height,
-            'profile': profile
+            'height': height
         })
         
         logger.info(f"Created dowel template: {dowel_path.name} (need {dowel_count} copies)")
@@ -1066,265 +941,6 @@ def _apply_connectors(
                     'filename': Path(output_path).name,
                     'has_connectors': True,
                     'connector_positions': connectors  # Include positions for 3D viewer
-                }
-                logger.info(f"  Successfully applied connectors to part {idx + 1}")
-            else:
-                result['warnings'].append(f"Failed to apply connectors to part {idx + 1}: {response.get('message', 'Unknown error')}")
-                logger.warning(f"Connector application failed: {response}")
-                
-        except Exception as e:
-            logger.error(f"Error applying connectors to part {idx + 1}: {e}")
-            result['warnings'].append(f"Error applying connectors to part {idx + 1}: {str(e)}")
-    
-    result['modified_parts'] = modified_parts
-    return result
-
-
-def _apply_connectors_freeform(
-    output_dir: Path,
-    parts: List[Dict[str, Any]],
-    adjacency_list: List[Tuple],
-    joint_type: str,
-    joint_params: Dict[str, Any],
-    base_name: str
-) -> Dict[str, Any]:
-    """
-    Apply connectors to freeform sliced parts using Blender service.
-    
-    Unlike grid-based connectors, this uses the adjacency list from slicing
-    which includes the plane origin and normal for each adjacent pair.
-    
-    Args:
-        output_dir: Directory containing part files
-        parts: List of part info dicts
-        adjacency_list: List of (idx_a, idx_b, origin, normal) tuples from slicing
-        joint_type: 'pins' or 'dowels'
-        joint_params: Parameters for pins/dowels (diameter, height, clearance, count, profile)
-        base_name: Base name for output files
-        
-    Returns:
-        Dictionary with:
-        - 'modified_parts': Updated parts list
-        - 'warnings': Warning messages
-        - 'blender_required': True if Blender unavailable
-        - 'dowel_files': Generated dowel STL files
-    """
-    result = {
-        'modified_parts': None,
-        'warnings': [],
-        'blender_required': False,
-        'dowel_files': []
-    }
-    
-    # Check Blender service availability
-    try:
-        from .blender_client import BlenderClient
-        client = BlenderClient()
-        if not client.is_available():
-            logger.warning("Blender service not available for freeform connectors")
-            result['blender_required'] = True
-            result['warnings'].append(
-                "Blender service is not available. Connectors could not be applied."
-            )
-            return result
-    except ImportError as e:
-        logger.error(f"Could not import BlenderClient: {e}")
-        result['blender_required'] = True
-        result['warnings'].append("Blender client not available. Connectors skipped.")
-        return result
-    
-    if not adjacency_list:
-        logger.warning("No adjacent pairs found for freeform connector placement")
-        result['warnings'].append("No adjacent parts found for connector placement.")
-        return result
-    
-    logger.info(f"Applying {joint_type} connectors to {len(parts)} parts ({len(adjacency_list)} adjacent pairs)")
-    
-    # Extract parameters
-    diameter = joint_params.get('diameter', 4.0)
-    height = joint_params.get('height', 5.0)
-    clearance = joint_params.get('clearance', 0.2)
-    count = joint_params.get('count', 2) or 2  # Default to 2 connectors per interface
-    profile = joint_params.get('profile', 'cylinder')
-    
-    # Build connector definitions for each part
-    part_connectors = {i: [] for i in range(len(parts))}
-    
-    for idx_a, idx_b, origin, normal in adjacency_list:
-        # origin: the cut plane origin [x, y, z]
-        # normal: the cut plane normal [x, y, z] (direction from idx_a toward idx_b)
-        
-        # For freeform cuts, we'll place connectors at the cut plane origin
-        # In the future, we could distribute multiple connectors across the cut face
-        # For now, we'll just place them at the origin with slight offsets for multiple connectors
-        
-        logger.info(f"Processing freeform interface between parts {idx_a+1} and {idx_b+1}")
-        logger.info(f"  Origin: {origin}, Normal: {normal}")
-        
-        # Load part A mesh to get its bounds for connector positioning
-        part_a_path = parts[idx_a]['filepath']
-        part_a_mesh = trimesh.load(part_a_path)
-        part_a_bounds = part_a_mesh.bounds
-        
-        # Calculate part dimensions for depth limiting
-        part_size = part_a_bounds[1] - part_a_bounds[0]
-        min_dimension = min(part_size[0], part_size[1], part_size[2])
-        max_safe_depth = min_dimension * 0.4  # 40% of smallest dimension
-        
-        effective_height = min(height, max_safe_depth)
-        if effective_height < height:
-            logger.warning(f"Reducing connector depth from {height} to {effective_height:.1f}")
-        
-        # Find the center of the cut face on part A
-        # The cut face should be at vertices closest to the cutting plane
-        origin_vec = np.array(origin)
-        normal_vec = np.array(normal)
-        normal_vec = normal_vec / np.linalg.norm(normal_vec)
-        
-        # Find vertices on the cut face (within tolerance of the cutting plane)
-        vertices = part_a_mesh.vertices
-        distances = np.abs(np.dot(vertices - origin_vec, normal_vec))
-        tolerance = 0.5  # mm
-        face_vertices = vertices[distances < tolerance]
-        
-        if len(face_vertices) > 0:
-            # Calculate centroid of face vertices
-            face_center = np.mean(face_vertices, axis=0)
-        else:
-            # Fallback to using the plane origin
-            face_center = origin_vec
-        
-        # Generate connector positions
-        # For multiple connectors, distribute them around the face center
-        connector_positions = []
-        if count == 1:
-            connector_positions.append(list(face_center))
-        else:
-            # Find perpendicular directions to the normal for distributing connectors
-            # Use Gram-Schmidt to get orthonormal basis
-            if abs(normal_vec[0]) < 0.9:
-                perp1 = np.cross(normal_vec, [1, 0, 0])
-            else:
-                perp1 = np.cross(normal_vec, [0, 1, 0])
-            perp1 = perp1 / np.linalg.norm(perp1)
-            perp2 = np.cross(normal_vec, perp1)
-            
-            # Distribute connectors in a pattern
-            spacing = diameter * 1.5  # Space between connectors
-            if count == 2:
-                offsets = [spacing / 2, -spacing / 2]
-                for offset in offsets:
-                    pos = face_center + perp1 * offset
-                    connector_positions.append(list(pos))
-            else:
-                # For more connectors, arrange in a grid pattern
-                side_count = int(np.ceil(np.sqrt(count)))
-                total_width = spacing * (side_count - 1)
-                for i in range(count):
-                    row = i // side_count
-                    col = i % side_count
-                    offset1 = (col - (side_count - 1) / 2) * spacing
-                    offset2 = (row - (side_count - 1) / 2) * spacing
-                    pos = face_center + perp1 * offset1 + perp2 * offset2
-                    connector_positions.append(list(pos))
-        
-        # Normal for Part A holes points in the positive normal direction  
-        normal_a = list(normal_vec)
-        # Normal for Part B holes points in the opposite direction
-        normal_b = list(-normal_vec)
-        
-        for pos in connector_positions:
-            if joint_type == 'pins':
-                # Part A gets holes (always cylindrical for pins)
-                part_connectors[idx_a].append({
-                    'position': pos,
-                    'normal': normal_a.copy(),
-                    'diameter': diameter + clearance,
-                    'depth': effective_height + 1,
-                    'type': 'hole',
-                    'profile': 'cylinder'
-                })
-                
-                # Part B gets pins - calculate position on Part B's interface
-                # The pin position should be in the same location but referenced from Part B
-                part_connectors[idx_b].append({
-                    'position': pos,  # Same position in world space
-                    'normal': normal_b.copy(),
-                    'diameter': diameter,
-                    'depth': effective_height,
-                    'type': 'pin',
-                    'profile': 'cylinder'
-                })
-            elif joint_type == 'dowels':
-                # Both parts get holes for external dowel
-                part_connectors[idx_a].append({
-                    'position': pos,
-                    'normal': normal_a.copy(),
-                    'diameter': diameter + clearance,
-                    'depth': effective_height / 2 + 1,
-                    'type': 'hole',
-                    'profile': profile
-                })
-                
-                part_connectors[idx_b].append({
-                    'position': pos,
-                    'normal': normal_b.copy(),
-                    'diameter': diameter + clearance,
-                    'depth': effective_height / 2 + 1,
-                    'type': 'hole',
-                    'profile': profile
-                })
-    
-    # Generate printable dowel files if using dowels
-    if joint_type == 'dowels' and adjacency_list:
-        dowel_count = len(adjacency_list) * count
-        logger.info(f"Generating {dowel_count} printable {profile} dowels")
-        
-        dowel = _create_dowel_mesh(diameter, height, profile)
-        dowel_path = output_dir / f"{base_name}_dowel_{profile}_d{diameter}mm_h{height}mm.stl"
-        dowel.export(str(dowel_path))
-        
-        result['dowel_files'].append({
-            'filepath': str(dowel_path),
-            'filename': dowel_path.name,
-            'diameter': diameter,
-            'height': height,
-            'profile': profile,
-            'count': dowel_count
-        })
-    
-    # Apply connectors to each part via Blender
-    modified_parts = parts.copy()
-    
-    for idx, connectors in part_connectors.items():
-        if not connectors:
-            continue
-            
-        part_info = parts[idx]
-        input_path = part_info['filepath']
-        output_path = str(Path(input_path).with_suffix('')) + '_conn.stl'
-        
-        logger.info(f"Applying {len(connectors)} connectors to part {idx + 1}")
-        
-        try:
-            response = client.run_script(
-                script_path='connectors.py',
-                context={
-                    'input_file': input_path,
-                    'output_file': output_path,
-                    'params': {
-                        'connectors': connectors
-                    }
-                }
-            )
-            
-            if response.get('success'):
-                modified_parts[idx] = {
-                    **part_info,
-                    'filepath': output_path,
-                    'filename': Path(output_path).name,
-                    'has_connectors': True,
-                    'connector_positions': connectors
                 }
                 logger.info(f"  Successfully applied connectors to part {idx + 1}")
             else:

@@ -431,26 +431,15 @@
                                         <input type="number" class="form-control" id="joint_height" name="joint_height"
                                             value="5" min="2" max="30" step="0.5">
                                     </div>
-                                    <div class="col-6 mb-2">
+                                    <div class="col-6">
                                         <label for="joint_clearance" class="form-label">Clearance (mm)</label>
                                         <input type="number" class="form-control" id="joint_clearance"
                                             name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
                                     </div>
-                                    <div class="col-6 mb-2">
+                                    <div class="col-6">
                                         <label for="joint_count" class="form-label">Count per edge</label>
                                         <input type="number" class="form-control" id="joint_count" name="joint_count"
                                             value="2" min="1" max="20">
-                                    </div>
-                                    <div class="col-12 mb-2" id="dowel-profile-row">
-                                        <label for="dowel_profile" class="form-label">Dowel Profile</label>
-                                        <select class="form-select" id="dowel_profile" name="dowel_profile">
-                                            <option value="cylinder" selected>Cylinder (Round)</option>
-                                            <option value="square">Square</option>
-                                            <option value="hexagon">Hexagon</option>
-                                            <option value="star">Star (Cross)</option>
-                                        </select>
-                                        <small class="text-muted">Shape of dowel pins and holes (only for
-                                            dowels)</small>
                                     </div>
                                 </div>
                             </div>
@@ -1668,37 +1657,19 @@
             radio.addEventListener('change', function () {
                 const pinOptions = document.getElementById('pin-options');
                 const dovetailOptions = document.getElementById('dovetail-options');
-                const profileRow = document.getElementById('dowel-profile-row');
 
                 if (this.value === 'pins' || this.value === 'dowels') {
                     pinOptions.classList.remove('d-none');
                     dovetailOptions.classList.add('d-none');
-                    // Show profile option only for dowels
-                    if (profileRow) {
-                        if (this.value === 'dowels') {
-                            profileRow.classList.remove('d-none');
-                        } else {
-                            profileRow.classList.add('d-none');
-                        }
-                    }
                 } else if (this.value === 'dovetails') {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.remove('d-none');
-                    if (profileRow) profileRow.classList.add('d-none');
                 } else {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.add('d-none');
-                    if (profileRow) profileRow.classList.add('d-none');
                 }
             });
         });
-
-        // Hide profile row on initial load if not dowels
-        const initialJointType = document.querySelector('input[name="joint_type"]:checked');
-        const profileRow = document.getElementById('dowel-profile-row');
-        if (profileRow && initialJointType && initialJointType.value !== 'dowels') {
-            profileRow.classList.add('d-none');
-        }
 
         // Rotation button handlers
         document.querySelectorAll('.rotate-btn').forEach(btn => {
