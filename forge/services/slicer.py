@@ -22,6 +22,49 @@ except ImportError:
 BLENDER_AVAILABLE = None  # None = not checked yet
 
 
+def _create_dowel_mesh(diameter: float, height: float, profile: str = 'cylinder') -> 'trimesh.Trimesh':
+    """
+    Create a dowel mesh with the specified profile shape.
+    
+    Args:
+        diameter: Outer diameter of the dowel
+        height: Height of the dowel
+        profile: Shape profile - 'cylinder', 'square', 'hexagon', or 'star'
+        
+    Returns:
+        trimesh.Trimesh object
+    """
+    radius = diameter / 2
+    
+    if profile == 'square':
+        # Create a square prism (box)
+        # Box takes [x, y, z] extents, so we use diameter for x and y
+        dowel = trimesh.creation.box(
+            extents=[diameter, diameter, height]
+        )
+    elif profile == 'hexagon':
+        # Create hexagonal prism using cylinder with 6 sections
+        dowel = trimesh.creation.cylinder(
+            radius=radius,
+            height=height,
+            sections=6  # 6 sides = hexagon
+        )
+    elif profile == 'star':
+        # Create a star/cross shape by combining two boxes at 90 degrees
+        # The cross width is diameter, each arm width is 40% of diameter
+        arm_width = diameter * 0.4
+        box1 = trimesh.creation.box(extents=[diameter, arm_width, height])
+        box2 = trimesh.creation.box(extents=[arm_width, diameter, height])
+        dowel = trimesh.boolean.union([box1, box2])
+    else:  # Default: cylinder
+        dowel = trimesh.creation.cylinder(
+            radius=radius,
+            height=height,
+            sections=32
+        )
+    
+    return dowel
+
 def slice_mesh_grid(
     input_path: str,
     output_dir: str,
@@ -766,6 +809,7 @@ def _apply_connectors(
     height = joint_params.get('height', 5.0)
     clearance = joint_params.get('clearance', 0.2)
     count = joint_params.get('count', 2)
+    profile = joint_params.get('profile', 'cylinder')  # Shape profile for dowels
     if count == 0:
         count = 2  # Default to 2 connectors per interface
     
@@ -831,13 +875,14 @@ def _apply_connectors(
             pos_b_list[axis] = interface_pos_b  # Use Part B's interface coordinate
             
             if joint_type == 'pins':
-                # Part A gets holes
+                # Part A gets holes (always cylindrical for pins)
                 part_connectors[idx_a].append({
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,  # Hole slightly larger
                     'depth': effective_height + 1,  # Hole slightly deeper than pin
-                    'type': 'hole'
+                    'type': 'hole',
+                    'profile': 'cylinder'  # Pins are always cylindrical
                 })
                 
                 # Part B gets pins at the SAME perpendicular position
@@ -846,16 +891,18 @@ def _apply_connectors(
                     'normal': normal_b.copy(),
                     'diameter': diameter,
                     'depth': effective_height,
-                    'type': 'pin'
+                    'type': 'pin',
+                    'profile': 'cylinder'  # Pins are always cylindrical
                 })
             elif joint_type == 'dowels':
-                # Both parts get holes for external dowel
+                # Both parts get holes for external dowel (shape based on selected profile)
                 part_connectors[idx_a].append({
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,
                     'depth': effective_height / 2 + 1,
-                    'type': 'hole'
+                    'type': 'hole',
+                    'profile': profile  # Use selected dowel profile shape
                 })
                 
                 part_connectors[idx_b].append({
@@ -863,23 +910,20 @@ def _apply_connectors(
                     'normal': normal_b.copy(),
                     'diameter': diameter + clearance,
                     'depth': effective_height / 2 + 1,
-                    'type': 'hole'
+                    'type': 'hole',
+                    'profile': profile  # Use selected dowel profile shape
                 })
     
     # Generate printable dowel files if using dowels
     if joint_type == 'dowels' and adjacent_pairs:
         dowel_count = len(adjacent_pairs) * count
-        logger.info(f"Generating {dowel_count} printable dowels")
+        logger.info(f"Generating {dowel_count} printable {profile} dowels")
         
-        # Create a single dowel mesh
-        dowel = trimesh.creation.cylinder(
-            radius=diameter / 2,
-            height=height,
-            sections=32
-        )
+        # Create a single dowel mesh with the specified profile
+        dowel = _create_dowel_mesh(diameter, height, profile)
         
         # Export single dowel
-        dowel_path = output_dir / f"{base_name}_dowel_d{diameter}mm_h{height}mm.stl"
+        dowel_path = output_dir / f"{base_name}_dowel_{profile}_d{diameter}mm_h{height}mm.stl"
         dowel.export(str(dowel_path))
         
         result['dowel_files'].append({
@@ -887,7 +931,8 @@ def _apply_connectors(
             'filename': dowel_path.name,
             'count_needed': dowel_count,
             'diameter': diameter,
-            'height': height
+            'height': height,
+            'profile': profile
         })
         
         logger.info(f"Created dowel template: {dowel_path.name} (need {dowel_count} copies)")

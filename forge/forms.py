@@ -109,6 +109,20 @@ class SliceForm(STLUploadForm):
         label='Joints per edge (0 = auto)'
     )
     
+    # Dowel profile shape
+    PROFILE_CHOICES = [
+        ('cylinder', 'Cylinder (Round)'),
+        ('square', 'Square'),
+        ('hexagon', 'Hexagon'),
+        ('star', 'Star (Cross)'),
+    ]
+    dowel_profile = forms.ChoiceField(
+        required=False,
+        choices=PROFILE_CHOICES,
+        initial='cylinder',
+        label='Dowel Profile'
+    )
+    
     # Dovetail parameters
     dovetail_angle = forms.FloatField(
         required=False,
