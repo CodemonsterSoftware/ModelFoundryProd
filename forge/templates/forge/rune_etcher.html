@@ -1,0 +1,304 @@
+{% extends 'projects/base.html' %}
+{% load static %}
+
+{% block title %}Rune Etcher - ModelFoundry{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-4">Rune Etcher</h1>
+            <p class="lead text-muted">Digital watermarking and steganography for STL files.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="runeTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="etch-tab" data-bs-toggle="tab" data-bs-target="#etch"
+                                type="button" role="tab" aria-controls="etch" aria-selected="true">
+                                <i class="fas fa-pen-nib me-2"></i>Etch Rune (Encode)
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="read-tab" data-bs-toggle="tab" data-bs-target="#read"
+                                type="button" role="tab" aria-controls="read" aria-selected="false">
+                                <i class="fas fa-eye me-2"></i>Read Rune (Decode)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body p-4">
+                    <div class="tab-content" id="runeTabsContent">
+
+                        <!-- Etch Tab -->
+                        <div class="tab-pane fade show active" id="etch" role="tabpanel" aria-labelledby="etch-tab">
+                            <form id="etchForm">
+                                <div class="mb-4">
+                                    <label for="etchFile" class="form-label">Source STL File</label>
+                                    <input class="form-control" type="file" id="etchFile" name="stl_file" accept=".stl"
+                                        required>
+                                    <div class="form-text">Select a clean STL file. Fixing mesh issues beforehand is
+                                        recommended.</div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="runeMessage" class="form-label">Message (Rune)</label>
+                                    <textarea class="form-control" id="runeMessage" name="message" rows="3" required
+                                        placeholder="Enter secret text to embed..."></textarea>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label">Etching Method</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="stratVertex" value="vertex_permutation" checked>
+                                                <label class="form-check-label" for="stratVertex">
+                                                    <strong>Vertex Permutation</strong>
+                                                    <div class="text-muted small mt-1">Reorders triangles. Robust to
+                                                        rigid transformations, but fragile to re-meshing.</div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="stratMicron" value="micron_shifting">
+                                                <label class="form-check-label" for="stratMicron">
+                                                    <strong>Micron Shifting</strong>
+                                                    <div class="text-muted small mt-1">Embeds bits in vertex LSBs.
+                                                        Imperceptible, high capacity, but fragile to everything.</div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="stratDegenerate" value="degenerate_geometry">
+                                                <label class="form-check-label" for="stratDegenerate">
+                                                    <strong>Degenerate Geometry</strong>
+                                                    <div class="text-muted small mt-1">Appends invisible zero-area
+                                                        triangles. High capacity, robust if not cleaned.</div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="stratTopo" value="topological_subdivision">
+                                                <label class="form-check-label" for="stratTopo">
+                                                    <strong>Topological Subdivision</strong>
+                                                    <div class="text-muted small mt-1">Grid-based face subdivision
+                                                        (Parity Check). Robust to rigid transforms.</div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-primary btn-lg" id="etchBtn">
+                                        <i class="fas fa-magic me-2"></i>Etch Rune
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div id="etchResult" class="mt-4 d-none">
+                                <div class="alert alert-success">
+                                    <h4 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Rune Etched
+                                        Successfully!</h4>
+                                    <p>Your file has been processed.</p>
+                                    <hr>
+                                    <a href="#" id="downloadLink" class="btn btn-success">
+                                        <i class="fas fa-download me-2"></i>Download Etched STL
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div id="etchError" class="mt-4 d-none">
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle me-2"></i><span id="etchErrorMsg"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Read Tab -->
+                        <div class="tab-pane fade" id="read" role="tabpanel" aria-labelledby="read-tab">
+                            <form id="readForm">
+                                <div class="mb-4">
+                                    <label for="readFile" class="form-label">Etched STL File</label>
+                                    <input class="form-control" type="file" id="readFile" name="stl_file" accept=".stl"
+                                        required>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="form-label">Decoding Method</label>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="readStratVertex" value="vertex_permutation" checked>
+                                                <label class="form-check-label" for="readStratVertex">
+                                                    <strong>Vertex Permutation</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="readStratMicron" value="micron_shifting">
+                                                <label class="form-check-label" for="readStratMicron">
+                                                    <strong>Micron Shifting</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="readStratDegenerate" value="degenerate_geometry">
+                                                <label class="form-check-label" for="readStratDegenerate">
+                                                    <strong>Degenerate Geometry</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check card p-3 h-100">
+                                                <input class="form-check-input" type="radio" name="strategy"
+                                                    id="readStratTopo" value="topological_subdivision">
+                                                <label class="form-check-label" for="readStratTopo">
+                                                    <strong>Topological Subdivision</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-info btn-lg text-white" id="readBtn">
+                                        <i class="fas fa-search me-2"></i>Read Rune
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div id="readResult" class="mt-4 d-none">
+                                <div class="card bg-dark border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <i class="fas fa-scroll me-2"></i>Decoded Message
+                                    </div>
+                                    <div class="card-body">
+                                        <pre class="mb-0 text-white" id="decodedMessage"
+                                            style="white-space: pre-wrap; font-size: 1.25rem;"></pre>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="readError" class="mt-4 d-none">
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-circle me-2"></i><span id="readErrorMsg"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="{% url 'forge:index' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Forge
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        // Etch Logic
+        $('#etchForm').on('submit', function (e) {
+            e.preventDefault();
+
+            var formData = new FormData(this);
+            var btn = $('#etchBtn');
+            var originalText = btn.html();
+
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Etching...');
+            $('#etchResult').addClass('d-none');
+            $('#etchError').addClass('d-none');
+
+            $.ajax({
+                url: '{% url "forge:api_etch_rune" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                success: function (response) {
+                    if (response.success) {
+                        $('#downloadLink').attr('href', response.download_url);
+                        $('#etchResult').removeClass('d-none');
+                    } else {
+                        $('#etchErrorMsg').text(response.error || 'Unknown error');
+                        $('#etchError').removeClass('d-none');
+                    }
+                },
+                error: function (xhr) {
+                    var error = xhr.responseJSON ? xhr.responseJSON.error : 'Server error';
+                    $('#etchErrorMsg').text(error);
+                    $('#etchError').removeClass('d-none');
+                },
+                complete: function () {
+                    btn.prop('disabled', false).html(originalText);
+                }
+            });
+        });
+
+        // Read Logic
+        $('#readForm').on('submit', function (e) {
+            e.preventDefault();
+
+            var formData = new FormData(this);
+            var btn = $('#readBtn');
+            var originalText = btn.html();
+
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Reading...');
+            $('#readResult').addClass('d-none');
+            $('#readError').addClass('d-none');
+
+            $.ajax({
+                url: '{% url "forge:api_read_rune" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                success: function (response) {
+                    if (response.success) {
+                        var msg = response.message;
+                        if (!msg) msg = "<em>(No message found)</em>";
+                        $('#decodedMessage').html(msg);
+                        $('#readResult').removeClass('d-none');
+                    } else {
+                        $('#readErrorMsg').text(response.error || 'Unknown error');
+                        $('#readError').removeClass('d-none');
+                    }
+                },
+                error: function (xhr) {
+                    var error = xhr.responseJSON ? xhr.responseJSON.error : 'Server error';
+                    $('#readErrorMsg').text(error);
+                    $('#readError').removeClass('d-none');
+                },
+                complete: function () {
+                    btn.prop('disabled', false).html(originalText);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

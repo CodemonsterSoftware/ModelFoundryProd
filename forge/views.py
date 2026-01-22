@@ -55,6 +55,12 @@ def slice_model(request):
     return render(request, 'forge/slice.html', {'form': form})
 
 
+@login_required
+def rune_etcher(request):
+    """Rune Etcher tool page."""
+    return render(request, 'forge/rune_etcher.html')
+
+
 # =============================================================================
 # API Endpoints
 # =============================================================================
@@ -475,3 +481,95 @@ def api_download_part(request, job_id: str, part_index: int):
         as_attachment=False,  # Allow viewing in browser
         filename=part_info['filename']
     )
+
+
+@login_required
+@require_POST
+def api_etch_rune(request):
+    """API: Etch a rune into an STL file."""
+    try:
+        # Generate job ID
+        job_id = str(uuid.uuid4())
+        job_dir = get_job_dir(job_id)
+        
+        if 'stl_file' not in request.FILES:
+             return JsonResponse({'success': False, 'error': 'No file uploaded'}, status=400)
+             
+        stl_file = request.FILES['stl_file']
+        message = request.POST.get('message', '')
+        strategy = request.POST.get('strategy', 'vertex_permutation')
+        
+        if not message:
+            return JsonResponse({'success': False, 'error': 'Message is required'}, status=400)
+            
+        input_path = job_dir / stl_file.name
+        with open(input_path, 'wb') as f:
+            for chunk in stl_file.chunks():
+                f.write(chunk)
+                
+        output_filename = f"{Path(stl_file.name).stem}_etched.stl"
+        output_path = job_dir / output_filename
+        
+        from .services.rune_etcher import RuneEtcher
+        
+        etcher = RuneEtcher(strategy=strategy)
+        etcher.etch(str(input_path), str(output_path), message)
+        
+        # Determine download URL
+        # We can reuse api_download logic if we save a job.json
+        job_meta = {
+            'id': job_id,
+            'type': 'rune_etch',
+            'status': 'completed',
+            'output_file': str(output_path),
+            'strategy': strategy,
+            'message_length': len(message)
+        }
+        with open(job_dir / 'job.json', 'w') as f:
+            json.dump(job_meta, f)
+            
+        return JsonResponse({
+            'success': True,
+            'job_id': job_id,
+            'download_url': f"/forge/api/download/{job_id}/"
+        })
+        
+    except Exception as e:
+        logger.error(f"Rune Etch error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def api_read_rune(request):
+    """API: Read a rune from an STL file."""
+    try:
+        if 'stl_file' not in request.FILES:
+             return JsonResponse({'success': False, 'error': 'No file uploaded'}, status=400)
+             
+        stl_file = request.FILES['stl_file']
+        strategy = request.POST.get('strategy', 'vertex_permutation')
+        
+        # We process in-memory or temp file? 
+        # Better to save to temp to reuse existing file loading logic logic
+        with tempfile.NamedTemporaryFile(suffix='.stl', delete=False) as tmp:
+            for chunk in stl_file.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+            
+        try:
+            from .services.rune_etcher import RuneEtcher
+            etcher = RuneEtcher(strategy=strategy)
+            message = etcher.read(tmp_path)
+            
+            return JsonResponse({
+                'success': True,
+                'message': message
+            })
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+                
+    except Exception as e:
+        logger.error(f"Rune Read error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

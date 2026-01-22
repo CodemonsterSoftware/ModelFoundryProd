@@ -1,7 +1,18 @@
 {% extends 'projects/base.html' %}
+{% load static %}
 {% load crispy_forms_tags %}
 
 {% block title %}Forge - 3D File Tools{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-img-top {
+        height: 250px;
+        object-fit: cover;
+        object-position: center;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -44,7 +55,7 @@
         <!-- Grid Slicer -->
         <div class="col-md-6 col-lg-4">
             <div class="card h-100 shadow-sm">
-                <img src="https://placehold.co/600x400?text=Grid+Slicer" class="card-img-top" alt="Grid Slicer">
+                <img src="{% static 'img/forge/forge_grid_slicer.png' %}" class="card-img-top" alt="Grid Slicer">
                 <div class="card-body">
                     <h5 class="card-title">
                         <i class="bi bi-grid-3x3"></i> Grid Slicer
@@ -69,7 +80,7 @@
         <!-- Rune Etcher -->
         <div class="col-md-6 col-lg-4">
             <div class="card h-100 shadow-sm">
-                <img src="https://placehold.co/600x400?text=Rune+Etcher" class="card-img-top" alt="Rune Etcher">
+                <img src="{% static 'img/forge/forge_rune_etcher.png' %}" class="card-img-top" alt="Rune Etcher">
                 <div class="card-body">
                     <h5 class="card-title">
                         <i class="bi bi-shield-lock"></i> Rune Etcher
@@ -82,8 +93,8 @@
                     </ul>
                 </div>
                 <div class="card-footer bg-transparent border-top-0">
-                    <a href="#" class="btn btn-primary w-100 disabled">
-                        <i class="bi bi-magic"></i> Etch Rune (Coming Soon)
+                    <a href="{% url 'forge:rune_etcher' %}" class="btn btn-primary w-100">
+                        <i class="fas fa-magic"></i> Etch Rune
                     </a>
                 </div>
             </div>
