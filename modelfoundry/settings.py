@@ -234,5 +234,15 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'forge': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'forge.services': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
