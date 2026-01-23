@@ -3,6 +3,64 @@
 
 {% block title %}Rune Etcher - ModelFoundry{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Drag and drop zone */
+    .dropzone {
+        border: 2px dashed var(--border-dark);
+        border-radius: 0.5rem;
+        padding: 2rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--bg-darker);
+    }
+
+    .dropzone:hover {
+        border-color: var(--primary-color);
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+
+    /* Active styling for tabs */
+    .nav-tabs .nav-link.active {
+        background-color: var(--bs-secondary);
+        color: white;
+        border-color: var(--bs-secondary);
+    }
+
+    .dropzone.dragover {
+        border-color: #198754;
+        background-color: rgba(25, 135, 84, 0.15);
+    }
+
+    .dropzone.has-file {
+        border-color: #198754;
+        border-style: solid;
+    }
+
+    .dropzone-icon {
+        font-size: 2.5rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+
+    .dropzone-text {
+        color: var(--text-muted);
+        margin-bottom: 0;
+    }
+
+    .dropzone-filename {
+        color: var(--text-light);
+        font-weight: 500;
+        margin-top: 0.5rem;
+    }
+
+    .dropzone input[type="file"] {
+        display: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container py-5">
     <div class="row mb-4">
@@ -38,10 +96,18 @@
                         <div class="tab-pane fade show active" id="etch" role="tabpanel" aria-labelledby="etch-tab">
                             <form id="etchForm">
                                 <div class="mb-4">
-                                    <label for="etchFile" class="form-label">Source STL File</label>
-                                    <input class="form-control" type="file" id="etchFile" name="stl_file" accept=".stl"
-                                        required>
-                                    <div class="form-text">Select a clean STL file. Fixing mesh issues beforehand is
+                                    <label class="form-label">Source STL File</label>
+                                    <div class="dropzone" id="etchDropzone">
+                                        <input type="file" id="etchFile" name="stl_file" accept=".stl" required>
+                                        <div class="dropzone-icon">
+                                            <i class="bi bi-cloud-arrow-up"></i>
+                                        </div>
+                                        <p class="dropzone-text">Drag & drop source STL here</p>
+                                        <p class="dropzone-text small">or click to select</p>
+                                        <p class="dropzone-filename d-none" id="etchFilename"></p>
+                                    </div>
+                                    <div class="form-text mt-2">Select a clean STL file. Fixing mesh issues beforehand
+                                        is
                                         recommended.</div>
                                 </div>
 
@@ -131,9 +197,16 @@
                         <div class="tab-pane fade" id="read" role="tabpanel" aria-labelledby="read-tab">
                             <form id="readForm">
                                 <div class="mb-4">
-                                    <label for="readFile" class="form-label">Etched STL File</label>
-                                    <input class="form-control" type="file" id="readFile" name="stl_file" accept=".stl"
-                                        required>
+                                    <label class="form-label">Etched STL File</label>
+                                    <div class="dropzone" id="readDropzone">
+                                        <input type="file" id="readFile" name="stl_file" accept=".stl" required>
+                                        <div class="dropzone-icon">
+                                            <i class="bi bi-search"></i>
+                                        </div>
+                                        <p class="dropzone-text">Drag & drop etched STL here</p>
+                                        <p class="dropzone-text small">or click to select</p>
+                                        <p class="dropzone-filename d-none" id="readFilename"></p>
+                                    </div>
                                 </div>
 
                                 <div class="mb-4">
@@ -220,6 +293,68 @@
 {% block extra_js %}
 <script>
     $(document).ready(function () {
+        // --- Drag and Drop Logic ---
+        function setupDropzone(dropzoneId, inputId, filenameDisplayId) {
+            const dropzone = $(dropzoneId);
+            const input = $(inputId);
+            const filenameDisplay = $(filenameDisplayId);
+
+            // Handle click to select
+            dropzone.on('click', function (e) {
+                if (e.target !== input[0]) {
+                    input[0].click();
+                }
+            });
+
+            input.on('click', function (e) {
+                e.stopPropagation();
+            });
+
+            // Handle file selection
+            input.on('change', function () {
+                if (this.files && this.files.length > 0) {
+                    const file = this.files[0];
+                    filenameDisplay.text(file.name).removeClass('d-none');
+                    dropzone.addClass('has-file');
+                } else {
+                    filenameDisplay.addClass('d-none');
+                    dropzone.removeClass('has-file');
+                }
+            });
+
+            // Drag and drop events
+            dropzone.on('dragover', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.addClass('dragover');
+            });
+
+            dropzone.on('dragleave', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.removeClass('dragover');
+            });
+
+            dropzone.on('drop', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.removeClass('dragover');
+
+                const files = e.originalEvent.dataTransfer.files;
+                if (files.length > 0) {
+                    // Update input files
+                    input[0].files = files;
+
+                    // Trigger change event
+                    input.trigger('change');
+                }
+            });
+        }
+
+        setupDropzone('#etchDropzone', '#etchFile', '#etchFilename');
+        setupDropzone('#readDropzone', '#readFile', '#readFilename');
+
+
         // Etch Logic
         $('#etchForm').on('submit', function (e) {
             e.preventDefault();

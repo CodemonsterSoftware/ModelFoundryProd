@@ -1036,6 +1036,8 @@ def calculate_fit_planes(
         'mm': 1.0,
         'cm': 10.0,
         'in': 25.4,
+        'm': 1000.0,
+        'ft': 304.8,
     }
     
     # Convert model dimensions to mm

@@ -604,7 +604,14 @@ def api_read_rune(request):
 def api_projects(request):
     """API: List projects for the current user."""
     projects = Project.objects.filter(user=request.user).order_by('-updated_at')
-    data = [{'id': p.id, 'name': p.name} for p in projects]
+    data = []
+    for p in projects:
+        groups = [{'id': g.id, 'name': g.name} for g in p.groups.all().order_by('name')]
+        data.append({
+            'id': p.id, 
+            'name': p.name,
+            'groups': groups
+        })
     return JsonResponse({'success': True, 'projects': data})
 
 

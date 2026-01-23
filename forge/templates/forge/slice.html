@@ -379,6 +379,8 @@
                                         <option value="mm" selected>Millimeters (mm)</option>
                                         <option value="cm">Centimeters (cm)</option>
                                         <option value="in">Inches (in)</option>
+                                        <option value="m">Meters (m)</option>
+                                        <option value="ft">Feet (ft)</option>
                                     </select>
                                 </div>
                                 <div class="col-6">
@@ -701,8 +703,9 @@
                     </div>
                     <div class="mb-3">
                         <label for="id_group_name" class="form-label">Group Name</label>
-                        <input type="text" class="form-control" id="id_group_name" required>
-                        <div class="form-text">New group for these parts</div>
+                        <input type="text" class="form-control" id="id_group_name" list="group-options" required>
+                        <datalist id="group-options"></datalist>
+                        <div class="form-text">Select an existing group or type a new name</div>
                     </div>
                 </form>
             </div>
@@ -752,6 +755,7 @@
             this.controls = null;
             this.model = null;
             this.slicePlanes = [];
+            this.connectorMarkers = [];
             this.bounds = null;
 
             this.init();
@@ -1234,13 +1238,68 @@
             this.updateSlicePlanes();
         }
 
-        // Toggle grid visibility
         toggleGrid() {
             if (this.gridHelper) {
                 this.gridHelper.visible = !this.gridHelper.visible;
                 return this.gridHelper.visible;
             }
             return false;
+        }
+
+        clearConnectorMarkers() {
+            this.connectorMarkers.forEach(marker => {
+                this.scene.remove(marker);
+                if (marker.geometry) marker.geometry.dispose();
+                if (marker.material) marker.material.dispose();
+            });
+            this.connectorMarkers = [];
+        }
+
+        showConnectorMarkers(connectors) {
+            if (!connectors || connectors.length === 0) return;
+
+            this.clearConnectorMarkers();
+
+            connectors.forEach(conn => {
+                const pos = conn.position;
+                const type = conn.type;
+                const diameter = conn.diameter || 4;
+                const depth = conn.depth || 5;
+
+                // Create cylinder geometry for connector marker
+                const geometry = new THREE.CylinderGeometry(
+                    diameter / 2 * 1.2,  // Slightly larger for visibility
+                    diameter / 2 * 1.2,
+                    depth * 0.5,  // Shorter for preview
+                    16
+                );
+
+                // Color: green for pins, red for holes
+                const color = type === 'pin' ? 0x00ff00 : 0xff4444;
+                const material = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.7
+                });
+
+                const marker = new THREE.Mesh(geometry, material);
+
+                // Position the marker
+                marker.position.set(pos[0], pos[1], pos[2]);
+
+                // Rotate based on normal direction
+                const normal = conn.normal || [0, 0, 1];
+                if (Math.abs(normal[0]) > 0.9) {
+                    marker.rotation.z = Math.PI / 2;
+                } else if (Math.abs(normal[1]) > 0.9) {
+                    // Y-axis is default for cylinder, no rotation needed
+                } else {
+                    marker.rotation.x = Math.PI / 2;
+                }
+
+                this.scene.add(marker);
+                this.connectorMarkers.push(marker);
+            });
         }
     }
 
@@ -2165,6 +2224,23 @@
 
     // Auto-load Logic and Save to Project Logic
     document.addEventListener('DOMContentLoaded', function () {
+        let projectGroupsMap = {};
+        const groupDatalist = document.getElementById('group-options');
+        const projectSelect = document.getElementById('id_project');
+
+        if (projectSelect && groupDatalist) {
+            projectSelect.addEventListener('change', function () {
+                const projectId = parseInt(this.value);
+                groupDatalist.innerHTML = '';
+                if (projectId && projectGroupsMap[projectId]) {
+                    projectGroupsMap[projectId].forEach(g => {
+                        const opt = document.createElement('option');
+                        opt.value = g.name;
+                        groupDatalist.appendChild(opt);
+                    });
+                }
+            });
+        }
         // Auto-load part from URL if present
         if (typeof targetProjectCtx !== 'undefined' && targetProjectCtx.partUrl) {
             console.log('Auto-loading part from:', targetProjectCtx.partUrl);
@@ -2229,7 +2305,9 @@
                                 option.textContent = 'No projects found';
                                 select.appendChild(option);
                             } else {
+                                projectGroupsMap = {};
                                 data.projects.forEach(p => {
+                                    projectGroupsMap[p.id] = p.groups || [];
                                     const option = document.createElement('option');
                                     option.value = p.id;
                                     option.textContent = p.name;
@@ -2238,6 +2316,7 @@
                                     }
                                     select.appendChild(option);
                                 });
+                                select.dispatchEvent(new Event('change'));
                             }
 
                             // Set default group name
