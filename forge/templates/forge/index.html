@@ -99,6 +99,29 @@
                 </div>
             </div>
         </div>
+        {% comment %}
+        <!-- Sizer Tool -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="bi bi-person-bounding-box"></i> 3D Sizer
+                    </h5>
+                    <p class="card-text">Check if 3D prints will fit specific body parts.</p>
+                    <ul class="list-unstyled text-muted small">
+                        <li><i class="bi bi-check-circle text-success"></i> Body part primitives</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Custom Dimensions</li>
+                        <li><i class="bi bi-check-circle text-success"></i> Visual fit check</li>
+                    </ul>
+                </div>
+                <div class="card-footer bg-transparent border-top-0">
+                    <a href="{% url 'forge:sizer' %}" class="btn btn-primary w-100">
+                        <i class="bi bi- rulers"></i> Open Sizer
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endcomment %}
     </div>
 </div>
 {% endblock %}

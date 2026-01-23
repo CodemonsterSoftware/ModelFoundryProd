@@ -81,6 +81,22 @@ def slice_model(request):
 
 
 @login_required
+def sizer_tool(request):
+    """3D Model Sizer tool page."""
+    context = {
+        'body_parts': [
+            {'id': 'head', 'name': 'Head', 'icon': 'bi-emoji-smile'},
+            {'id': 'chest', 'name': 'Chest', 'icon': 'bi-heart'},
+            {'id': 'arm', 'name': 'Arm', 'icon': 'bi-hand-index-thumb'},
+            {'id': 'leg', 'name': 'Leg', 'icon': 'bi-person-walking'},
+            {'id': 'full', 'name': 'Male', 'icon': 'bi-gender-male'},
+            {'id': 'female', 'name': 'Female', 'icon': 'bi-gender-female'},
+        ]
+    }
+    return render(request, 'forge/sizer.html', context)
+
+
+@login_required
 def rune_etcher(request):
     """Rune Etcher tool page."""
     return render(request, 'forge/rune_etcher.html')

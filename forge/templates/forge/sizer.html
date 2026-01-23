@@ -1,0 +1,174 @@
+{% extends 'projects/base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Sizer - Forge{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reuse styles from slice.html/rune_etcher.html where possible */
+    #preview-container {
+        width: 100%;
+        height: 600px;
+        background-color: var(--bg-darker);
+        border: 1px solid var(--border-dark);
+        border-radius: 0.375rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    #preview-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: var(--text-muted);
+        text-align: center;
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    .dropzone {
+        border: 2px dashed var(--border-dark);
+        border-radius: 0.5rem;
+        padding: 2rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background-color: var(--bg-darker);
+    }
+
+    .dropzone:hover {
+        border-color: var(--primary-color);
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+
+    .body-part-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+
+    .body-part-card:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .body-part-card.active {
+        border-color: var(--primary-color);
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'forge:index' %}">Forge</a></li>
+            <li class="breadcrumb-item active">Sizer Tool</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Left Column: Controls -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-bounding-box"></i> Sizer Setup</h5>
+                </div>
+                <div class="card-body">
+
+                    <!-- 1. Select Body Part -->
+                    <h6 class="border-bottom pb-2 mb-3">1. Select Body Part</h6>
+                    <div class="row g-2 mb-4">
+                        {% for part in body_parts %}
+                        <div class="col-4">
+                            <div class="card body-part-card text-center p-2 h-100" data-part="{{ part.id }}">
+                                <i class="{{ part.icon }} fs-4 mb-2"></i>
+                                <div class="small">{{ part.name }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- 2. Dimensions -->
+                    <div id="dimensions-group" class="d-none">
+                        <h6 class="border-bottom pb-2 mb-3">2. Body Dimensions</h6>
+                        <div class="mb-3">
+                            <label for="dimension-input" class="form-label small fw-bold" id="dimension-label">Size
+                                (mm)</label>
+                            <input type="number" class="form-control" id="dimension-input" value="150" min="10"
+                                step="1">
+                            <div class="form-text small" id="dimension-help">Width of the head (ear to ear)</div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Upload STL -->
+                    <h6 class="border-bottom pb-2 mb-3 mt-4">3. Upload Model</h6>
+                    <div class="dropzone" id="dropzone">
+                        <input type="file" id="stl_file" name="stl_file" accept=".stl" style="display: none;">
+                        <div class="dropzone-icon fs-3 text-muted mb-2"><i class="bi bi-cloud-arrow-up"></i></div>
+                        <p class="dropzone-text small mb-0">Drag & drop or click</p>
+                    </div>
+
+                    <!-- 4. Model Transform -->
+                    <div id="transform-controls" class="d-none mt-4">
+                        <h6 class="border-bottom pb-2 mb-3">4. Adjust Model</h6>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="btn-group btn-group-sm w-100 me-2">
+                                <button class="btn btn-outline-primary active" id="mode-translate" title="Move">
+                                    <i class="bi bi-arrows-move"></i> Move
+                                </button>
+                                <button class="btn btn-outline-primary" id="mode-rotate" title="Rotate">
+                                    <i class="bi bi-arrow-repeat"></i> Rotate
+                                </button>
+                                <button class="btn btn-outline-primary" id="mode-scale" title="Scale">
+                                    <i class="bi bi-arrows-fullscreen"></i> Scale
+                                </button>
+                            </div>
+                            <button class="btn btn-outline-danger btn-sm" id="reset-model" title="Reset">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                        </div>
+
+                        <div class="alert alert-info small py-2">
+                            <i class="bi bi-info-circle me-1"></i> Use gizmo handles to adjust.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: 3D View -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-eye"></i> 3D Preview</h6>
+                    <span class="badge bg-secondary" id="active-part-badge">No Selection</span>
+                </div>
+                <div class="card-body p-0 position-relative" style="background-color: #1a1a1a;">
+                    <div id="preview-container">
+                        <div id="preview-message">
+                            <div class="text-muted opacity-50">Select a body part to begin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Three.js Map (Same as slice.html) -->
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module" src="{% static 'forge/js/sizer.js' %}"></script>
+{% endblock %}

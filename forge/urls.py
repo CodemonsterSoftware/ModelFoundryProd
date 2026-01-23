@@ -7,6 +7,7 @@ urlpatterns = [
     path('', views.forge_index, name='index'),
     path('convert/', views.convert_stl, name='convert'),
     path('slice/', views.slice_model, name='slice'),
+    # path('sizer/', views.sizer_tool, name='sizer'),
     path('rune/', views.rune_etcher, name='rune_etcher'),
     
     # API endpoints
