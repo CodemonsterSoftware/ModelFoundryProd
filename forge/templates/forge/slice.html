@@ -139,6 +139,16 @@
 {% endblock %}
 
 {% block content %}
+<script>
+    const targetProjectCtx = {
+        projectId: "{{ target_project_id|default:'' }}",
+        partName: "{{ target_part_name|escapejs|default:'' }}",
+        partUrl: "{{ target_part_url|default:'' }}",
+        partFilename: "{{ target_part_filename|escapejs|default:'' }}"
+    };
+    // Global var to store auto-loaded file blob
+    window.autoLoadedBlob = null;
+</script>
 <div class="container-fluid">
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
@@ -164,7 +174,7 @@
                         <div class="mb-4">
                             <label class="form-label">STL File</label>
                             <div class="dropzone" id="dropzone">
-                                <input type="file" id="stl_file" name="stl_file" accept=".stl" required>
+                                <input type="file" id="stl_file" name="stl_file" accept=".stl">
                                 <div class="dropzone-icon">
                                     <i class="bi bi-cloud-arrow-up"></i>
                                 </div>
@@ -658,12 +668,50 @@
                     <button class="btn btn-sm btn-success" id="download-all-parts-btn">
                         <i class="bi bi-download"></i> Download All (ZIP)
                     </button>
+                    <button class="btn btn-sm btn-outline-primary ms-2 d-none" id="save-to-project-btn"
+                        data-bs-toggle="modal" data-bs-target="#saveToProjectModal">
+                        <i class="bi bi-cloud-upload"></i> Save to Project
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="row g-3" id="parts-grid">
                         <!-- Part cards will be inserted here -->
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save to Project Modal -->
+<div class="modal fade" id="saveToProjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Save to Project</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="save-to-project-form">
+                    <div class="mb-3">
+                        <label for="id_project" class="form-label">Project</label>
+                        <select class="form-select" id="id_project" required>
+                            <option value="">Select a project...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_group_name" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="id_group_name" required>
+                        <div class="form-text">New group for these parts</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="save-project-submit">
+                    <span class="spinner-border spinner-border-sm d-none me-2" role="status" aria-hidden="true"></span>
+                    Save
+                </button>
             </div>
         </div>
     </div>
@@ -2029,6 +2077,17 @@
             resultContainer.classList.add('d-none');
 
             try {
+                // Append auto-loaded blob if no file selected
+                const fileInput = document.getElementById('stl_file');
+                if (fileInput.files.length === 0 && window.autoLoadedBlob) {
+                    formData.set('stl_file', window.autoLoadedBlob, targetProjectCtx.partFilename || 'autoloaded.stl');
+                } else if (fileInput.files.length === 0) {
+                    alert('Please select an STL file.');
+                    submitBtn.disabled = false;
+                    progressContainer.classList.add('d-none');
+                    return;
+                }
+
                 const response = await fetch('{% url "forge:api_slice" %}', {
                     method: 'POST',
                     body: formData
@@ -2046,6 +2105,11 @@
                 if (data.success) {
                     // Hide result container on success as we show parts preview instead
                     resultContainer.classList.add('d-none');
+
+                    // Show Save to Project button
+                    document.getElementById('save-to-project-btn').classList.remove('d-none');
+                    // Store job ID for saving
+                    document.getElementById('save-to-project-btn').dataset.jobId = data.job_id;
 
                     // Show warnings if any (e.g., Blender unavailable)
                     if (data.warnings && data.warnings.length > 0) {
@@ -2098,5 +2162,166 @@
             }
         });
     });
+
+    // Auto-load Logic and Save to Project Logic
+    document.addEventListener('DOMContentLoaded', function () {
+        // Auto-load part from URL if present
+        if (typeof targetProjectCtx !== 'undefined' && targetProjectCtx.partUrl) {
+            console.log('Auto-loading part from:', targetProjectCtx.partUrl);
+            fetch(targetProjectCtx.partUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    const filename = targetProjectCtx.partFilename || 'autoloaded.stl';
+                    window.autoLoadedBlob = blob; // Store for form submission
+                    const file = new File([blob], filename, { type: 'model/stl' });
+
+                    // Polling for window.preview
+                    const checkPreview = setInterval(() => {
+                        if (window.preview) {
+                            clearInterval(checkPreview);
+                            console.log('Preview initialized, loading STL...');
+                            window.preview.loadSTL(file, false);
+
+                            // Update UI
+                            const filenameDisplay = document.getElementById('filename-display');
+                            if (filenameDisplay) {
+                                filenameDisplay.textContent = filename;
+                                filenameDisplay.classList.remove('d-none');
+                            }
+                            const dropzone = document.querySelector('.dropzone');
+                            if (dropzone) dropzone.classList.add('has-file');
+                        }
+                    }, 100);
+                })
+                .catch(err => console.error("Failed to auto-load part:", err));
+        }
+
+        // Save to Project Button Handler
+        const saveBtn = document.getElementById('save-to-project-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function () {
+                console.log('Save to Project button clicked. Fetching projects...');
+                const select = document.getElementById('id_project');
+                if (!select) return;
+
+                // Show loading state
+                select.innerHTML = '<option value="">Loading...</option>';
+                select.disabled = true;
+
+                // Fetch projects
+                fetch('{% url "forge:api_projects" %}')
+                    .then(res => {
+                        console.log('API Response status:', res.status);
+                        if (!res.ok) throw new Error('Network response was not ok');
+                        return res.json();
+                    })
+                    .then(data => {
+                        console.log('API Data:', data);
+                        select.disabled = false;
+
+                        if (data.success) {
+                            select.innerHTML = '<option value="">Select a project...</option>';
+
+                            if (!data.projects || data.projects.length === 0) {
+                                console.warn('No projects returned');
+                                const option = document.createElement('option');
+                                option.disabled = true;
+                                option.textContent = 'No projects found';
+                                select.appendChild(option);
+                            } else {
+                                data.projects.forEach(p => {
+                                    const option = document.createElement('option');
+                                    option.value = p.id;
+                                    option.textContent = p.name;
+                                    if (typeof targetProjectCtx !== 'undefined' && targetProjectCtx.projectId && parseInt(targetProjectCtx.projectId) === p.id) {
+                                        option.selected = true;
+                                    }
+                                    select.appendChild(option);
+                                });
+                            }
+
+                            // Set default group name
+                            const groupInput = document.getElementById('id_group_name');
+                            if (groupInput) {
+                                if (typeof targetProjectCtx !== 'undefined' && targetProjectCtx.partName) {
+                                    groupInput.value = `Sliced ${targetProjectCtx.partName}`;
+                                } else {
+                                    groupInput.value = `Sliced Parts ${new Date().toLocaleDateString()}`;
+                                }
+                            }
+                        } else {
+                            select.innerHTML = '<option value="">Error loading projects</option>';
+                            alert('Failed to load projects: ' + (data.error || 'Unknown error'));
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Failed to load projects:", err);
+                        select.innerHTML = '<option value="">Error loading projects</option>';
+                        select.disabled = false;
+                        alert('Error loading projects. Please check console.');
+                    });
+            });
+        }
+
+        // Save Submit Handler
+        const saveSubmitBtn = document.getElementById('save-project-submit');
+        if (saveSubmitBtn) {
+            saveSubmitBtn.addEventListener('click', function () {
+                const btn = this;
+                const saveBtn = document.getElementById('save-to-project-btn');
+                const jobId = saveBtn ? saveBtn.dataset.jobId : null;
+                const projectId = document.getElementById('id_project').value;
+                const groupName = document.getElementById('id_group_name').value;
+
+                if (!jobId) {
+                    alert('Error: Job ID not found');
+                    return;
+                }
+
+                if (!projectId || !groupName) {
+                    alert('Please fill in all fields');
+                    return;
+                }
+
+                btn.disabled = true;
+                const spinner = btn.querySelector('.spinner-border');
+                if (spinner) spinner.classList.remove('d-none');
+
+                fetch('{% url "forge:api_save_job_parts" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        job_id: jobId,
+                        project_id: projectId,
+                        group_name: groupName
+                    })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Close modal and show success
+                            const modalEl = document.getElementById('saveToProjectModal');
+                            const modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) modal.hide();
+                            alert(data.message || 'Saved successfully');
+                        } else {
+                            alert('Error: ' + (data.error || 'Failed to save'));
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Network error occurred');
+                    })
+                    .finally(() => {
+                        btn.disabled = false;
+                        if (spinner) spinner.classList.add('d-none');
+                    });
+            });
+        }
+    });
+
 </script>
 {% endblock %}

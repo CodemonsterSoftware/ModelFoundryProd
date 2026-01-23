@@ -9,10 +9,15 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_http_methods, require_POST
 
+from django.core.files import File
+from django.db import transaction
 from .forms import ConvertForm, SliceForm
+from projects.models import Project, Group, Part
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +57,27 @@ def convert_stl(request):
 def slice_model(request):
     """Grid slicing page."""
     form = SliceForm()
-    return render(request, 'forge/slice.html', {'form': form})
+    
+    # Check for pre-fill context from Projects app
+    context = {'form': form}
+    
+    project_id = request.GET.get('project_id')
+    part_id = request.GET.get('part_id')
+    
+    if project_id:
+        context['target_project_id'] = project_id
+        
+    if part_id:
+        try:
+            part = Part.objects.get(id=part_id, project__user=request.user)
+            context['target_part_name'] = part.name
+            if part.stl_file:
+                context['target_part_url'] = part.stl_file.url
+                context['target_part_filename'] = os.path.basename(part.stl_file.name)
+        except (Part.DoesNotExist, ValueError):
+            pass
+            
+    return render(request, 'forge/slice.html', context)
 
 
 @login_required
@@ -572,4 +597,94 @@ def api_read_rune(request):
                 
     except Exception as e:
         logger.error(f"Rune Read error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def api_projects(request):
+    """API: List projects for the current user."""
+    projects = Project.objects.filter(user=request.user).order_by('-updated_at')
+    data = [{'id': p.id, 'name': p.name} for p in projects]
+    return JsonResponse({'success': True, 'projects': data})
+
+
+@login_required
+@require_POST
+def api_save_job_parts(request):
+    """API: Save sliced parts from a job to a project."""
+    try:
+        data = json.loads(request.body)
+        job_id = data.get('job_id')
+        project_id = data.get('project_id')
+        group_name = data.get('group_name')
+        
+        if not all([job_id, project_id, group_name]):
+            return JsonResponse({'success': False, 'error': 'Missing required fields'}, status=400)
+            
+        # Verify project ownership
+        project = get_object_or_404(Project, id=project_id, user=request.user)
+        
+        # Get Job Data
+        job_dir = FORGE_JOBS_DIR / job_id
+        job_file = job_dir / 'job.json'
+        
+        if not job_file.exists():
+            return JsonResponse({'success': False, 'error': 'Job not found'}, status=404)
+            
+        with open(job_file) as f:
+            job_meta = json.load(f)
+            
+        if job_meta.get('status') != 'completed':
+            return JsonResponse({'success': False, 'error': 'Job not completed'}, status=400)
+            
+        # Create or Get Group
+        # We generally want to create a new group for the slice result
+        group, created = Group.objects.get_or_create(
+            project=project,
+            name=group_name
+        )
+        
+        saved_count = 0
+        
+        # Use transaction to ensure atomicity
+        with transaction.atomic():
+            for part_info in job_meta.get('parts', []):
+                if not isinstance(part_info, dict):
+                    continue
+                    
+                filename = part_info.get('filename')
+                rel_path = part_info.get('path')
+                
+                if not filename or not rel_path:
+                    continue
+                    
+                source_path = FORGE_JOBS_DIR / rel_path
+                if not source_path.exists():
+                    logger.warning(f"Source file missing: {source_path}")
+                    continue
+                
+                # Create Part
+                part = Part(
+                    project=project,
+                    group=group,
+                    name=Path(filename).stem,  # Remove extension
+                    quantity=1,
+                    completed=0
+                )
+                
+                # Save file (this will copy it to the media storage defined in Part model)
+                with open(source_path, 'rb') as f:
+                    part.stl_file.save(filename, File(f), save=True)
+                
+                saved_count += 1
+                
+        return JsonResponse({
+            'success': True, 
+            'message': f'Saved {saved_count} parts to project "{project.name}" in group "{group.name}"'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.error(f"Save parts error: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
