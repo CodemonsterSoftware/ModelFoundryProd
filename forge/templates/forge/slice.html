@@ -104,25 +104,14 @@
         position: absolute;
         bottom: 8px;
         right: 8px;
-        color: #dc3545;
-        /* Bootstrap danger color */
-        background-color: rgba(0, 0, 0, 0.7);
-        /* Dark background for better contrast */
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         z-index: 10;
         cursor: help;
-        box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
-        /* Glowing effect */
     }
 
     .validation-warning-overlay i {
-        font-size: 1.2rem;
-        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+        font-size: 1.5rem;
+        color: #dc3545;
+        filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 6px rgba(220, 53, 69, 0.6));
     }
 
     .validation-tooltip .tooltip-inner {
@@ -141,22 +130,14 @@
         position: absolute;
         bottom: 8px;
         left: 8px;
-        color: #ff6600;
-        background-color: rgba(0, 0, 0, 0.7);
-        border-radius: 50%;
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         z-index: 10;
         cursor: help;
-        box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
     }
 
     .connector-warning-overlay i {
-        font-size: 1.2rem;
-        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+        font-size: 1.5rem;
+        color: #ff6600;
+        filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 6px rgba(255, 102, 0, 0.6));
     }
 
     .connector-tooltip .tooltip-inner {
@@ -469,17 +450,17 @@
                                     <div class="col-6 mb-2">
                                         <label for="joint_diameter" class="form-label">Diameter (mm)</label>
                                         <input type="number" class="form-control" id="joint_diameter"
-                                            name="joint_diameter" value="4" min="1" max="20" step="0.5">
+                                            name="joint_diameter" value="4" min="1" max="20">
                                     </div>
                                     <div class="col-6 mb-2">
                                         <label for="joint_height" class="form-label">Height (mm)</label>
                                         <input type="number" class="form-control" id="joint_height" name="joint_height"
-                                            value="5" min="2" max="30" step="0.5">
+                                            value="5" min="2" max="30">
                                     </div>
                                     <div class="col-6">
                                         <label for="joint_clearance" class="form-label">Clearance (mm)</label>
                                         <input type="number" class="form-control" id="joint_clearance"
-                                            name="joint_clearance" value="0.2" min="0.05" max="1" step="0.05">
+                                            name="joint_clearance" value="0.2" min="0.05" max="1">
                                     </div>
                                     <div class="col-6">
                                         <label for="joint_count" class="form-label">Count per edge</label>
@@ -2088,7 +2069,7 @@
                 const issues = part.validation.issues.join('<br>');
                 const warningOverlay = document.createElement('div');
                 warningOverlay.className = 'validation-warning-overlay';
-                warningOverlay.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                warningOverlay.innerHTML = '<i class="fas fa-circle-exclamation"></i>';
                 warningOverlay.setAttribute('data-bs-toggle', 'tooltip');
                 warningOverlay.setAttribute('data-bs-placement', 'left');
                 warningOverlay.setAttribute('data-bs-html', 'true');
@@ -2118,7 +2099,7 @@
 
                     const connectorWarningOverlay = document.createElement('div');
                     connectorWarningOverlay.className = 'connector-warning-overlay';
-                    connectorWarningOverlay.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                    connectorWarningOverlay.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
                     connectorWarningOverlay.setAttribute('data-bs-toggle', 'tooltip');
                     connectorWarningOverlay.setAttribute('data-bs-placement', 'right');
                     connectorWarningOverlay.setAttribute('data-bs-html', 'true');
@@ -2280,9 +2261,21 @@
                         img.style.objectFit = 'cover';
                         img.alt = `Part ${index + 1} thumbnail`;
 
-                        // Replace spinner with image
+                        // Preserve warning overlays before replacing content
+                        const validationOverlay = container.querySelector('.validation-warning-overlay');
+                        const connectorOverlay = container.querySelector('.connector-warning-overlay');
+
+                        // Replace spinner with image (clears container)
                         container.innerHTML = '';
                         container.appendChild(img);
+
+                        // Re-add preserved overlays
+                        if (validationOverlay) {
+                            container.appendChild(validationOverlay);
+                        }
+                        if (connectorOverlay) {
+                            container.appendChild(connectorOverlay);
+                        }
 
                     } catch (innerError) {
                         console.error(`Error rendering thumbnail for part ${index}:`, innerError);

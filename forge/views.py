@@ -318,7 +318,7 @@ def api_slice(request):
             json.dump(job_meta, f)
         
         # TODO: Queue actual slicing task
-        from .services.slicer import slice_mesh_grid
+        from .services.slicer import slice_mesh_grid, calculate_connector_suggestions
         
         try:
             slice_result = slice_mesh_grid(
@@ -336,6 +336,9 @@ def api_slice(request):
             warnings = slice_result.get('warnings', [])
             blender_required = slice_result.get('blender_required', False)
             dowel_files = slice_result.get('dowel_files', [])
+            
+            # Calculate suggested connector parameters based on part geometry
+            connector_suggestions = calculate_connector_suggestions(output_files)
             
             # Create ZIP of all parts (and dowels if present)
             zip_path = job_dir / f"{Path(stl_file.name).stem}_sliced.zip"
@@ -395,6 +398,7 @@ def api_slice(request):
             job_meta['warnings'] = warnings
             job_meta['dowels'] = dowels_info
             job_meta['blender_required'] = blender_required
+            job_meta['connector_suggestions'] = connector_suggestions
             
         except Exception as e:
             job_meta['status'] = 'failed'
@@ -413,6 +417,7 @@ def api_slice(request):
             'warnings': job_meta.get('warnings', []),
             'dowels': job_meta.get('dowels', []),
             'blender_required': job_meta.get('blender_required', False),
+            'connector_suggestions': job_meta.get('connector_suggestions', {}),
             'message': job_meta.get('error', 'Slicing complete')
         })
         

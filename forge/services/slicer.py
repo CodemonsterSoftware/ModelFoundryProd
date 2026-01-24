@@ -22,6 +22,85 @@ except ImportError:
 # Blender service availability (checked lazily)
 BLENDER_AVAILABLE = None  # None = not checked yet
 
+# Minimum connector diameter for 0.4mm nozzle (3 wall layers)
+MIN_CONNECTOR_DIAMETER = 2.5  # mm
+MAX_CONNECTOR_DIAMETER = 8.0  # mm
+TARGET_AREA_PER_CONNECTOR = 120  # mm² - target interface area per connector
+MAX_CONNECTOR_COUNT = 6
+
+
+def calculate_connector_suggestions(parts: List[Dict], mesh_bounds=None) -> Dict[str, Any]:
+    """
+    Calculate suggested connector parameters based on part geometry.
+    
+    Uses a count-first approach: larger interfaces get more (smaller) connectors.
+    
+    Args:
+        parts: List of part dictionaries with filepath info
+        mesh_bounds: Optional (min, max) bounds of original mesh
+        
+    Returns:
+        Dict with 'diameter', 'height', 'count' suggestions
+    """
+    if not TRIMESH_AVAILABLE or not parts:
+        return {'diameter': 4.0, 'height': 5.0, 'count': 2}
+    
+    try:
+        # Calculate average interface dimensions from parts
+        interface_areas = []
+        min_dimensions = []
+        
+        for part_info in parts:
+            filepath = part_info.get('filepath')
+            if filepath and os.path.exists(filepath):
+                part_mesh = trimesh.load(filepath)
+                bounds = part_mesh.bounds
+                size = bounds[1] - bounds[0]  # [x, y, z] dimensions
+                
+                # Interface is typically on the cut faces - use smallest 2 dimensions
+                dims = sorted([size[0], size[1], size[2]])
+                interface_area = dims[0] * dims[1]  # Approximate interface area
+                interface_areas.append(interface_area)
+                min_dimensions.append(dims[0])  # Smallest dimension
+        
+        if not interface_areas:
+            return {'diameter': 4.0, 'height': 5.0, 'count': 2}
+        
+        # Use average interface stats
+        avg_interface_area = sum(interface_areas) / len(interface_areas)
+        avg_min_dim = sum(min_dimensions) / len(min_dimensions)
+        
+        # Step 1: Calculate count based on interface area
+        suggested_count = max(1, round(avg_interface_area / TARGET_AREA_PER_CONNECTOR))
+        suggested_count = min(suggested_count, MAX_CONNECTOR_COUNT)
+        
+        # Step 2: Calculate diameter based on count and available space
+        # More connectors = smaller diameter
+        available_per_connector = avg_min_dim / (suggested_count + 1)
+        base_diameter = available_per_connector * 0.4
+        suggested_diameter = max(MIN_CONNECTOR_DIAMETER, min(base_diameter, MAX_CONNECTOR_DIAMETER))
+        
+        # Step 3: Calculate safe depth (25% of min dimension)
+        safe_depth = avg_min_dim * 0.25
+        min_depth = suggested_diameter * 1.5
+        suggested_height = max(2.5, min(min_depth, safe_depth))
+        
+        # Round to reasonable precision
+        suggested_diameter = round(suggested_diameter, 1)
+        suggested_height = round(suggested_height, 1)
+        
+        logger.info(f"Connector suggestions: diameter={suggested_diameter}, height={suggested_height}, count={suggested_count}")
+        
+        return {
+            'diameter': suggested_diameter,
+            'height': suggested_height,
+            'count': suggested_count
+        }
+        
+    except Exception as e:
+        logger.warning(f"Error calculating connector suggestions: {e}")
+        return {'diameter': 4.0, 'height': 5.0, 'count': 2}
+
 
 def slice_mesh_grid(
     input_path: str,
