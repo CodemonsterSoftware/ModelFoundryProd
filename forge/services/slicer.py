@@ -224,27 +224,49 @@ def slice_mesh_grid(
     
     # Apply connectors if requested (uniform grid mode only)
     if joint_type != 'none' and len(parts) > 1 and part_coords:
-        connector_result = _apply_connectors(
-            output_dir=output_dir,
-            parts=result['parts'],
-            part_coords=part_coords,
-            grid=grid,
-            original_bounds=original_bounds,
-            joint_type=joint_type,
-            joint_params=joint_params,
-            dovetail_params=dovetail_params,
-            base_name=base_name
-        )
-        
-        # Merge connector results
-        if connector_result.get('blender_required'):
-            result['blender_required'] = True
-        if connector_result.get('warnings'):
-            result['warnings'].extend(connector_result['warnings'])
-        if connector_result.get('dowel_files'):
-            result['dowel_files'].extend(connector_result['dowel_files'])
-        if connector_result.get('modified_parts'):
-            result['parts'] = connector_result['modified_parts']
+        if joint_type == 'dovetails':
+            # Use dovetail-specific function
+            dovetail_result = _apply_dovetails(
+                input_path=str(input_path),  # Original mesh path
+                output_dir=output_dir,
+                parts=result['parts'],
+                part_coords=part_coords,
+                grid=grid,
+                original_bounds=original_bounds,
+                dovetail_params=dovetail_params,
+                base_name=base_name
+            )
+            
+            # Merge dovetail results
+            if dovetail_result.get('blender_required'):
+                result['blender_required'] = True
+            if dovetail_result.get('warnings'):
+                result['warnings'].extend(dovetail_result['warnings'])
+            if dovetail_result.get('modified_parts'):
+                result['parts'] = dovetail_result['modified_parts']
+        else:
+            # Use connector function for pins/dowels
+            connector_result = _apply_connectors(
+                output_dir=output_dir,
+                parts=result['parts'],
+                part_coords=part_coords,
+                grid=grid,
+                original_bounds=original_bounds,
+                joint_type=joint_type,
+                joint_params=joint_params,
+                dovetail_params=dovetail_params,
+                base_name=base_name
+            )
+            
+            # Merge connector results
+            if connector_result.get('blender_required'):
+                result['blender_required'] = True
+            if connector_result.get('warnings'):
+                result['warnings'].extend(connector_result['warnings'])
+            if connector_result.get('dowel_files'):
+                result['dowel_files'].extend(connector_result['dowel_files'])
+            if connector_result.get('modified_parts'):
+                result['parts'] = connector_result['modified_parts']
     
     return result
 
@@ -1084,6 +1106,203 @@ def _apply_connectors(
             result['warnings'].append(f"Error applying connectors to part {idx + 1}: {str(e)}")
     
     result['modified_parts'] = modified_parts
+    return result
+
+
+def _apply_dovetails(
+    input_path: str,
+    output_dir: Path,
+    parts: List[Dict[str, Any]],
+    part_coords: List[Tuple[int, int, int]],
+    grid: Dict[str, int],
+    original_bounds: np.ndarray,
+    dovetail_params: Dict[str, Any],
+    base_name: str
+) -> Dict[str, Any]:
+    """
+    Apply dovetail joints by re-slicing the original mesh with dovetail geometry.
+    
+    Dovetails require a fundamentally different approach than pins/dowels:
+    - Pins/Dowels: Add geometry to already-flat-cut surfaces
+    - Dovetails: The dovetail shape IS the cut itself
+    
+    This function performs dovetail cuts on the ORIGINAL mesh, not pre-sliced parts.
+    For multi-cut grids, it applies dovetails sequentially.
+    
+    Args:
+        input_path: Path to the original mesh (before any slicing)
+        output_dir: Directory for output files
+        parts: List of pre-sliced part info (used for reference/fallback)
+        part_coords: Grid coordinates for each part
+        grid: Grid dimensions
+        original_bounds: Original mesh bounds
+        dovetail_params: Parameters for dovetails
+        base_name: Base name for output files
+        
+    Returns:
+        Dictionary with modified_parts, warnings, blender_required
+    """
+    result = {
+        'modified_parts': None,
+        'warnings': [],
+        'blender_required': False
+    }
+    
+    # Check Blender service availability
+    try:
+        from .blender_client import BlenderClient
+        client = BlenderClient()
+        if not client.is_available():
+            logger.warning("Blender service not available for dovetails")
+            result['blender_required'] = True
+            result['warnings'].append(
+                "Blender service is not available. Dovetails could not be applied. "
+                "Parts were sliced with flat cuts instead."
+            )
+            return result
+    except ImportError as e:
+        logger.error(f"Could not import BlenderClient: {e}")
+        result['blender_required'] = True
+        result['warnings'].append("Blender client not available. Dovetails skipped.")
+        return result
+    
+    logger.info(f"Applying dovetails using original mesh: {input_path}")
+    
+    # Default slide vector (Global Z for drop-in assembly)
+    slide_vector = dovetail_params.get('slide_vector', [0, 0, 1])
+    profile = dovetail_params.get('profile', 'STANDARD_TRAPEZOID')
+    
+    # Calculate mesh extents from original bounds
+    size = original_bounds[1] - original_bounds[0]
+    mesh_extents = [float(size[0]), float(size[1]), float(size[2])]
+    
+    # For a simple single-cut case (2 parts), use the dovetail script directly
+    grid_x = grid.get('x', 1)
+    grid_y = grid.get('y', 1)
+    grid_z = grid.get('z', 1)
+    
+    total_cuts = (grid_x - 1) + (grid_y - 1) + (grid_z - 1)
+    
+    if total_cuts == 0:
+        logger.info("No cuts required, returning original parts")
+        return result
+    
+    # For now, support only single-cut case (2 parts)
+    # Multi-cut dovetails would require sequential cutting which is more complex
+    if total_cuts > 1:
+        result['warnings'].append(
+            f"Dovetails currently support single-cut only (1 plane). "
+            f"Your grid has {total_cuts} cuts. Only the first cut will have dovetails."
+        )
+    
+    # Find the first cut axis and position
+    cut_axis = None
+    cut_position = None
+    
+    if grid_x > 1:
+        cut_axis = 0
+        cut_position = original_bounds[0][0] + size[0] / grid_x
+    elif grid_y > 1:
+        cut_axis = 1
+        cut_position = original_bounds[0][1] + size[1] / grid_y
+    elif grid_z > 1:
+        cut_axis = 2
+        cut_position = original_bounds[0][2] + size[2] / grid_z
+    
+    if cut_axis is None:
+        logger.warning("Could not determine cut axis")
+        return result
+    
+    # Build cut normal
+    cut_normal = [0.0, 0.0, 0.0]
+    cut_normal[cut_axis] = 1.0
+    
+    # Build cut origin (center of the cut plane)
+    cut_origin = [
+        float((original_bounds[0][0] + original_bounds[1][0]) / 2),
+        float((original_bounds[0][1] + original_bounds[1][1]) / 2),
+        float((original_bounds[0][2] + original_bounds[1][2]) / 2)
+    ]
+    cut_origin[cut_axis] = float(cut_position)
+    
+    logger.info(f"Dovetail cut: axis={cut_axis}, position={cut_position:.2f}")
+    logger.info(f"Cut origin: {cut_origin}, normal: {cut_normal}")
+    
+    # Build output paths
+    output_a_path = str(output_dir / f"{base_name}_dovetail_A.stl")
+    output_b_path = str(output_dir / f"{base_name}_dovetail_B.stl")
+    
+    dovetail_script_params = {
+        'plane_origin': cut_origin,
+        'plane_normal': cut_normal,
+        'mesh_extents': mesh_extents,
+        'profile': profile,
+        'slide_vector': slide_vector,
+        'depth': dovetail_params.get('depth', 4.0),
+        'angle': dovetail_params.get('angle', 55),
+        'waist': dovetail_params.get('width', 8.0),
+        'tolerance': 0.2,
+        'output_file_b': output_b_path
+    }
+    
+    try:
+        logger.info(f"Calling Blender dovetail script with input: {input_path}")
+        response = client.process_file(
+            input_path=input_path,
+            output_path=output_a_path,
+            operation='script',
+            script_path='dovetail.py',
+            params=dovetail_script_params
+        )
+        
+        if response.get('status') == 'success':
+            # Build new parts list with dovetail parts
+            new_parts = []
+            
+            # Part A (first half)
+            if os.path.exists(output_a_path):
+                part_a_mesh = trimesh.load(output_a_path)
+                validation_a = validate_mesh(part_a_mesh)
+                new_parts.append({
+                    'filepath': output_a_path,
+                    'filename': Path(output_a_path).name,
+                    'validation': validation_a,
+                    'has_dovetails': True,
+                    'coord': (0, 0, 0)
+                })
+                logger.info(f"Created dovetail part A: {output_a_path}")
+            else:
+                logger.error(f"Dovetail part A not found: {output_a_path}")
+                result['warnings'].append("Dovetail Part A was not created.")
+            
+            # Part B (second half)
+            if os.path.exists(output_b_path):
+                part_b_mesh = trimesh.load(output_b_path)
+                validation_b = validate_mesh(part_b_mesh)
+                new_parts.append({
+                    'filepath': output_b_path,
+                    'filename': Path(output_b_path).name,
+                    'validation': validation_b,
+                    'has_dovetails': True,
+                    'coord': (1, 0, 0) if cut_axis == 0 else (0, 1, 0) if cut_axis == 1 else (0, 0, 1)
+                })
+                logger.info(f"Created dovetail part B: {output_b_path}")
+            else:
+                logger.error(f"Dovetail part B not found: {output_b_path}")
+                result['warnings'].append("Dovetail Part B was not created.")
+            
+            if new_parts:
+                result['modified_parts'] = new_parts
+                logger.info(f"Successfully created {len(new_parts)} dovetail parts")
+        else:
+            error_msg = response.get('message', 'Unknown error')
+            result['warnings'].append(f"Dovetail cut failed: {error_msg}")
+            logger.error(f"Dovetail script failed: {response}")
+            
+    except Exception as e:
+        logger.error(f"Error applying dovetails: {e}")
+        result['warnings'].append(f"Error applying dovetails: {str(e)}")
+    
     return result
 
 

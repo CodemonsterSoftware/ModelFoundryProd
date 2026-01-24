@@ -307,9 +307,11 @@ def api_slice(request):
                 'shape': form.cleaned_data.get('joint_shape', 'circle'),
             },
             'dovetail_params': {
-                'angle': form.cleaned_data.get('dovetail_angle', 14.0),
-                'width': form.cleaned_data.get('dovetail_width', 15.0),
-                'depth': form.cleaned_data.get('dovetail_depth', 10.0),
+                # Map form profile choice to Blender profile name
+                'profile': 'STANDARD_TRAPEZOID' if form.cleaned_data.get('dovetail_profile', 'trapezoid') == 'trapezoid' else 'PUZZLE_LOCK',
+                'angle': form.cleaned_data.get('dovetail_angle', 55.0),
+                'width': form.cleaned_data.get('dovetail_width', 8.0),
+                'depth': form.cleaned_data.get('dovetail_depth', 4.0),
                 'count': form.cleaned_data.get('dovetail_count', 0),
             }
         }

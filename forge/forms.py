@@ -124,25 +124,35 @@ class SliceForm(STLUploadForm):
     )
     
     # Dovetail parameters
+    DOVETAIL_PROFILE_CHOICES = [
+        ('trapezoid', 'Standard Trapezoid'),
+        ('puzzle', 'Puzzle Lock'),
+    ]
+    dovetail_profile = forms.ChoiceField(
+        required=False,
+        choices=DOVETAIL_PROFILE_CHOICES,
+        initial='trapezoid',
+        label='Profile Type'
+    )
     dovetail_angle = forms.FloatField(
         required=False,
-        initial=14.0,
-        min_value=5.0,
-        max_value=30.0,
+        initial=55.0,  # Keep > 45 for overhang safety
+        min_value=45.0,
+        max_value=80.0,
         label='Dovetail angle (degrees)'
     )
     dovetail_width = forms.FloatField(
         required=False,
-        initial=15.0,
-        min_value=5.0,
-        max_value=50.0,
-        label='Dovetail width (mm)'
+        initial=8.0,  # Waist width
+        min_value=3.0,
+        max_value=30.0,
+        label='Dovetail waist width (mm)'
     )
     dovetail_depth = forms.FloatField(
         required=False,
-        initial=10.0,
-        min_value=3.0,
-        max_value=30.0,
+        initial=4.0,
+        min_value=2.0,
+        max_value=15.0,
         label='Dovetail depth (mm)'
     )
     dovetail_count = forms.IntegerField(
