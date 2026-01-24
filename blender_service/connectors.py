@@ -40,6 +40,117 @@ SHAPE_VERTICES = {
     'hexagon': 6,
 }
 
+def create_pyramid(position, normal, edge_length, height, tolerance=0.0, double_sided=False, for_socket=True):
+    """Create a square-base pyramid mesh for tenon/socket operations.
+    
+    For socket cutting (for_socket=True):
+      - Base is at the surface (position)
+      - Tip extends INTO the part (opposite of normal)
+      - Normal points toward mating part (outward from this part)
+    
+    Args:
+        position: [x, y, z] center position at surface
+        normal: [nx, ny, nz] direction toward mating part (outward)
+        edge_length: Length of square base edge
+        height: Height from base to tip
+        tolerance: Gap to add for socket cutters (0 for exact fit pins)
+        double_sided: If True, create octahedron (double pyramid) for printable tenon
+        for_socket: If True, orient for boolean subtraction (tip goes into part)
+    """
+    import bmesh
+    from mathutils import Vector
+    import math
+    
+    # Apply tolerance to dimensions
+    actual_edge = edge_length + tolerance
+    actual_height = height + (tolerance / 2) if tolerance > 0 else height
+    
+    bm = bmesh.new()
+    
+    # Half edge length for vertex positioning
+    w = actual_edge / 2
+    
+    if double_sided:
+        # Double-sided pyramid (octahedron) for printable tenon
+        # Tips at +height and -height from center
+        verts = [
+            bm.verts.new((0, 0, actual_height)),      # Top tip
+            bm.verts.new((0, 0, -actual_height)),     # Bottom tip
+            bm.verts.new((-w, -w, 0)),                # Base corners
+            bm.verts.new((w, -w, 0)),
+            bm.verts.new((w, w, 0)),
+            bm.verts.new((-w, w, 0)),
+        ]
+        
+        # Faces connecting tips to base (8 triangles)
+        faces = [
+            (0, 2, 3), (0, 3, 4), (0, 4, 5), (0, 5, 2),  # Top half
+            (1, 3, 2), (1, 4, 3), (1, 5, 4), (1, 2, 5),  # Bottom half
+        ]
+    else:
+        # Single pyramid for socket cutter
+        # For socket: base at Z=0 (surface), tip at Z=-height (into part)
+        # The pyramid will be rotated so that Z aligns with -normal (into part)
+        verts = [
+            bm.verts.new((0, 0, -actual_height)),     # Tip (pointing down = into part after rotation)
+            bm.verts.new((-w, -w, 0)),                # Base corners at Z=0 (surface)
+            bm.verts.new((w, -w, 0)),
+            bm.verts.new((w, w, 0)),
+            bm.verts.new((-w, w, 0)),
+        ]
+        
+        # Faces: 4 triangles + 1 base quad
+        faces = [
+            (0, 2, 1), (0, 3, 2), (0, 4, 3), (0, 1, 4),  # Sides (reversed winding for inward tip)
+            (1, 2, 3, 4),  # Base (quad)
+        ]
+    
+    # Create faces
+    for face_indices in faces:
+        try:
+            bm.faces.new([verts[i] for i in face_indices])
+        except Exception:
+            pass  # Face may already exist
+    
+    bm.normal_update()
+    
+    # Create mesh
+    mesh = bpy.data.meshes.new("TenonPyramid")
+    bm.to_mesh(mesh)
+    bm.free()
+    
+    # Create object
+    obj = bpy.data.objects.new("TenonPyramid", mesh)
+    bpy.context.collection.objects.link(obj)
+    
+    # Position and rotate to align with normal
+    z_axis = Vector((0, 0, 1))
+    target_normal = Vector(normal).normalized()
+    pos = Vector(position)
+    
+    # For socket cutting, we need to position the pyramid so:
+    # - The base (Z=0 in local coords) sits at the surface
+    # - The tip (Z=-height in local coords) extends INTO the part
+    # Since our pyramid's Z- points into the part, we align local Z+ with the outward normal
+    # This makes Z- point INTO the part, which is what we want
+    
+    obj.location = pos
+    
+    # Calculate rotation to align local Z+ with the outward normal
+    dot = z_axis.dot(target_normal)
+    if dot < -0.9999:
+        # Normal points straight down (-Z)
+        obj.rotation_euler = (math.pi, 0, 0)
+    elif dot > 0.9999:
+        # Normal points straight up (+Z) - no rotation
+        pass
+    else:
+        # General case - use quaternion rotation
+        rotation = z_axis.rotation_difference(target_normal)
+        obj.rotation_euler = rotation.to_euler()
+    
+    return obj
+
 def create_cylinder(position, normal, diameter, depth, centered=False, shape='circle'):
     """Create a cylinder/prism mesh at the given position aligned to normal.
     
@@ -218,28 +329,41 @@ try:
         depth = conn.get('depth', 10.0)
         shape = conn.get('shape', 'circle')  # Shape support
         
+        # Tenon-specific parameters
+        edge_length = conn.get('edge_length', 12.0)
+        tolerance = conn.get('tolerance', 0.2)
+        
         log(f"Connector {i+1}/{len(connectors)}: {conn_type} at {position}")
-        log(f"  Diameter: {diameter}, Depth: {depth}, Shape: {shape}")
         
         conn_start = time.time()
         
-        # Create cylinder tool
-        # Pins should be centered (half in, half out)
-        # Holes should be buried (starting at surface and going in)
-        is_pin = (conn_type == 'pin')
-        cylinder = create_cylinder(position, normal, diameter, depth, centered=is_pin, shape=shape)
-        
-        # Determine operation
-        if conn_type == 'hole':
+        # Handle different connector types
+        if conn_type == 'tenon_socket':
+            # Tenon socket: cut pyramid-shaped hole with tolerance
+            log(f"  Edge: {edge_length}, Height: {depth}, Tolerance: {tolerance}")
+            tool = create_pyramid(position, normal, edge_length, depth, tolerance=tolerance, double_sided=False)
             operation = 'DIFFERENCE'
-        else:  # pin
+        elif conn_type == 'tenon_pin':
+            # Tenon pin: add double-sided pyramid (printable insert)
+            log(f"  Edge: {edge_length}, Height: {depth}")
+            tool = create_pyramid(position, normal, edge_length, depth, tolerance=0, double_sided=True)
             operation = 'UNION'
+        else:
+            # Standard cylindrical connectors (hole/pin)
+            log(f"  Diameter: {diameter}, Depth: {depth}, Shape: {shape}")
+            is_pin = (conn_type == 'pin')
+            tool = create_cylinder(position, normal, diameter, depth, centered=is_pin, shape=shape)
+            
+            if conn_type == 'hole':
+                operation = 'DIFFERENCE'
+            else:  # pin
+                operation = 'UNION'
         
         log(f"  Applying {operation} boolean...")
         
         success = False
         try:
-            success = apply_boolean(mesh_obj, cylinder, operation)
+            success = apply_boolean(mesh_obj, tool, operation)
         except Exception as e:
             log(f"  WARNING: Boolean check failed: {e}")
         
@@ -253,38 +377,38 @@ try:
         
         if success:
             log(f"  Boolean applied in {time.time() - conn_start:.2f}s")
-            # Clean up cylinder
-            bpy.data.objects.remove(cylinder, do_unlink=True)
+            # Clean up tool object
+            bpy.data.objects.remove(tool, do_unlink=True)
         else:
             log(f"  WARNING: Boolean failed for {conn_type}")
             
-            # Fallback for PINS (Union): Just join the meshes
+            # Fallback for PINS/UNIONS: Just join the meshes
             # This creates a single object with intersecting geometry (multi-shell).
             # Slicers handle this fine.
             if operation == 'UNION':
-                log("  FALLBACK: Joining pin to mesh (multi-shell)...")
+                log("  FALLBACK: Joining to mesh (multi-shell)...")
                 try:
                     # Select both
                     bpy.ops.object.select_all(action='DESELECT')
                     mesh_obj.select_set(True)
-                    cylinder.select_set(True)
+                    tool.select_set(True)
                     bpy.context.view_layer.objects.active = mesh_obj
                     
                     bpy.ops.object.join()
                     log("  Fallback join successful")
                     
-                    # After join, 'cylinder' object is merged into 'mesh_obj'
-                    # No need to remove cylinder, it's gone/merged.
+                    # After join, 'tool' object is merged into 'mesh_obj'
+                    # No need to remove tool, it's gone/merged.
                     
                 except Exception as ex:
                     log(f"  ERROR: Fallback join also failed: {ex}")
                     # Try to cleanup
-                    if cylinder in bpy.data.objects.values():
-                        bpy.data.objects.remove(cylinder, do_unlink=True)
+                    if tool in bpy.data.objects.values():
+                        bpy.data.objects.remove(tool, do_unlink=True)
             else:
                 # For holes (Difference), we can't join. If it fails, we just don't have a hole.
-                # Clean up cylinder
-                bpy.data.objects.remove(cylinder, do_unlink=True)
+                # Clean up tool
+                bpy.data.objects.remove(tool, do_unlink=True)
         
         connector_results.append(conn_result)
     

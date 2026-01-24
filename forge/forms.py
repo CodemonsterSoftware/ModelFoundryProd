@@ -70,6 +70,7 @@ class SliceForm(STLUploadForm):
         ('none', 'No joints'),
         ('pins', 'Alignment Pins (peg + hole)'),
         ('dowels', 'Dowel Holes (hole + hole)'),
+        ('tenons', 'Tenons (pyramid pins)'),
         ('dovetails', 'Dovetail Joints'),
     ]
     joint_type = forms.ChoiceField(
@@ -121,6 +122,43 @@ class SliceForm(STLUploadForm):
         choices=SHAPE_CHOICES,
         initial='circle',
         label='Pin/Dowel Shape'
+    )
+    
+    # Tenon parameters
+    tenon_edge = forms.FloatField(
+        required=False,
+        initial=12.0,
+        min_value=5.0,
+        max_value=30.0,
+        label='Tenon pin edge length (mm)'
+    )
+    tenon_spacing = forms.FloatField(
+        required=False,
+        initial=30.0,
+        min_value=10.0,
+        max_value=100.0,
+        label='Tenon spacing (mm)'
+    )
+    tenon_margin = forms.FloatField(
+        required=False,
+        initial=4.0,
+        min_value=1.0,
+        max_value=20.0,
+        label='Tenon edge margin (mm)'
+    )
+    tenon_height = forms.FloatField(
+        required=False,
+        initial=6.0,
+        min_value=2.0,
+        max_value=20.0,
+        label='Tenon pin height (mm)'
+    )
+    tenon_tolerance = forms.FloatField(
+        required=False,
+        initial=0.2,
+        min_value=0.05,
+        max_value=1.0,
+        label='Tenon fit tolerance (mm)'
     )
     
     # Dovetail parameters

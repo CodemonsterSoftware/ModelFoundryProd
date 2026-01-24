@@ -457,6 +457,12 @@
                                             <i class="bi bi-grip-vertical me-1"></i>Dowels
                                         </label>
 
+                                        <input type="radio" class="btn-check" name="joint_type" id="joint_tenons"
+                                            value="tenons">
+                                        <label class="btn btn-outline-primary" for="joint_tenons">
+                                            <i class="bi bi-box me-1"></i>Tenons
+                                        </label>
+
                                         <!-- Dovetails - Hidden until fully implemented -->
                                         <input type="radio" class="btn-check d-none" name="joint_type"
                                             id="joint_dovetails" value="dovetails" disabled>
@@ -506,6 +512,46 @@
                                 </div>
                             </div>
 
+
+                            <!-- Tenon Options (shown when tenons selected) -->
+                            <div id="tenon-options" class="mb-4 d-none">
+                                <h6 class="border-bottom pb-2 mb-3">Tenon Settings</h6>
+                                <p class="small text-muted mb-2">Square-base pyramidal pins with 45° walls.</p>
+                                <div class="row">
+                                    <div class="col-4 mb-2">
+                                        <label for="tenon_edge" class="form-label">Pin Size (mm)</label>
+                                        <input type="number" class="form-control" id="tenon_edge" name="tenon_edge"
+                                            value="12" min="5" max="30" step="0.5">
+                                        <div class="form-text small">Square base edge</div>
+                                    </div>
+                                    <div class="col-4 mb-2">
+                                        <label for="tenon_spacing" class="form-label">Spacing (mm)</label>
+                                        <input type="number" class="form-control" id="tenon_spacing"
+                                            name="tenon_spacing" value="30" min="10" max="100" step="1">
+                                        <div class="form-text small">Between pin centers</div>
+                                    </div>
+                                    <div class="col-4 mb-2">
+                                        <label for="tenon_margin" class="form-label">Margin (mm)</label>
+                                        <input type="number" class="form-control" id="tenon_margin" name="tenon_margin"
+                                            value="4" min="1" max="20" step="0.5">
+                                        <div class="form-text small">Min edge distance</div>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-4 mb-2">
+                                        <label for="tenon_height" class="form-label">Pin Height (mm)</label>
+                                        <input type="number" class="form-control" id="tenon_height" name="tenon_height"
+                                            value="6" min="2" max="20" step="0.1">
+                                        <div class="form-text small">Auto: Size × 0.5</div>
+                                    </div>
+                                    <div class="col-4 mb-2">
+                                        <label for="tenon_tolerance" class="form-label">Tolerance (mm)</label>
+                                        <input type="number" class="form-control" id="tenon_tolerance"
+                                            name="tenon_tolerance" value="0.2" min="0.05" max="1.0" step="0.01">
+                                        <div class="form-text small">Fit gap for accuracy</div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Dovetail Options -->
                             <div id="dovetail-options" class="mb-4 d-none">
@@ -2383,18 +2429,40 @@
             radio.addEventListener('change', function () {
                 const pinOptions = document.getElementById('pin-options');
                 const dovetailOptions = document.getElementById('dovetail-options');
+                const tenonOptions = document.getElementById('tenon-options');
 
                 if (this.value === 'pins' || this.value === 'dowels') {
                     pinOptions.classList.remove('d-none');
                     dovetailOptions.classList.add('d-none');
+                    tenonOptions.classList.add('d-none');
                 } else if (this.value === 'dovetails') {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.remove('d-none');
+                    tenonOptions.classList.add('d-none');
+                } else if (this.value === 'tenons') {
+                    pinOptions.classList.add('d-none');
+                    dovetailOptions.classList.add('d-none');
+                    tenonOptions.classList.remove('d-none');
                 } else {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.add('d-none');
+                    tenonOptions.classList.add('d-none');
                 }
             });
+        });
+
+        // Tenon auto-calculation: Pin Height = Pin Size × 0.5
+        document.getElementById('tenon_edge').addEventListener('change', function () {
+            const heightInput = document.getElementById('tenon_height');
+            // Only auto-update if user hasn't manually edited
+            if (!heightInput.dataset.userEdited) {
+                heightInput.value = (parseFloat(this.value) * 0.5).toFixed(1);
+            }
+        });
+
+        // Track manual edits to tenon height to disable auto-calculation
+        document.getElementById('tenon_height').addEventListener('input', function () {
+            this.dataset.userEdited = 'true';
         });
 
         // Rotation button handlers
@@ -2865,6 +2933,22 @@
                     // Generate part preview cards
                     if (data.parts && data.parts.length > 0) {
                         await window.generatePartPreviews(data.job_id, data.parts);
+
+                        // Aggregate all connectors from all parts and display in viewer
+                        const allConnectors = [];
+                        data.parts.forEach(part => {
+                            if (part.connectors && part.connectors.length > 0) {
+                                part.connectors.forEach(conn => {
+                                    allConnectors.push(conn);
+                                });
+                            }
+                        });
+
+                        // Display connector markers in the 3D viewer
+                        if (window.preview && allConnectors.length > 0) {
+                            window.preview.showConnectorMarkers(allConnectors);
+                            console.log(`Displaying ${allConnectors.length} connector markers in viewer`);
+                        }
                     }
                 } else {
                     resultContainer.classList.remove('d-none');

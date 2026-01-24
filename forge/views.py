@@ -313,6 +313,13 @@ def api_slice(request):
                 'width': form.cleaned_data.get('dovetail_width', 8.0),
                 'depth': form.cleaned_data.get('dovetail_depth', 4.0),
                 'count': form.cleaned_data.get('dovetail_count', 0),
+            },
+            'tenon_params': {
+                'edge_length': form.cleaned_data.get('tenon_edge', 12.0),
+                'spacing': form.cleaned_data.get('tenon_spacing', 30.0),
+                'margin': form.cleaned_data.get('tenon_margin', 4.0),
+                'height': form.cleaned_data.get('tenon_height', 6.0),
+                'tolerance': form.cleaned_data.get('tenon_tolerance', 0.2),
             }
         }
         
@@ -330,7 +337,8 @@ def api_slice(request):
                 planes=job_meta.get('planes'),
                 joint_type=job_meta['joint_type'],
                 joint_params=job_meta['joint_params'],
-                dovetail_params=job_meta['dovetail_params']
+                dovetail_params=job_meta['dovetail_params'],
+                tenon_params=job_meta['tenon_params']
             )
             
             # Extract results from new dict format

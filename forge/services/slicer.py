@@ -109,13 +109,14 @@ def slice_mesh_grid(
     planes: List[Dict[str, Any]] = None,
     joint_type: str = 'none',
     joint_params: Dict[str, Any] = None,
-    dovetail_params: Dict[str, Any] = None
+    dovetail_params: Dict[str, Any] = None,
+    tenon_params: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """
     Slice a mesh into a grid using Blender (Advanced) or Trimesh (Legacy).
     """
     # Use Blender Slicer if joints are requested (for reliability) or global toggle
-    use_blender_pipeline = True if joint_type in ['pins', 'dowels'] else False
+    use_blender_pipeline = True if joint_type in ['pins', 'dowels', 'tenons'] else False
     
     if use_blender_pipeline:
         try:
@@ -123,7 +124,7 @@ def slice_mesh_grid(
             client = BlenderClient()
             if client.is_available():
                 return _slice_with_blender_pipeline(
-                    client, input_path, output_dir, grid, joint_type, joint_params
+                    client, input_path, output_dir, grid, joint_type, joint_params, tenon_params
                 )
         except Exception as e:
             logger.warning(f"Blender pipeline failed: {e}, falling back to Trimesh")
@@ -143,9 +144,10 @@ def slice_mesh_grid(
         output_dir: Directory to save sliced parts
         grid: Dictionary with 'x', 'y', 'z' division counts (for uniform mode)
         planes: List of plane objects [{'origin': {x,y,z}, 'rotation': {x,y,z}}, ...]
-        joint_type: 'none', 'pins', 'dowels', or 'dovetails'
+        joint_type: 'none', 'pins', 'dowels', 'tenons', or 'dovetails'
         joint_params: Parameters for pins/dowels
         dovetail_params: Parameters for dovetails
+        tenon_params: Parameters for tenons (edge_length, spacing, margin, height, tolerance)
         
     Returns:
         Dictionary containing:
@@ -159,6 +161,7 @@ def slice_mesh_grid(
     
     joint_params = joint_params or {}
     dovetail_params = dovetail_params or {}
+    tenon_params = tenon_params or {}
     
     input_path = Path(input_path)
     output_dir = Path(output_dir)
@@ -234,6 +237,7 @@ def slice_mesh_grid(
                 joint_type=joint_type,
                 joint_params=joint_params,
                 dovetail_params=dovetail_params,
+                tenon_params=tenon_params,
                 base_name=base_name
             )
             
@@ -257,6 +261,7 @@ def slice_mesh_grid(
                 original_bounds=original_bounds,
                 joint_type=joint_type,
                 joint_params=joint_params,
+                tenon_params=tenon_params,
                 base_name=base_name
             )
             
@@ -414,7 +419,7 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tupl
 
 def _slice_with_blender_pipeline(
     client, input_path: str, output_dir: str, grid: Dict[str, int], 
-    joint_type: str, joint_params: Dict[str, Any]
+    joint_type: str, joint_params: Dict[str, Any], tenon_params: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """Execute the pure Blender slicing pipeline."""
     import json
@@ -431,7 +436,8 @@ def _slice_with_blender_pipeline(
         "params": {
             "grid": grid,
             "joint_type": joint_type,
-            "joint_params": joint_params or {}
+            "joint_params": joint_params or {},
+            "tenon_params": tenon_params or {}
         }
     }
     
@@ -836,7 +842,8 @@ def _apply_connectors(
     joint_type: str,
     joint_params: Dict[str, Any],
     dovetail_params: Dict[str, Any],
-    base_name: str
+    tenon_params: Dict[str, Any] = None,
+    base_name: str = ''
 ) -> Dict[str, Any]:
     """
     Apply connectors to sliced parts using Blender service.
@@ -847,9 +854,10 @@ def _apply_connectors(
         part_coords: Grid coordinates for each part
         grid: Grid dimensions
         original_bounds: Original mesh bounds
-        joint_type: 'pins', 'dowels', or 'dovetails'
+        joint_type: 'pins', 'dowels', or 'tenons'
         joint_params: Parameters for pins/dowels
         dovetail_params: Parameters for dovetails
+        tenon_params: Parameters for tenons (edge_length, spacing, margin, height, tolerance)
         base_name: Base name for output files
         
     Returns:
@@ -1033,6 +1041,38 @@ def _apply_connectors(
                     'type': 'hole',
                     'shape': shape
                 })
+            elif joint_type == 'tenons':
+                # Tenon connectors - pyramid sockets on both parts
+                # Extract tenon-specific parameters
+                tenon_params_safe = tenon_params or {}
+                edge_length = tenon_params_safe.get('edge_length', 12.0)
+                tenon_height = tenon_params_safe.get('height', edge_length * 0.5)
+                tolerance = tenon_params_safe.get('tolerance', 0.2)
+                
+                # Calculate safe depth for tenons (same 25% rule as pins)
+                tenon_safe_depth = min(tenon_height, max_safe_depth)
+                if tenon_safe_depth < tenon_height:
+                    logger.warning(f"Reducing tenon depth from {tenon_height} to {tenon_safe_depth:.1f} to prevent intersection")
+                
+                # Part A gets socket (with tolerance for fit)
+                part_connectors[idx_a].append({
+                    'position': pos_list,
+                    'normal': normal_a.copy(),
+                    'type': 'tenon_socket',
+                    'edge_length': edge_length,
+                    'depth': tenon_safe_depth + 0.5,  # Slightly deeper for easy insertion
+                    'tolerance': tolerance
+                })
+                
+                # Part B also gets socket (tenons are printable inserts)
+                part_connectors[idx_b].append({
+                    'position': pos_b_list,
+                    'normal': normal_b.copy(),
+                    'type': 'tenon_socket',
+                    'edge_length': edge_length,
+                    'depth': tenon_safe_depth + 0.5,
+                    'tolerance': tolerance
+                })
     
     # Generate printable dowel files if using dowels
     if joint_type == 'dowels' and adjacent_pairs:
@@ -1068,6 +1108,54 @@ def _apply_connectors(
         })
         
         logger.info(f"Created dowel template: {dowel_path.name} (need {dowel_count} copies)")
+    
+    # Generate printable tenon files if using tenons
+    if joint_type == 'tenons' and adjacent_pairs:
+        tenon_params_safe = tenon_params or {}
+        edge_length = tenon_params_safe.get('edge_length', 12.0)
+        tenon_height = tenon_params_safe.get('height', edge_length * 0.5)
+        
+        tenon_count = len(adjacent_pairs) * count
+        logger.info(f"Generating {tenon_count} printable tenons ({edge_length}mm edge)")
+        
+        # Create double-sided pyramid mesh for printable tenon
+        # Using trimesh to create octahedron-like shape
+        import numpy as np
+        w = edge_length / 2
+        h = tenon_height
+        
+        # Vertices: top tip, bottom tip, 4 corners at center
+        vertices = np.array([
+            [0, 0, h],       # Top tip
+            [0, 0, -h],      # Bottom tip  
+            [-w, -w, 0],     # Base corners
+            [w, -w, 0],
+            [w, w, 0],
+            [-w, w, 0],
+        ])
+        
+        # Faces (8 triangles)
+        faces = np.array([
+            [0, 2, 3], [0, 3, 4], [0, 4, 5], [0, 5, 2],  # Top half
+            [1, 3, 2], [1, 4, 3], [1, 5, 4], [1, 2, 5],  # Bottom half
+        ])
+        
+        tenon_mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+        tenon_mesh.fix_normals()
+        
+        # Export single tenon
+        tenon_path = output_dir / f"{base_name}_tenon_{edge_length}mm.stl"
+        tenon_mesh.export(str(tenon_path))
+        
+        result['dowel_files'].append({
+            'filepath': str(tenon_path),
+            'filename': tenon_path.name,
+            'count_needed': tenon_count,
+            'edge_length': edge_length,
+            'height': tenon_height * 2  # Total height (both sides)
+        })
+        
+        logger.info(f"Created tenon template: {tenon_path.name} (need {tenon_count} copies)")
     
     # Call Blender service to apply connectors to each part
     modified_parts = list(parts)  # Copy
@@ -1148,7 +1236,8 @@ def _apply_connectors_freeform(
     original_bounds: np.ndarray,
     joint_type: str,
     joint_params: Dict[str, Any],
-    base_name: str
+    tenon_params: Dict[str, Any] = None,
+    base_name: str = ''
 ) -> Dict[str, Any]:
     """
     Apply connectors to parts created by freeform (arbitrary plane) slicing.
@@ -1161,8 +1250,9 @@ def _apply_connectors_freeform(
         parts: List of part info dicts
         interfaces: List of interface dicts with 'origin' and 'normal' keys
         original_bounds: Original mesh bounds
-        joint_type: 'pins' or 'dowels'
+        joint_type: 'pins', 'dowels', or 'tenons'
         joint_params: Connector parameters
+        tenon_params: Parameters for tenons (edge_length, spacing, margin, height, tolerance)
         base_name: Base filename
         
     Returns:
