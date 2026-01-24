@@ -311,17 +311,30 @@ class SlicePreview {
             const type = conn.type;
             const diameter = conn.diameter || 4;
             const depth = conn.depth || 5;
+            const edgeLength = conn.edge_length || diameter;
 
-            // Create cylinder geometry for connector marker
-            const geometry = new THREE.CylinderGeometry(
-                diameter / 2 * 1.2,  // Slightly larger for visibility
-                diameter / 2 * 1.2,
-                depth * 0.5,  // Shorter for preview
-                16
-            );
+            let geometry;
 
-            // Color: green for pins, red for holes
-            const color = type === 'pin' ? 0x00ff00 : 0xff4444;
+            // Use different geometry based on connector type
+            if (type === 'tenon_socket' || type === 'tenon_pin') {
+                // Square box for tenon connectors
+                geometry = new THREE.BoxGeometry(
+                    edgeLength * 1.2,  // Slightly larger for visibility
+                    depth * 0.5,       // Shorter for preview
+                    edgeLength * 1.2
+                );
+            } else {
+                // Cylinder for pin/hole connectors
+                geometry = new THREE.CylinderGeometry(
+                    diameter / 2 * 1.2,  // Slightly larger for visibility
+                    diameter / 2 * 1.2,
+                    depth * 0.5,  // Shorter for preview
+                    16
+                );
+            }
+
+            // Color: green for pins/tenon_pin, red for holes/tenon_socket
+            const color = (type === 'pin' || type === 'tenon_pin') ? 0x00ff00 : 0xff4444;
             const material = new THREE.MeshBasicMaterial({
                 color: color,
                 transparent: true,
