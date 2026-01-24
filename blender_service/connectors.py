@@ -60,13 +60,29 @@ def create_cylinder(position, normal, diameter, depth, centered=False, shape='ci
     target = Vector(normal).normalized()
     
     # Calculate final position FIRST (before creating cylinder)
-    # For holes: offset so the cylinder is buried into the part
-    # For pins (centered): keep at position so half sticks out
+    # Cylinders are created with center at `location`, so we need to offset
+    # to position them correctly relative to the surface.
     pos = Vector(position)
-    if not centered:
-        # Offset backwards along normal so cylinder end is at position
-        offset = target * (depth / 2)
-        pos = pos - offset
+    
+    if centered:
+        # For pins (centered): keep at position so half sticks out, half is in
+        # The normal points toward the mating part (where pin should stick out)
+        pass  # No offset needed - pin center at surface
+    else:
+        # For holes: position cylinder so it extends INTO the part from the surface
+        # CRITICAL: The 'normal' points TOWARD the mating part (outward from this part)
+        # But we need the hole to extend INWARD (opposite of normal)
+        # 
+        # We want the cylinder to:
+        #   - Start 0.5mm OUTSIDE the surface (overlap for clean boolean cut)
+        #   - Extend fully INTO the part (opposite of normal direction)
+        #
+        # So we move the cylinder CENTER in the NEGATIVE normal direction
+        overlap = 0.5  # Small overlap to ensure clean surface cut
+        # Move inward (opposite of normal) by (depth/2 - overlap)
+        # This puts outer end 0.5mm outside surface, inner end (depth - 0.5) inside
+        offset = target * ((depth / 2) - overlap)
+        pos = pos - offset  # SUBTRACT to go opposite of normal (into the part)
     
     # Create cylinder at the FINAL position directly
     # (avoiding the origin-then-move approach which was causing issues)
@@ -94,10 +110,19 @@ def create_cylinder(position, normal, diameter, depth, centered=False, shape='ci
     return cylinder
 
 def apply_boolean(target_obj, tool_obj, operation):
-    """Apply boolean modifier to target using tool object."""
+    """Apply boolean modifier to target using tool object.
+    
+    Returns True only if the boolean was applied AND the mesh actually changed.
+    Silent failures (modifier applied but no geometric change) return False.
+    """
     # Make sure target is active
     bpy.context.view_layer.objects.active = target_obj
     target_obj.select_set(True)
+    
+    # Record mesh state BEFORE boolean
+    bpy.context.view_layer.update()
+    before_verts = len(target_obj.data.vertices)
+    before_faces = len(target_obj.data.polygons)
     
     # Add boolean modifier
     bool_mod = target_obj.modifiers.new(name='Connector', type='BOOLEAN')
@@ -108,12 +133,28 @@ def apply_boolean(target_obj, tool_obj, operation):
     # Apply modifier
     try:
         bpy.ops.object.modifier_apply(modifier='Connector')
-        return True
     except Exception as e:
         # If application fails, remove modifier
-        if bool_mod in target_obj.modifiers:
+        if bool_mod.name in target_obj.modifiers:
             target_obj.modifiers.remove(bool_mod)
+        log(f"  Boolean modifier apply failed: {e}")
         return False
+    
+    # Verify mesh actually changed (detect silent failures)
+    bpy.context.view_layer.update()
+    after_verts = len(target_obj.data.vertices)
+    after_faces = len(target_obj.data.polygons)
+    
+    # Check if geometry changed significantly
+    verts_changed = abs(after_verts - before_verts) > 0
+    faces_changed = abs(after_faces - before_faces) > 0
+    
+    if not verts_changed and not faces_changed:
+        log(f"  WARNING: Boolean operation had no effect (verts: {before_verts}, faces: {before_faces})")
+        return False
+    
+    log(f"  Mesh changed: verts {before_verts}->{after_verts}, faces {before_faces}->{after_faces}")
+    return True
 
 try:
     start_time = time.time()

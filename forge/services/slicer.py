@@ -833,14 +833,20 @@ def _apply_connectors(
         normal_b[axis] = -1.0
         
         # Calculate safe depth to prevent holes from intersecting in the center
-        # Max depth should be less than half the minimum part dimension
+        # Use the MINIMUM dimension to prevent holes from different faces meeting
+        # (e.g., X-axis hole and Y-axis hole meeting in a corner)
         part_size = part_a_bounds[1] - part_a_bounds[0]  # [x, y, z] dimensions
         min_dimension = min(part_size[0], part_size[1], part_size[2])
-        max_safe_depth = min_dimension * 0.4  # 40% of smallest dimension
         
+        # Safe depth is 25% of minimum dimension
+        # This ensures holes from ANY face (X, Y, or Z) won't meet in the center
+        # With 25%, even if 4 holes meet at a corner point, they won't intersect
+        max_safe_depth = min_dimension * 0.25
+        
+        # Also cap at user-requested height if smaller
         effective_height = min(height, max_safe_depth)
         if effective_height < height:
-            logger.warning(f"Reducing connector depth from {height} to {effective_height:.1f} to prevent intersection")
+            logger.warning(f"Reducing connector depth from {height} to {effective_height:.1f} to prevent intersection (min dim: {min_dimension:.1f})")
         
         for pos in connector_positions:
             pos_list = list(pos)
@@ -852,11 +858,16 @@ def _apply_connectors(
             
             if joint_type == 'pins':
                 # Part A gets holes
+                # Hole depth = pin_half + margin + overlap_compensation
+                # Pin half = effective_height / 2 (since pin is centered, half sticks out)
+                # We use effective_height + 1.5 to ensure: 
+                #   - 1mm deeper than pin for easy insertion
+                #   - 0.5mm to compensate for positioning overlap in Blender
                 part_connectors[idx_a].append({
                     'position': pos_list,
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,  # Hole slightly larger
-                    'depth': effective_height + 1,  # Hole slightly deeper than pin
+                    'depth': effective_height + 1.5,  # Hole deeper to fit pin + margin
                     'type': 'hole',
                     'shape': shape
                 })
