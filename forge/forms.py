@@ -109,6 +109,20 @@ class SliceForm(STLUploadForm):
         label='Joints per edge (0 = auto)'
     )
     
+    # Pin/Dowel shape
+    SHAPE_CHOICES = [
+        ('circle', 'Circle'),
+        ('square', 'Square'),
+        ('triangle', 'Triangle'),
+        ('hexagon', 'Hexagon'),
+    ]
+    joint_shape = forms.ChoiceField(
+        required=False,
+        choices=SHAPE_CHOICES,
+        initial='circle',
+        label='Pin/Dowel Shape'
+    )
+    
     # Dovetail parameters
     dovetail_angle = forms.FloatField(
         required=False,

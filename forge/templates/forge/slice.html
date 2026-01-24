@@ -453,7 +453,19 @@
                                             value="2" min="1" max="20">
                                     </div>
                                 </div>
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <label for="joint_shape" class="form-label">Pin Shape</label>
+                                        <select class="form-select" id="joint_shape" name="joint_shape">
+                                            <option value="circle" selected>Circle</option>
+                                            <option value="square">Square</option>
+                                            <option value="triangle">Triangle</option>
+                                            <option value="hexagon">Hexagon</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
+
 
                             <!-- Dovetail Options -->
                             <div id="dovetail-options" class="mb-4 d-none">
@@ -932,6 +944,9 @@
                     this.bounds.getCenter(center);
                     geometry.translate(-center.x, -center.y, -center.z);
 
+                    // Store the center offset for connector positioning
+                    this.modelCenterOffset = center.clone();
+
                     geometry.computeBoundingBox();
                     this.bounds = geometry.boundingBox;
 
@@ -1260,18 +1275,34 @@
 
             this.clearConnectorMarkers();
 
+            // Use the stored model center offset from loadSTL
+            // The model was translated by -center, so connectors need the same offset
+            const offset = this.modelCenterOffset || new THREE.Vector3(0, 0, 0);
+
+            console.log(`Applying connector offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
+
             connectors.forEach(conn => {
                 const pos = conn.position;
                 const type = conn.type;
                 const diameter = conn.diameter || 4;
                 const depth = conn.depth || 5;
+                const shape = conn.shape || 'circle';
+
+                // Get vertex count for shape
+                const shapeVertices = {
+                    'circle': 16,
+                    'square': 4,
+                    'triangle': 3,
+                    'hexagon': 6
+                };
+                const segments = shapeVertices[shape] || 16;
 
                 // Create cylinder geometry for connector marker
                 const geometry = new THREE.CylinderGeometry(
                     diameter / 2 * 1.2,  // Slightly larger for visibility
                     diameter / 2 * 1.2,
                     depth * 0.5,  // Shorter for preview
-                    16
+                    segments
                 );
 
                 // Color: green for pins, red for holes
@@ -1284,8 +1315,13 @@
 
                 const marker = new THREE.Mesh(geometry, material);
 
-                // Position the marker
-                marker.position.set(pos[0], pos[1], pos[2]);
+                // Position the marker WITH OFFSET CORRECTION
+                // Subtract offset since model was translated by -center
+                marker.position.set(
+                    pos[0] - offset.x,
+                    pos[1] - offset.y,
+                    pos[2] - offset.z
+                );
 
                 // Rotate based on normal direction
                 const normal = conn.normal || [0, 0, 1];
@@ -1300,6 +1336,8 @@
                 this.scene.add(marker);
                 this.connectorMarkers.push(marker);
             });
+
+            console.log(`Added ${connectors.length} connector markers with offset correction`);
         }
     }
 

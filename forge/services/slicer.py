@@ -302,10 +302,9 @@ def _slice_with_blender_pipeline(
     }
     
     # Run script
-    # Note: slicer_advanced.py writes specific files and a manifest
     response = client.run_script('slicer_advanced.py', context)
     
-    # Read manifest
+    # Read manifest - now includes connector data from Blender
     manifest_path = Path(output_dir) / f"{base_name}_manifest.json"
     
     parts = []
@@ -313,27 +312,31 @@ def _slice_with_blender_pipeline(
         with open(manifest_path, 'r') as f:
             generated_files = json.load(f)
             
-        # Convert to 'parts' format expected by views.py
-        # Need to reconstruct grid coordinates?
-        # The script currently just returns a list.
-        # For compatibility, we might need to fake coords or update the script to return them.
-        # Let's just return linear parts for now.
-        
         for i, f in enumerate(generated_files):
+            part_path = Path(output_dir) / f['filename']
+            
+            # Connector data comes directly from Blender manifest
+            has_connectors = f.get('has_connectors', False)
+            connectors = f.get('connectors', [])
+            
             parts.append({
                 'filename': f['filename'],
-                'filepath': str(Path(output_dir) / f['filename']),
-                'url': f"/media/jobs/{Path(output_dir).name}/{f['filename']}", # approximate
+                'filepath': str(part_path),
+                'url': f"/media/jobs/{Path(output_dir).name}/{f['filename']}",
                 'download_url': f"/media/jobs/{Path(output_dir).name}/{f['filename']}",
-                'size': os.path.getsize(Path(output_dir) / f['filename'])
+                'size': os.path.getsize(part_path) if part_path.exists() else 0,
+                'has_connectors': has_connectors,
+                'connector_positions': connectors
             })
+            
+            logger.info(f"Part {i+1}: {f['filename']} with {len(connectors)} connectors")
             
     else:
         logger.warning("Manifest not found, Blender slicing might have failed silently")
         
     return {
         'parts': parts,
-        'dowel_files': [], # Script handles dowels internally? Or need to add logic?
+        'dowel_files': [],
         'warnings': [],
         'blender_required': False
     }
@@ -781,6 +784,7 @@ def _apply_connectors(
     height = joint_params.get('height', 5.0)
     clearance = joint_params.get('clearance', 0.2)
     count = joint_params.get('count', 2)
+    shape = joint_params.get('shape', 'circle')  # Shape support
     if count == 0:
         count = 2  # Default to 2 connectors per interface
     
@@ -852,7 +856,8 @@ def _apply_connectors(
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,  # Hole slightly larger
                     'depth': effective_height + 1,  # Hole slightly deeper than pin
-                    'type': 'hole'
+                    'type': 'hole',
+                    'shape': shape
                 })
                 
                 # Part B gets pins at the SAME perpendicular position
@@ -861,7 +866,8 @@ def _apply_connectors(
                     'normal': normal_b.copy(),
                     'diameter': diameter,
                     'depth': effective_height,
-                    'type': 'pin'
+                    'type': 'pin',
+                    'shape': shape
                 })
             elif joint_type == 'dowels':
                 # Both parts get holes for external dowel
@@ -870,7 +876,8 @@ def _apply_connectors(
                     'normal': normal_a.copy(),
                     'diameter': diameter + clearance,
                     'depth': effective_height / 2 + 1,
-                    'type': 'hole'
+                    'type': 'hole',
+                    'shape': shape
                 })
                 
                 part_connectors[idx_b].append({
@@ -878,23 +885,33 @@ def _apply_connectors(
                     'normal': normal_b.copy(),
                     'diameter': diameter + clearance,
                     'depth': effective_height / 2 + 1,
-                    'type': 'hole'
+                    'type': 'hole',
+                    'shape': shape
                 })
     
     # Generate printable dowel files if using dowels
     if joint_type == 'dowels' and adjacent_pairs:
         dowel_count = len(adjacent_pairs) * count
-        logger.info(f"Generating {dowel_count} printable dowels")
+        logger.info(f"Generating {dowel_count} printable dowels (shape={shape})")
+        
+        # Map shape to section count for trimesh.creation.cylinder
+        shape_sections = {
+            'circle': 32,
+            'square': 4,
+            'triangle': 3,
+            'hexagon': 6
+        }
+        sections = shape_sections.get(shape, 32)
         
         # Create a single dowel mesh
         dowel = trimesh.creation.cylinder(
             radius=diameter / 2,
             height=height,
-            sections=32
+            sections=sections
         )
         
         # Export single dowel
-        dowel_path = output_dir / f"{base_name}_dowel_d{diameter}mm_h{height}mm.stl"
+        dowel_path = output_dir / f"{base_name}_dowel_{shape}_d{diameter}mm_h{height}mm.stl"
         dowel.export(str(dowel_path))
         
         result['dowel_files'].append({

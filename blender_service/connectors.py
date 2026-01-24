@@ -33,14 +33,27 @@ def get_file_size_mb(path):
         return os.path.getsize(path) / (1024 * 1024)
     return 0
 
-def create_cylinder(position, normal, diameter, depth, centered=False):
-    """Create a cylinder mesh at the given position aligned to normal.
+SHAPE_VERTICES = {
+    'circle': 32,
+    'square': 4,
+    'triangle': 3,
+    'hexagon': 6,
+}
+
+def create_cylinder(position, normal, diameter, depth, centered=False, shape='circle'):
+    """Create a cylinder/prism mesh at the given position aligned to normal.
     
     IMPORTANT: We must set rotation BEFORE setting position, because
     applying rotation to matrix_world also rotates the position!
+    
+    Args:
+        shape: 'circle', 'square', 'triangle', or 'hexagon'
     """
     from mathutils import Vector, Quaternion
     import math
+    
+    # Get vertex count for shape
+    vertices = SHAPE_VERTICES.get(shape.lower(), 32)
     
     # Calculate rotation to align Z-up cylinder with target normal
     z_axis = Vector((0, 0, 1))
@@ -60,7 +73,7 @@ def create_cylinder(position, normal, diameter, depth, centered=False):
     bpy.ops.mesh.primitive_cylinder_add(
         radius=diameter / 2,
         depth=depth,
-        vertices=32,
+        vertices=vertices,
         location=pos
     )
     cylinder = bpy.context.active_object
@@ -159,9 +172,10 @@ try:
         normal = conn.get('normal', [0, 0, 1])
         diameter = conn.get('diameter', 5.0)
         depth = conn.get('depth', 10.0)
+        shape = conn.get('shape', 'circle')  # Shape support
         
         log(f"Connector {i+1}/{len(connectors)}: {conn_type} at {position}")
-        log(f"  Diameter: {diameter}, Depth: {depth}")
+        log(f"  Diameter: {diameter}, Depth: {depth}, Shape: {shape}")
         
         conn_start = time.time()
         
@@ -169,7 +183,7 @@ try:
         # Pins should be centered (half in, half out)
         # Holes should be buried (starting at surface and going in)
         is_pin = (conn_type == 'pin')
-        cylinder = create_cylinder(position, normal, diameter, depth, centered=is_pin)
+        cylinder = create_cylinder(position, normal, diameter, depth, centered=is_pin, shape=shape)
         
         # Determine operation
         if conn_type == 'hole':
