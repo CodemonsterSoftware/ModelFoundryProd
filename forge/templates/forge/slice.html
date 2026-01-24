@@ -1907,8 +1907,8 @@
                 freeformSettings.classList.remove('d-none');
                 renderPlaneSelectionList();
                 updateControlsState();
-                // Hide connectors - not supported in freeform mode
-                if (jointSettings) jointSettings.classList.add('d-none');
+                // Show connectors - now supported in freeform mode
+                if (jointSettings) jointSettings.classList.remove('d-none');
             } else if (mode === 'fit') {
                 fitSettings.classList.remove('d-none');
                 // Show connectors in fit mode (it uses uniform grid internally)

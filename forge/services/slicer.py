@@ -184,14 +184,12 @@ def slice_mesh_grid(
     # Perform slicing
     parts = []
     part_coords = []  # Track grid coordinates for uniform mode
+    freeform_interfaces = []  # Track plane interfaces for freeform mode connectors
     
     if planes:
         logger.info(f"Slicing with {len(planes)} arbitrary planes")
-        parts = _slice_arbitrary_planes(mesh, planes)
-        # Freeform mode doesn't support connectors yet
-        if joint_type != 'none':
-            result['warnings'].append("Connectors are not yet supported for freeform planes. Parts sliced without connectors.")
-            joint_type = 'none'
+        parts, freeform_interfaces = _slice_arbitrary_planes(mesh, planes)
+        logger.info(f"Freeform slicing created {len(parts)} parts with {len(freeform_interfaces)} interfaces")
     else:
         logger.info(f"Slicing with grid: {grid}")
         parts, part_coords = _slice_uniform_grid_with_coords(mesh, grid)
@@ -222,30 +220,11 @@ def slice_mesh_grid(
         status = "✓ Valid" if validation_result['valid'] else f"⚠ Issues: {', '.join(validation_result['issues'])}"
         logger.info(f"Exported part {i+1}/{len(parts)}: {filename} - {status}")
     
-    # Apply connectors if requested (uniform grid mode only)
-    if joint_type != 'none' and len(parts) > 1 and part_coords:
-        if joint_type == 'dovetails':
-            # Use dovetail-specific function
-            dovetail_result = _apply_dovetails(
-                input_path=str(input_path),  # Original mesh path
-                output_dir=output_dir,
-                parts=result['parts'],
-                part_coords=part_coords,
-                grid=grid,
-                original_bounds=original_bounds,
-                dovetail_params=dovetail_params,
-                base_name=base_name
-            )
-            
-            # Merge dovetail results
-            if dovetail_result.get('blender_required'):
-                result['blender_required'] = True
-            if dovetail_result.get('warnings'):
-                result['warnings'].extend(dovetail_result['warnings'])
-            if dovetail_result.get('modified_parts'):
-                result['parts'] = dovetail_result['modified_parts']
-        else:
-            # Use connector function for pins/dowels
+    # Apply connectors if requested
+    if joint_type != 'none' and joint_type != 'dovetails' and len(parts) > 1:
+        # Determine if we're in uniform grid mode or freeform mode
+        if part_coords:
+            # Uniform Grid Mode - use existing connector logic
             connector_result = _apply_connectors(
                 output_dir=output_dir,
                 parts=result['parts'],
@@ -267,11 +246,54 @@ def slice_mesh_grid(
                 result['dowel_files'].extend(connector_result['dowel_files'])
             if connector_result.get('modified_parts'):
                 result['parts'] = connector_result['modified_parts']
+                
+        elif freeform_interfaces:
+            # Freeform Mode - use interface-based connector logic
+            logger.info(f"Applying connectors for freeform mode with {len(freeform_interfaces)} interfaces")
+            connector_result = _apply_connectors_freeform(
+                output_dir=output_dir,
+                parts=result['parts'],
+                interfaces=freeform_interfaces,
+                original_bounds=original_bounds,
+                joint_type=joint_type,
+                joint_params=joint_params,
+                base_name=base_name
+            )
+            
+            # Merge connector results
+            if connector_result.get('blender_required'):
+                result['blender_required'] = True
+            if connector_result.get('warnings'):
+                result['warnings'].extend(connector_result['warnings'])
+            if connector_result.get('dowel_files'):
+                result['dowel_files'].extend(connector_result['dowel_files'])
+            if connector_result.get('modified_parts'):
+                result['parts'] = connector_result['modified_parts']
+    
+    # Handle dovetails separately (currently disabled in UI)
+    elif joint_type == 'dovetails' and len(parts) > 1 and part_coords:
+        dovetail_result = _apply_dovetails(
+            input_path=str(input_path),
+            output_dir=output_dir,
+            parts=result['parts'],
+            part_coords=part_coords,
+            grid=grid,
+            original_bounds=original_bounds,
+            dovetail_params=dovetail_params,
+            base_name=base_name
+        )
+        
+        if dovetail_result.get('blender_required'):
+            result['blender_required'] = True
+        if dovetail_result.get('warnings'):
+            result['warnings'].extend(dovetail_result['warnings'])
+        if dovetail_result.get('modified_parts'):
+            result['parts'] = dovetail_result['modified_parts']
     
     return result
 
 
-def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> List['trimesh.Trimesh']:
+def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> Tuple[List['trimesh.Trimesh'], List[Dict]]:
     """
     Iteratively slice mesh with arbitrary planes.
     Each plane splits every existing part into two (Positive/Negative).
@@ -281,13 +303,16 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> List
         planes: List of plane definitions, each with 'origin' and 'rotation' dicts
         
     Returns:
-        List of sliced mesh parts
+        Tuple of:
+        - List of sliced mesh parts
+        - List of interface definitions for connector placement (origin, normal, axis)
     """
     if not planes:
         logger.warning("No planes provided for slicing")
-        return [mesh]
+        return [mesh], []
     
     current_parts = [mesh]
+    interfaces = []  # Track plane interfaces for connector placement
     
     for i, plane_def in enumerate(planes):
         next_parts = []
@@ -321,6 +346,13 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> List
             )
             
             logger.info(f"Processing Plane {i+1}/{len(planes)}: VisualOrigin=[{origin_dict.get('x')}, {origin_dict.get('y')}, {origin_dict.get('z')}], AdjustedOrigin={origin}, Normal={normal}")
+            
+            # Record this interface for connector placement
+            interfaces.append({
+                'origin': origin,
+                'normal': normal,
+                'plane_index': i
+            })
             
         except (KeyError, TypeError, ValueError) as e:
             logger.error(f"Invalid plane data at index {i}: {e}. Skipping this plane.")
@@ -370,13 +402,13 @@ def _slice_arbitrary_planes(mesh: 'trimesh.Trimesh', planes: List[Dict]) -> List
         
         if not next_parts:
             logger.error(f"No valid parts after plane {i+1}, returning current parts")
-            return current_parts
+            return current_parts, interfaces
             
         current_parts = next_parts
         logger.info(f"After plane {i+1}: {len(current_parts)} parts")
         
     logger.info(f"Slicing complete: {len(current_parts)} total parts created")
-    return current_parts
+    return current_parts, interfaces
 
 
 
@@ -1108,6 +1140,453 @@ def _apply_connectors(
     result['modified_parts'] = modified_parts
     return result
 
+
+def _apply_connectors_freeform(
+    output_dir: Path,
+    parts: List[Dict[str, Any]],
+    interfaces: List[Dict[str, Any]],
+    original_bounds: np.ndarray,
+    joint_type: str,
+    joint_params: Dict[str, Any],
+    base_name: str
+) -> Dict[str, Any]:
+    """
+    Apply connectors to parts created by freeform (arbitrary plane) slicing.
+    
+    Uses mesh-based vertex analysis to find the actual cut faces and place
+    connectors there, similar to the uniform grid mode.
+    
+    Args:
+        output_dir: Directory for output files  
+        parts: List of part info dicts
+        interfaces: List of interface dicts with 'origin' and 'normal' keys
+        original_bounds: Original mesh bounds
+        joint_type: 'pins' or 'dowels'
+        joint_params: Connector parameters
+        base_name: Base filename
+        
+    Returns:
+        Dictionary with modified_parts, warnings, blender_required, dowel_files
+    """
+    result = {
+        'modified_parts': None,
+        'warnings': [],
+        'blender_required': False,
+        'dowel_files': []
+    }
+    
+    # Check Blender service availability
+    try:
+        from .blender_client import BlenderClient
+        client = BlenderClient()
+        if not client.is_available():
+            logger.warning("Blender service not available for freeform connectors")
+            result['blender_required'] = True
+            result['warnings'].append(
+                "Blender service is not available. Connectors could not be applied to freeform cuts."
+            )
+            return result
+    except ImportError as e:
+        logger.error(f"Could not import BlenderClient: {e}")
+        result['blender_required'] = True
+        result['warnings'].append("Blender client not available for connectors.")
+        return result
+    
+    logger.info(f"Applying {joint_type} connectors for freeform mode: {len(parts)} parts, {len(interfaces)} interfaces")
+    
+    # Extract connector parameters
+    diameter = joint_params.get('diameter', 4.0)
+    height = joint_params.get('height', 5.0)
+    clearance = joint_params.get('clearance', 0.2)
+    count = joint_params.get('count', 2)
+    shape = joint_params.get('shape', 'circle')
+    if count == 0:
+        count = 2  # Default
+    
+    # For each interface, find the two adjacent parts and pair them
+    # A part is adjacent to an interface if it has vertices close to the interface plane
+    tolerance = 0.5  # mm tolerance for finding vertices on the cut plane
+    
+    part_connectors = {i: [] for i in range(len(parts))}
+    adjacent_pairs_found = 0
+    
+    for interface in interfaces:
+        origin = np.array(interface['origin'])
+        normal = np.array(interface['normal'])
+        normal = normal / np.linalg.norm(normal)  # Normalize
+        plane_idx = interface.get('plane_index', 0)
+        
+        logger.info(f"Processing interface {plane_idx+1}: origin={origin}, normal={normal}")
+        
+        # Find parts on each side of this plane that have faces touching it
+        positive_parts = []  # Parts on positive side of normal
+        negative_parts = []  # Parts on negative side of normal
+        
+        for part_idx, part_info in enumerate(parts):
+            part_path = part_info['filepath']
+            
+            try:
+                part_mesh = trimesh.load(part_path)
+                vertices = part_mesh.vertices
+                
+                # Calculate signed distance of each vertex from the plane
+                distances = np.dot(vertices - origin, normal)
+                
+                # Check if any vertices are close to the plane (on the cut face)
+                on_plane_mask = np.abs(distances) < tolerance
+                has_face_on_plane = np.any(on_plane_mask)
+                
+                if has_face_on_plane:
+                    # Determine which side of the plane the bulk of the part is on
+                    mean_distance = np.mean(distances)
+                    
+                    if mean_distance > 0:
+                        positive_parts.append((part_idx, part_mesh, part_path))
+                        logger.debug(f"Part {part_idx+1} is on POSITIVE side of interface {plane_idx+1}")
+                    else:
+                        negative_parts.append((part_idx, part_mesh, part_path))
+                        logger.debug(f"Part {part_idx+1} is on NEGATIVE side of interface {plane_idx+1}")
+                        
+            except Exception as e:
+                logger.warning(f"Error analyzing part {part_idx} for interface {plane_idx}: {e}")
+                continue
+        
+        logger.info(f"Interface {plane_idx+1}: {len(positive_parts)} positive, {len(negative_parts)} negative parts")
+        
+        # Pair positive and negative parts for this interface
+        # For freeform cuts, typically there's one part on each side per interface
+        if not positive_parts or not negative_parts:
+            logger.warning(f"Interface {plane_idx+1}: Could not find parts on both sides")
+            continue
+        
+        # Use first part on each side (most common case for freeform cuts)
+        part_a_idx, part_a_mesh, part_a_path = positive_parts[0]
+        part_b_idx, part_b_mesh, part_b_path = negative_parts[0]
+        
+        adjacent_pairs_found += 1
+        
+        # Find connector positions using mesh vertex analysis (like uniform grid mode)
+        # We use part A's cut face to determine positions
+        connector_positions = _get_profile_connector_positions_arbitrary(
+            mesh=part_a_mesh,
+            plane_origin=origin,
+            plane_normal=normal,
+            count=count,
+            margin=diameter
+        )
+        
+        if not connector_positions:
+            logger.warning(f"No connector positions found for interface {plane_idx+1}")
+            continue
+        
+        logger.info(f"Interface {plane_idx+1}: Found {len(connector_positions)} connector positions")
+        
+        # Calculate safe depth
+        part_a_bounds = part_a_mesh.bounds
+        part_size = part_a_bounds[1] - part_a_bounds[0]
+        min_dimension = min(part_size[0], part_size[1], part_size[2])
+        max_safe_depth = min_dimension * 0.25
+        effective_height = min(height, max_safe_depth)
+        
+        if effective_height < height:
+            logger.warning(f"Reducing connector depth from {height} to {effective_height:.1f}")
+        
+        # Add connectors to both parts
+        for pos in connector_positions:
+            pos_list = list(pos)
+            
+            if joint_type == 'pins':
+                # Match uniform grid convention:
+                # Part A (positive side, at MAX bound) gets HOLE
+                # Part B (negative side, at MIN bound) gets PIN
+                # HOLE normal should point INTO the part (opposite direction from interface)
+                part_connectors[part_a_idx].append({
+                    'position': pos_list,
+                    'normal': list(-normal),  # Points INTO Part A (hole drills inward)
+                    'diameter': diameter + clearance,  # Hole is slightly larger
+                    'depth': effective_height + 1.5,  # Hole deeper to fit pin + margin
+                    'type': 'hole',
+                    'shape': shape
+                })
+                
+                part_connectors[part_b_idx].append({
+                    'position': pos_list,
+                    'normal': list(-normal),  # Points toward Part A (pin sticks out toward mate)
+                    'diameter': diameter,  # Pin at nominal diameter
+                    'depth': effective_height,
+                    'type': 'pin',
+                    'shape': shape
+                })
+            else:
+                # Dowels mode - both sides get holes for dowel to insert
+                part_connectors[part_a_idx].append({
+                    'position': pos_list,
+                    'normal': list(normal),
+                    'diameter': diameter + clearance,
+                    'depth': effective_height / 2 + 1,
+                    'type': 'hole',
+                    'shape': shape
+                })
+                
+                part_connectors[part_b_idx].append({
+                    'position': pos_list,
+                    'normal': list(-normal),
+                    'diameter': diameter + clearance,
+                    'depth': effective_height / 2 + 1,
+                    'type': 'hole',
+                    'shape': shape
+                })
+    
+    logger.info(f"Found {adjacent_pairs_found} adjacent pairs for freeform connectors")
+    
+    # Generate dowel template if using dowels
+    if joint_type == 'dowels' and adjacent_pairs_found > 0:
+        dowel_count = adjacent_pairs_found * count
+        logger.info(f"Generating {dowel_count} printable dowels (shape={shape})")
+        
+        sections = {'circle': 32, 'square': 4, 'triangle': 3, 'hexagon': 6}.get(shape, 32)
+        dowel = trimesh.creation.cylinder(
+            radius=diameter / 2,
+            height=height,
+            sections=sections
+        )
+        
+        dowel_path = output_dir / f"{base_name}_dowel_{shape}_d{diameter}mm_h{height}mm.stl"
+        dowel.export(str(dowel_path))
+        
+        result['dowel_files'].append({
+            'filepath': str(dowel_path),
+            'filename': dowel_path.name,
+            'count_needed': dowel_count,
+            'diameter': diameter,
+            'height': height
+        })
+        logger.info(f"Created dowel template: {dowel_path.name} (need {dowel_count} copies)")
+    
+    # Apply connectors to each part via Blender
+    modified_parts = list(parts)
+    
+    for idx, connectors in part_connectors.items():
+        if not connectors:
+            continue
+            
+        part_info = parts[idx]
+        input_path = part_info['filepath']
+        output_path = input_path.replace('.stl', '_conn.stl')
+        
+        try:
+            logger.info(f"Applying {len(connectors)} connectors to freeform part {idx + 1}")
+            
+            response = client.process_file(
+                input_path=input_path,
+                output_path=output_path,
+                operation='script',
+                script_path='connectors.py',
+                params={'connectors': connectors}
+            )
+            
+            if response.get('status') == 'success':
+                modified_parts[idx] = {
+                    **part_info,
+                    'filepath': output_path,
+                    'filename': Path(output_path).name,
+                    'has_connectors': True,
+                    'connectors': connectors
+                }
+                logger.info(f"Successfully applied connectors to freeform part {idx + 1}")
+            else:
+                result['warnings'].append(
+                    f"Failed to apply connectors to part {idx + 1}: {response.get('message', 'Unknown error')}"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error applying connectors to freeform part {idx + 1}: {e}")
+            result['warnings'].append(f"Error applying connectors: {str(e)}")
+    
+    result['modified_parts'] = modified_parts
+    return result
+
+
+def _get_profile_connector_positions_arbitrary(
+    mesh: 'trimesh.Trimesh',
+    plane_origin: np.ndarray,
+    plane_normal: np.ndarray,
+    count: int,
+    margin: float = 5.0
+) -> List[np.ndarray]:
+    """
+    Get connector positions on an arbitrary plane cut face.
+    
+    Similar to _get_profile_connector_positions but works with arbitrary
+    plane orientations (not just axis-aligned).
+    
+    Args:
+        mesh: The mesh to analyze
+        plane_origin: Point on the cutting plane
+        plane_normal: Normal vector of the cutting plane
+        count: Number of connectors to place
+        margin: Minimum distance from edge for connectors
+        
+    Returns:
+        List of 3D positions for connector centers
+    """
+    tolerance = 0.5  # mm tolerance for finding vertices on the plane
+    
+    try:
+        vertices = mesh.vertices
+        
+        # Calculate signed distance of each vertex from the plane
+        plane_normal = np.array(plane_normal)
+        plane_normal = plane_normal / np.linalg.norm(plane_normal)
+        distances = np.dot(vertices - plane_origin, plane_normal)
+        
+        # Find vertices on the cut plane
+        on_plane_mask = np.abs(distances) < tolerance
+        plane_vertices = vertices[on_plane_mask]
+        
+        if len(plane_vertices) < 3:
+            logger.warning(f"Only {len(plane_vertices)} vertices found on cut plane")
+            # Fallback: use mesh center projected onto plane
+            mesh_center = (mesh.bounds[0] + mesh.bounds[1]) / 2
+            dist_to_plane = np.dot(mesh_center - plane_origin, plane_normal)
+            projected_center = mesh_center - dist_to_plane * plane_normal
+            return [projected_center]
+        
+        logger.info(f"Found {len(plane_vertices)} vertices on arbitrary cut plane")
+        
+        # Calculate centroid of the cut face
+        centroid = np.mean(plane_vertices, axis=0)
+        
+        if count == 1:
+            return [centroid]
+        
+        # For multiple connectors, distribute them in a pattern on the plane
+        # First, create local 2D coordinate system on the plane
+        
+        # Find two orthogonal vectors on the plane
+        if abs(plane_normal[2]) < 0.9:
+            tangent1 = np.cross(plane_normal, [0, 0, 1])
+        else:
+            tangent1 = np.cross(plane_normal, [1, 0, 0])
+        tangent1 = tangent1 / np.linalg.norm(tangent1)
+        tangent2 = np.cross(plane_normal, tangent1)
+        tangent2 = tangent2 / np.linalg.norm(tangent2)
+        
+        # Project cut face vertices to 2D (in tangent plane)
+        local_points = np.zeros((len(plane_vertices), 2))
+        for i, v in enumerate(plane_vertices):
+            offset = v - centroid
+            local_points[i, 0] = np.dot(offset, tangent1)
+            local_points[i, 1] = np.dot(offset, tangent2)
+        
+        # Get bounds in local coords
+        min_u, min_v = local_points.min(axis=0)
+        max_u, max_v = local_points.max(axis=0)
+        
+        # Apply margin
+        usable_min_u = min_u + margin
+        usable_max_u = max_u - margin
+        usable_min_v = min_v + margin
+        usable_max_v = max_v - margin
+        
+        width = usable_max_u - usable_min_u
+        height = usable_max_v - usable_min_v
+        
+        if width <= 0 or height <= 0:
+            # No room after margin, just use centroid
+            logger.warning("Cut face too small for multiple connectors with margin")
+            return [centroid]
+        
+        # Distribute connectors in a grid
+        positions_3d = []
+        
+        if width > height:
+            n_cols = min(count, max(2, int(np.sqrt(count * 2))))
+            n_rows = max(1, (count + n_cols - 1) // n_cols)
+        else:
+            n_rows = min(count, max(2, int(np.sqrt(count * 2))))
+            n_cols = max(1, (count + n_rows - 1) // n_rows)
+        
+        step_u = width / max(n_cols, 1)
+        step_v = height / max(n_rows, 1)
+        
+        found = 0
+        for row in range(n_rows):
+            for col in range(n_cols):
+                if found >= count:
+                    break
+                
+                u = usable_min_u + step_u * (col + 0.5)
+                v = usable_min_v + step_v * (row + 0.5)
+                
+                # Convert back to 3D
+                pos_3d = centroid + tangent1 * u + tangent2 * v
+                positions_3d.append(pos_3d)
+                found += 1
+            if found >= count:
+                break
+        
+        return positions_3d
+        
+    except Exception as e:
+        logger.error(f"Error in _get_profile_connector_positions_arbitrary: {e}")
+        return []
+
+
+def _generate_connector_positions_on_plane(
+    origin: List[float],
+    normal: List[float], 
+    part_bounds: np.ndarray,
+    count: int,
+    spacing_factor: float = 0.3
+) -> List[List[float]]:
+    """
+    Generate connector positions on an interface plane within part bounds.
+    
+    Returns list of [x, y, z] positions.
+    """
+    origin = np.array(origin)
+    normal = np.array(normal)
+    
+    # Find two orthogonal vectors on the plane
+    if abs(normal[2]) < 0.9:
+        tangent1 = np.cross(normal, [0, 0, 1])
+    else:
+        tangent1 = np.cross(normal, [1, 0, 0])
+    tangent1 = tangent1 / np.linalg.norm(tangent1)
+    tangent2 = np.cross(normal, tangent1)
+    tangent2 = tangent2 / np.linalg.norm(tangent2)
+    
+    # Calculate part size on the plane
+    part_size = part_bounds[1] - part_bounds[0]
+    
+    # Use the smaller of the two non-normal dimensions for spacing
+    sizes = []
+    for i, n in enumerate(normal):
+        if abs(n) < 0.9:  # This dimension is on the plane
+            sizes.append(part_size[i])
+    
+    if len(sizes) >= 2:
+        spacing = min(sizes) * spacing_factor
+    else:
+        spacing = np.min(part_size) * spacing_factor
+    
+    # Generate positions
+    positions = []
+    
+    if count == 1:
+        positions.append(origin.tolist())
+    else:
+        # Arrange in a line along tangent1
+        total_length = spacing * (count - 1)
+        start = -total_length / 2
+        
+        for i in range(count):
+            offset = start + i * spacing
+            pos = origin + tangent1 * offset
+            positions.append(pos.tolist())
+    
+    return positions
 
 def _apply_dovetails(
     input_path: str,
