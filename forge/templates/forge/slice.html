@@ -150,6 +150,31 @@
     .connector-tooltip .tooltip-arrow::before {
         border-top-color: #ff6600;
     }
+
+    /* Face Align Mode Styles */
+    #preview-container.face-align-mode {
+        cursor: crosshair;
+    }
+
+    #preview-container.face-align-mode canvas {
+        cursor: crosshair;
+    }
+
+    .face-mode-indicator {
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: #00ff88;
+        padding: 6px 16px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        z-index: 100;
+        border: 1px solid #00ff88;
+        pointer-events: none;
+    }
 </style>
 {% endblock %}
 
@@ -450,22 +475,22 @@
                                     <div class="col-6 mb-2">
                                         <label for="joint_diameter" class="form-label">Diameter (mm)</label>
                                         <input type="number" class="form-control" id="joint_diameter"
-                                            name="joint_diameter" value="4" min="1" max="20">
+                                            name="joint_diameter" value="4" step="0.1">
                                     </div>
                                     <div class="col-6 mb-2">
                                         <label for="joint_height" class="form-label">Height (mm)</label>
                                         <input type="number" class="form-control" id="joint_height" name="joint_height"
-                                            value="5" min="2" max="30">
+                                            value="5" step="0.1">
                                     </div>
                                     <div class="col-6">
                                         <label for="joint_clearance" class="form-label">Clearance (mm)</label>
                                         <input type="number" class="form-control" id="joint_clearance"
-                                            name="joint_clearance" value="0.2" min="0.05" max="1">
+                                            name="joint_clearance" value="0.2" step="0.01">
                                     </div>
                                     <div class="col-6">
                                         <label for="joint_count" class="form-label">Count per edge</label>
                                         <input type="number" class="form-control" id="joint_count" name="joint_count"
-                                            value="2" min="1" max="20">
+                                            value="2" step="1">
                                     </div>
                                 </div>
                                 <div class="row mt-2">
@@ -592,6 +617,10 @@
                                 <button type="button" class="btn btn-outline-light btn-sm active"
                                     id="toggle-connectors-btn" title="Toggle Connectors (C)">
                                     <i class="fas fa-plug"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" id="toggle-face-mode-btn"
+                                    title="Lay Face on Bed (F)">
+                                    <i class="fas fa-arrow-down"></i>
                                 </button>
                             </div>
                         </div>
@@ -790,6 +819,7 @@
             this.bounds = null;
 
             this.init();
+            this.initFaceAlignMode();
         }
 
         init() {
@@ -1487,6 +1517,234 @@
             this.connectorsVisible = visible;
             console.log(`Connector markers ${visible ? 'shown' : 'hidden'}`);
         }
+
+        // ========================================
+        // Face Align Mode Methods
+        // ========================================
+
+        initFaceAlignMode() {
+            this.faceAlignMode = false;
+            this.raycaster = new THREE.Raycaster();
+            this.mouse = new THREE.Vector2();
+            this.faceHighlightMesh = null;
+
+            // Bind event handlers
+            this._onMouseMove = this.onFaceAlignMouseMove.bind(this);
+            this._onMouseClick = this.onFaceAlignClick.bind(this);
+        }
+
+        enableFaceAlignMode() {
+            if (!this.model) {
+                console.warn('No model loaded. Cannot enable face align mode.');
+                return false;
+            }
+
+            this.faceAlignMode = true;
+            this.container.classList.add('face-align-mode');
+
+            // Add indicator
+            this.showFaceModeIndicator();
+
+            // Add event listeners
+            this.renderer.domElement.addEventListener('mousemove', this._onMouseMove);
+            this.renderer.domElement.addEventListener('click', this._onMouseClick);
+
+            console.log('Face align mode enabled');
+            return true;
+        }
+
+        disableFaceAlignMode() {
+            this.faceAlignMode = false;
+            this.container.classList.remove('face-align-mode');
+
+            // Remove indicator
+            this.hideFaceModeIndicator();
+
+            // Remove event listeners
+            this.renderer.domElement.removeEventListener('mousemove', this._onMouseMove);
+            this.renderer.domElement.removeEventListener('click', this._onMouseClick);
+
+            // Clear any highlight
+            this.clearFaceHighlight();
+
+            console.log('Face align mode disabled');
+        }
+
+        toggleFaceAlignMode() {
+            if (this.faceAlignMode) {
+                this.disableFaceAlignMode();
+                return false;
+            } else {
+                return this.enableFaceAlignMode();
+            }
+        }
+
+        showFaceModeIndicator() {
+            if (document.getElementById('face-mode-indicator')) return;
+
+            const indicator = document.createElement('div');
+            indicator.id = 'face-mode-indicator';
+            indicator.className = 'face-mode-indicator';
+            indicator.innerHTML = '<i class="fas fa-mouse-pointer me-2"></i>Click a face to lay it on the bed • Press <kbd>Esc</kbd> or <kbd>F</kbd> to cancel';
+            this.container.appendChild(indicator);
+        }
+
+        hideFaceModeIndicator() {
+            const indicator = document.getElementById('face-mode-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        onFaceAlignMouseMove(event) {
+            if (!this.faceAlignMode || !this.model) return;
+
+            // Calculate mouse position in normalized device coordinates
+            const rect = this.renderer.domElement.getBoundingClientRect();
+            this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // Raycast to find intersected face
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const intersects = this.raycaster.intersectObject(this.model);
+
+            if (intersects.length > 0) {
+                this.highlightFace(intersects[0]);
+            } else {
+                this.clearFaceHighlight();
+            }
+        }
+
+        onFaceAlignClick(event) {
+            if (!this.faceAlignMode || !this.model) return;
+
+            // Calculate mouse position
+            const rect = this.renderer.domElement.getBoundingClientRect();
+            this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // Raycast to find clicked face
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const intersects = this.raycaster.intersectObject(this.model);
+
+            if (intersects.length > 0) {
+                this.alignFaceToBed(intersects[0]);
+                this.disableFaceAlignMode();
+
+                // Update button state
+                const btn = document.getElementById('toggle-face-mode-btn');
+                if (btn) btn.classList.remove('active');
+            }
+        }
+
+        highlightFace(intersect) {
+            // Clear existing highlight
+            this.clearFaceHighlight();
+
+            const face = intersect.face;
+            const geometry = this.model.geometry;
+            const positionAttribute = geometry.getAttribute('position');
+
+            // Create highlight geometry for the triangle
+            const highlightGeometry = new THREE.BufferGeometry();
+            const vertices = new Float32Array(9);  // 3 vertices * 3 components
+
+            // Get the three vertices of the face
+            const vA = new THREE.Vector3().fromBufferAttribute(positionAttribute, face.a);
+            const vB = new THREE.Vector3().fromBufferAttribute(positionAttribute, face.b);
+            const vC = new THREE.Vector3().fromBufferAttribute(positionAttribute, face.c);
+
+            // Offset slightly along normal to prevent z-fighting
+            const offset = face.normal.clone().multiplyScalar(0.1);
+            vA.add(offset);
+            vB.add(offset);
+            vC.add(offset);
+
+            vertices.set([vA.x, vA.y, vA.z, vB.x, vB.y, vB.z, vC.x, vC.y, vC.z]);
+            highlightGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+            const highlightMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff88,
+                transparent: true,
+                opacity: 0.5,
+                side: THREE.DoubleSide,
+                depthTest: false
+            });
+
+            this.faceHighlightMesh = new THREE.Mesh(highlightGeometry, highlightMaterial);
+
+            // Apply same transform as model
+            this.faceHighlightMesh.position.copy(this.model.position);
+            this.faceHighlightMesh.quaternion.copy(this.model.quaternion);
+            this.faceHighlightMesh.scale.copy(this.model.scale);
+
+            this.scene.add(this.faceHighlightMesh);
+        }
+
+        clearFaceHighlight() {
+            if (this.faceHighlightMesh) {
+                this.scene.remove(this.faceHighlightMesh);
+                this.faceHighlightMesh.geometry.dispose();
+                this.faceHighlightMesh.material.dispose();
+                this.faceHighlightMesh = null;
+            }
+        }
+
+        alignFaceToBed(intersect) {
+            if (!this.model || !intersect.face) {
+                console.warn("alignFaceToBed: Model or Face not available.");
+                return;
+            }
+
+            const face = intersect.face;
+
+            // --- Step 1: Rotation ---
+            // Get face normal in world space
+            const normalMatrix = new THREE.Matrix3().getNormalMatrix(this.model.matrixWorld);
+            const worldNormal = face.normal.clone().applyMatrix3(normalMatrix).normalize();
+
+            // Target direction is -Y (down) for Y-up coordinate system
+            const down = new THREE.Vector3(0, -1, 0);
+
+            // Calculate rotation to align normal with down vector
+            const targetQuaternion = new THREE.Quaternion();
+            targetQuaternion.setFromUnitVectors(worldNormal, down);
+
+            // Apply rotation to the mesh (premultiply to apply in world space equivalent)
+            this.model.quaternion.premultiply(targetQuaternion);
+            this.model.updateMatrixWorld();
+
+            // --- Step 2: Y-Snapping (Move face to Y=0) ---
+            const positionAttribute = this.model.geometry.getAttribute('position');
+            const vertex = new THREE.Vector3();
+            vertex.fromBufferAttribute(positionAttribute, face.a);
+
+            // Transform vertex to world space
+            vertex.applyMatrix4(this.model.matrixWorld);
+
+            // Move the model so this vertex sits at Y=0
+            this.model.position.y -= vertex.y;
+            this.model.updateMatrixWorld();
+
+            // --- Step 3: Auto-Centering on X/Z plane (Move center to X=0, Z=0) ---
+            const bbox = new THREE.Box3().setFromObject(this.model);
+            const center = new THREE.Vector3();
+            bbox.getCenter(center);
+
+            this.model.position.x -= center.x;
+            this.model.position.z -= center.z;
+
+            this.model.updateMatrixWorld();
+
+            // Update bounds
+            this.bounds = new THREE.Box3().setFromObject(this.model);
+
+            // Reset the rotation tracking since we've applied a new orientation
+            this.rotations = { x: 0, y: 0, z: 0 };
+
+            // Update slice planes
+            this.updateSlicePlanes();
+
+            console.log("Face aligned to bed successfully (Y-up, X/Z plane).");
+        }
     }
 
     // Make available globally
@@ -1510,12 +1768,40 @@
 
         // Keyboard shortcut 'C' for connector toggle
         document.addEventListener('keydown', function (e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
             if (e.key === 'c' || e.key === 'C') {
-                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
-                    const visible = !window.preview.connectorsVisible;
-                    window.preview.toggleConnectorMarkers(visible);
-                    if (toggleConnectorsBtn) {
-                        toggleConnectorsBtn.classList.toggle('active', visible);
+                const visible = !window.preview.connectorsVisible;
+                window.preview.toggleConnectorMarkers(visible);
+                if (toggleConnectorsBtn) {
+                    toggleConnectorsBtn.classList.toggle('active', visible);
+                }
+            }
+        });
+
+        // Face align mode button
+        const toggleFaceModeBtn = document.getElementById('toggle-face-mode-btn');
+        if (toggleFaceModeBtn) {
+            toggleFaceModeBtn.addEventListener('click', function () {
+                const enabled = window.preview.toggleFaceAlignMode();
+                this.classList.toggle('active', enabled);
+            });
+        }
+
+        // Keyboard shortcut 'F' for face align mode, 'Escape' to cancel
+        document.addEventListener('keydown', function (e) {
+            if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'f' || e.key === 'F') {
+                const enabled = window.preview.toggleFaceAlignMode();
+                if (toggleFaceModeBtn) {
+                    toggleFaceModeBtn.classList.toggle('active', enabled);
+                }
+            } else if (e.key === 'Escape') {
+                if (window.preview.faceAlignMode) {
+                    window.preview.disableFaceAlignMode();
+                    if (toggleFaceModeBtn) {
+                        toggleFaceModeBtn.classList.remove('active');
                     }
                 }
             }
