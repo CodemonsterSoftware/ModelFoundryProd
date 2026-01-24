@@ -633,6 +633,17 @@
                                     <i class="fas fa-arrow-down"></i>
                                 </button>
                             </div>
+
+                            <!-- Render Mode Dropdown -->
+                            <select class="form-select form-select-sm rounded shadow-sm" id="render-mode-select"
+                                style="width: auto; background-color: rgba(50,50,50,0.9); color: #fff; border: 1px solid #555;"
+                                title="Render Mode">
+                                <option value="default">Default View</option>
+                                <option value="wireframe">Wireframe</option>
+                                <option value="flat">Flat Shading</option>
+                                <option value="smooth">Smooth Shading</option>
+                                <option value="xray">X-Ray</option>
+                            </select>
                         </div>
 
                         <div class="slice-legend d-none" id="slice-legend">
@@ -856,13 +867,34 @@
             const ambientLight = new THREE.AmbientLight(0x404040, 2);
             this.scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-            directionalLight.position.set(100, 100, 100);
-            this.scene.add(directionalLight);
+            // Key light (main directional light from front-top-right)
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            keyLight.position.set(100, 100, 100);
+            this.scene.add(keyLight);
 
-            const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            // Fill light (softer light from opposite side to reduce harsh shadows)
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            fillLight.position.set(-80, 50, -50);
+            this.scene.add(fillLight);
+
+            // Back/rim light (helps define edges when viewed from front)
+            const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
             backLight.position.set(-100, -100, -100);
             this.scene.add(backLight);
+
+            // Top light (helps when viewing from below)
+            const topLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            topLight.position.set(0, 150, 0);
+            this.scene.add(topLight);
+
+            // Bottom fill (prevents completely dark undersides)
+            const bottomLight = new THREE.DirectionalLight(0xffffff, 0.2);
+            bottomLight.position.set(0, -100, 50);
+            this.scene.add(bottomLight);
+
+            // Hemisphere light for ambient sky/ground coloring (gives natural depth cues)
+            const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x333333, 0.5);
+            this.scene.add(hemiLight);
 
             this.gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x333333);
             this.scene.add(this.gridHelper);
@@ -1528,6 +1560,78 @@
             console.log(`Connector markers ${visible ? 'shown' : 'hidden'}`);
         }
 
+        /**
+         * Set the render mode for the model
+         * @param {string} mode - One of: 'default', 'wireframe', 'flat', 'smooth', 'xray'
+         */
+        setRenderMode(mode) {
+            if (!this.model) {
+                console.warn('No model loaded, cannot set render mode');
+                return;
+            }
+
+            this.currentRenderMode = mode;
+            const modelColor = 0x0d6efd;  // Default model color
+
+            // Dispose old material
+            if (this.model.material) {
+                this.model.material.dispose();
+            }
+
+            switch (mode) {
+                case 'wireframe':
+                    this.model.material = new THREE.MeshBasicMaterial({
+                        color: modelColor,
+                        wireframe: true
+                    });
+                    break;
+
+                case 'flat':
+                    this.model.material = new THREE.MeshStandardMaterial({
+                        color: modelColor,
+                        metalness: 0.3,
+                        roughness: 0.6,
+                        flatShading: true
+                    });
+                    // Recompute normals for flat shading
+                    this.model.geometry.computeVertexNormals();
+                    break;
+
+                case 'smooth':
+                    this.model.material = new THREE.MeshStandardMaterial({
+                        color: modelColor,
+                        metalness: 0.3,
+                        roughness: 0.6,
+                        flatShading: false
+                    });
+                    break;
+
+                case 'xray':
+                    this.model.material = new THREE.MeshStandardMaterial({
+                        color: modelColor,
+                        metalness: 0.1,
+                        roughness: 0.8,
+                        transparent: true,
+                        opacity: 0.5,
+                        side: THREE.DoubleSide,
+                        depthWrite: false
+                    });
+                    break;
+
+                case 'default':
+                default:
+                    this.model.material = new THREE.MeshStandardMaterial({
+                        color: modelColor,
+                        metalness: 0.3,
+                        roughness: 0.6,
+                        flatShading: false
+                    });
+                    break;
+            }
+
+            console.log(`Render mode set to: ${mode}`);
+        }
+
         // ========================================
         // Face Align Mode Methods
         // ========================================
@@ -2006,6 +2110,16 @@
                 if (window.preview) {
                     const isVisible = window.preview.toggleGrid();
                     toggleGridBtn.classList.toggle('active', isVisible);
+                }
+            });
+        }
+
+        // Render Mode Dropdown
+        const renderModeSelect = document.getElementById('render-mode-select');
+        if (renderModeSelect) {
+            renderModeSelect.addEventListener('change', () => {
+                if (window.preview) {
+                    window.preview.setRenderMode(renderModeSelect.value);
                 }
             });
         }

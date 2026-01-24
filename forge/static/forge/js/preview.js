@@ -20,6 +20,8 @@ class SlicePreview {
         this.slicePlanes = [];
         this.connectorMarkers = [];  // For visualizing connector positions
         this.bounds = null;
+        this.currentRenderMode = 'default';
+        this.modelColor = 0x0d6efd;  // Default model color
 
         this.init();
     }
@@ -346,6 +348,77 @@ class SlicePreview {
         });
 
         console.log(`Added ${connectors.length} connector markers`);
+    }
+
+    /**
+     * Set the render mode for the model
+     * @param {string} mode - One of: 'default', 'wireframe', 'flat', 'smooth', 'xray'
+     */
+    setRenderMode(mode) {
+        if (!this.model) {
+            console.warn('No model loaded, cannot set render mode');
+            return;
+        }
+
+        this.currentRenderMode = mode;
+
+        // Dispose old material
+        if (this.model.material) {
+            this.model.material.dispose();
+        }
+
+        switch (mode) {
+            case 'wireframe':
+                this.model.material = new THREE.MeshBasicMaterial({
+                    color: this.modelColor,
+                    wireframe: true
+                });
+                break;
+
+            case 'flat':
+                this.model.material = new THREE.MeshStandardMaterial({
+                    color: this.modelColor,
+                    metalness: 0.3,
+                    roughness: 0.6,
+                    flatShading: true
+                });
+                // Need to recompute normals for flat shading
+                this.model.geometry.computeVertexNormals();
+                break;
+
+            case 'smooth':
+                this.model.material = new THREE.MeshStandardMaterial({
+                    color: this.modelColor,
+                    metalness: 0.3,
+                    roughness: 0.6,
+                    flatShading: false
+                });
+                break;
+
+            case 'xray':
+                this.model.material = new THREE.MeshStandardMaterial({
+                    color: this.modelColor,
+                    metalness: 0.1,
+                    roughness: 0.8,
+                    transparent: true,
+                    opacity: 0.5,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+                break;
+
+            case 'default':
+            default:
+                this.model.material = new THREE.MeshStandardMaterial({
+                    color: this.modelColor,
+                    metalness: 0.3,
+                    roughness: 0.6,
+                    flatShading: false
+                });
+                break;
+        }
+
+        console.log(`Render mode set to: ${mode}`);
     }
 }
 
