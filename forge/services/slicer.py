@@ -5,6 +5,7 @@ Uses trimesh for slicing and boolean operations.
 """
 import logging
 import math
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
@@ -951,13 +952,37 @@ def _apply_connectors(
                 # NOTE: Skipping repair step as it was destroying connector holes
                 # The Blender boolean operations produce clean enough geometry
                 
+                # Read connector manifest to get failure info
+                manifest_path = output_path.replace('.stl', '_manifest.json')
+                connector_results = []
+                if os.path.exists(manifest_path):
+                    import json
+                    with open(manifest_path, 'r') as f:
+                        manifest_data = json.load(f)
+                        connector_results = manifest_data.get('connectors', [])
+                        if manifest_data.get('failed', 0) > 0:
+                            logger.warning(f"Part {idx + 1}: {manifest_data['failed']} connector(s) failed")
+                
+                # Merge failure info into connector positions
+                updated_connectors = []
+                for i, conn in enumerate(connectors):
+                    conn_copy = dict(conn)  # Make a copy
+                    # Find matching result by index
+                    for res in connector_results:
+                        if res.get('index') == i:
+                            conn_copy['failed'] = res.get('failed', False)
+                            break
+                    else:
+                        conn_copy['failed'] = False  # Default to not failed if no match
+                    updated_connectors.append(conn_copy)
+                
                 # Update part info with connector path and positions for visualization
                 modified_parts[idx] = {
                     **part_info,
                     'filepath': output_path,
                     'filename': Path(output_path).name,
                     'has_connectors': True,
-                    'connector_positions': connectors  # Include positions for 3D viewer
+                    'connector_positions': updated_connectors  # Include positions with failure flags
                 }
                 logger.info(f"  Successfully applied connectors to part {idx + 1}")
             else:

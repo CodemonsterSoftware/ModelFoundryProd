@@ -165,6 +165,9 @@ try:
     initial_faces = len(mesh_obj.data.polygons)
     log(f"  Mesh has {initial_faces:,} faces")
     
+    # Track connector results for manifest
+    connector_results = []
+    
     # Process each connector
     for i, conn in enumerate(connectors):
         conn_type = conn.get('type', 'hole')
@@ -198,6 +201,14 @@ try:
             success = apply_boolean(mesh_obj, cylinder, operation)
         except Exception as e:
             log(f"  WARNING: Boolean check failed: {e}")
+        
+        # Track result for this connector
+        conn_result = {
+            'index': i,
+            'type': conn_type,
+            'position': position,
+            'failed': not success
+        }
         
         if success:
             log(f"  Boolean applied in {time.time() - conn_start:.2f}s")
@@ -233,6 +244,8 @@ try:
                 # For holes (Difference), we can't join. If it fails, we just don't have a hole.
                 # Clean up cylinder
                 bpy.data.objects.remove(cylinder, do_unlink=True)
+        
+        connector_results.append(conn_result)
     
     # Report face count change
     final_faces = len(mesh_obj.data.polygons)
@@ -255,6 +268,22 @@ try:
     
     output_size = get_file_size_mb(output_path)
     total_time = time.time() - start_time
+    
+    # Write connector results manifest
+    failed_count = sum(1 for r in connector_results if r.get('failed', False))
+    manifest_path = output_path.replace('.stl', '_manifest.json')
+    manifest_data = {
+        'connectors': connector_results,
+        'total': len(connector_results),
+        'failed': failed_count
+    }
+    
+    import json
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest_data, f)
+    log(f"Manifest written to: {manifest_path}")
+    if failed_count > 0:
+        log(f"WARNING: {failed_count} connector(s) FAILED")
     
     log(f"=== CONNECTOR OPERATION COMPLETE ===")
     log(f"Output size: {output_size:.2f} MB")

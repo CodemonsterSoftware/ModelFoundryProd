@@ -135,6 +135,40 @@
     .validation-tooltip .tooltip-arrow::before {
         border-top-color: #dc3545;
     }
+
+    /* Failed Connector Warning Overlay */
+    .connector-warning-overlay {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        color: #ff6600;
+        background-color: rgba(0, 0, 0, 0.7);
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        cursor: help;
+        box-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
+    }
+
+    .connector-warning-overlay i {
+        font-size: 1.2rem;
+        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+    }
+
+    .connector-tooltip .tooltip-inner {
+        background-color: #ff6600;
+        color: white;
+        max-width: 250px;
+        text-align: left;
+    }
+
+    .connector-tooltip .tooltip-arrow::before {
+        border-top-color: #ff6600;
+    }
 </style>
 {% endblock %}
 
@@ -573,6 +607,10 @@
                                 <button type="button" class="btn btn-outline-light btn-sm active" id="toggle-grid-btn"
                                     title="Toggle Grid (G)">
                                     <i class="fas fa-border-all"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm active"
+                                    id="toggle-connectors-btn" title="Toggle Connectors (C)">
+                                    <i class="fas fa-plug"></i>
                                 </button>
                             </div>
                         </div>
@@ -1281,12 +1319,24 @@
 
             console.log(`Applying connector offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
 
+            // Track failed connectors for notification
+            let failedCount = 0;
+            let failedTypes = [];
+
             connectors.forEach(conn => {
                 const pos = conn.position;
                 const type = conn.type;
                 const diameter = conn.diameter || 4;
                 const depth = conn.depth || 5;
                 const shape = conn.shape || 'circle';
+                const failed = conn.failed || false;
+
+                if (failed) {
+                    failedCount++;
+                    if (!failedTypes.includes(type)) {
+                        failedTypes.push(type);
+                    }
+                }
 
                 // Get vertex count for shape
                 const shapeVertices = {
@@ -1305,12 +1355,21 @@
                     segments
                 );
 
-                // Color: green for pins, red for holes
-                const color = type === 'pin' ? 0x00ff00 : 0xff4444;
+                // Color: 
+                // - Failed: bright orange/yellow
+                // - Pin: green
+                // - Hole: red
+                let color;
+                if (failed) {
+                    color = 0xff6600;  // Bright orange for failed
+                } else {
+                    color = type === 'pin' ? 0x00ff00 : 0xff4444;
+                }
+
                 const material = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.7
+                    opacity: failed ? 0.9 : 0.7
                 });
 
                 const marker = new THREE.Mesh(geometry, material);
@@ -1335,9 +1394,117 @@
 
                 this.scene.add(marker);
                 this.connectorMarkers.push(marker);
+
+                // Add wireframe overlay for failed connectors
+                if (failed) {
+                    const wireGeometry = new THREE.CylinderGeometry(
+                        diameter / 2 * 1.3,
+                        diameter / 2 * 1.3,
+                        depth * 0.6,
+                        segments
+                    );
+                    const wireMaterial = new THREE.MeshBasicMaterial({
+                        color: 0xffff00,  // Yellow wireframe
+                        wireframe: true,
+                        transparent: true,
+                        opacity: 0.9
+                    });
+                    const wireMarker = new THREE.Mesh(wireGeometry, wireMaterial);
+                    wireMarker.position.copy(marker.position);
+                    wireMarker.rotation.copy(marker.rotation);
+                    this.scene.add(wireMarker);
+                    this.connectorMarkers.push(wireMarker);
+                }
             });
 
             console.log(`Added ${connectors.length} connector markers with offset correction`);
+
+            // Show notification if there are failed connectors
+            if (failedCount > 0) {
+                this.showBooleanFailureNotification(failedCount, failedTypes);
+            }
+        }
+
+        showBooleanFailureNotification(failedCount, failedTypes) {
+            // Create notification element if it doesn't exist
+            let notification = document.getElementById('boolean-failure-notification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'boolean-failure-notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #ff6600, #ff4400);
+                    color: white;
+                    padding: 16px 24px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    max-width: 400px;
+                    font-family: system-ui, -apple-system, sans-serif;
+                    animation: slideIn 0.3s ease-out;
+                `;
+                document.body.appendChild(notification);
+
+                // Add animation keyframes
+                if (!document.getElementById('boolean-notification-styles')) {
+                    const style = document.createElement('style');
+                    style.id = 'boolean-notification-styles';
+                    style.textContent = `
+                        @keyframes slideIn {
+                            from { transform: translateX(100%); opacity: 0; }
+                            to { transform: translateX(0); opacity: 1; }
+                        }
+                        @keyframes fadeOut {
+                            from { transform: translateX(0); opacity: 1; }
+                            to { transform: translateX(100%); opacity: 0; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+            }
+
+            const typeText = failedTypes.join(' and ');
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <div>
+                        <strong style="font-size: 14px;">Boolean Operation Failed</strong>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">
+                            ${failedCount} ${typeText} connector${failedCount > 1 ? 's' : ''} failed to apply.
+                            <br>Orange markers show failed locations.
+                        </p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.style.animation='fadeOut 0.3s'; setTimeout(() => this.parentElement.parentElement.remove(), 300)" 
+                            style="background: none; border: none; color: white; cursor: pointer; font-size: 18px; margin-left: 8px;">&times;</button>
+                </div>
+            `;
+
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => {
+                if (notification && notification.parentElement) {
+                    notification.style.animation = 'fadeOut 0.3s';
+                    setTimeout(() => notification.remove(), 300);
+                }
+            }, 10000);
+        }
+
+        toggleConnectorMarkers(visible) {
+            // Toggle visibility of all connector markers
+            if (typeof visible !== 'boolean') {
+                // If no arg, toggle based on current state
+                visible = this.connectorMarkers.length > 0 && !this.connectorMarkers[0].visible;
+            }
+            this.connectorMarkers.forEach(marker => {
+                marker.visible = visible;
+            });
+            this.connectorsVisible = visible;
+            console.log(`Connector markers ${visible ? 'shown' : 'hidden'}`);
         }
     }
 
@@ -1348,6 +1515,30 @@
     document.addEventListener('DOMContentLoaded', function () {
         // Initialize 3D preview
         window.preview = new SlicePreview('preview-container');
+        window.preview.connectorsVisible = true;  // Track visibility state
+
+        // Connector toggle button
+        const toggleConnectorsBtn = document.getElementById('toggle-connectors-btn');
+        if (toggleConnectorsBtn) {
+            toggleConnectorsBtn.addEventListener('click', function () {
+                const visible = !window.preview.connectorsVisible;
+                window.preview.toggleConnectorMarkers(visible);
+                this.classList.toggle('active', visible);
+            });
+        }
+
+        // Keyboard shortcut 'C' for connector toggle
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'c' || e.key === 'C') {
+                if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    const visible = !window.preview.connectorsVisible;
+                    window.preview.toggleConnectorMarkers(visible);
+                    if (toggleConnectorsBtn) {
+                        toggleConnectorsBtn.classList.toggle('active', visible);
+                    }
+                }
+            }
+        });
 
         const dropzone = document.getElementById('dropzone');
         const fileInput = document.getElementById('stl_file');
@@ -1908,6 +2099,37 @@
 
                 // Initialize Bootstrap tooltip
                 new bootstrap.Tooltip(warningOverlay);
+            }
+
+            // Add Failed Connector Warning if any connectors failed
+            if (part.has_connectors && part.connectors && part.connectors.length > 0) {
+                const failedConnectors = part.connectors.filter(c => c.failed === true);
+                if (failedConnectors.length > 0) {
+                    const failedPins = failedConnectors.filter(c => c.type === 'pin').length;
+                    const failedHoles = failedConnectors.filter(c => c.type === 'hole').length;
+
+                    let failureText = 'Boolean operation failed:<br>';
+                    if (failedPins > 0) {
+                        failureText += `${failedPins} pin${failedPins > 1 ? 's' : ''} not created<br>`;
+                    }
+                    if (failedHoles > 0) {
+                        failureText += `${failedHoles} hole${failedHoles > 1 ? 's' : ''} not cut`;
+                    }
+
+                    const connectorWarningOverlay = document.createElement('div');
+                    connectorWarningOverlay.className = 'connector-warning-overlay';
+                    connectorWarningOverlay.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+                    connectorWarningOverlay.setAttribute('data-bs-toggle', 'tooltip');
+                    connectorWarningOverlay.setAttribute('data-bs-placement', 'right');
+                    connectorWarningOverlay.setAttribute('data-bs-html', 'true');
+                    connectorWarningOverlay.setAttribute('data-bs-custom-class', 'connector-tooltip');
+                    connectorWarningOverlay.setAttribute('title', failureText);
+
+                    thumbnailContainer.appendChild(connectorWarningOverlay);
+
+                    // Initialize Bootstrap tooltip
+                    new bootstrap.Tooltip(connectorWarningOverlay);
+                }
             }
 
             // Card body

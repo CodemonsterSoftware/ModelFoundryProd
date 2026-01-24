@@ -451,6 +451,10 @@ def apply_master_reference_pattern(part_a, part_b, centroid: Vector, normal: Vec
     master_peg = create_peg(centroid, normal, diameter, depth, shape)
     log(f"Created master peg: {master_peg.name}")
     
+    # Track operation results
+    union_failed = False
+    difference_failed = False
+    
     # Step 2: Boolean UNION to Part A (the one receiving the male pin)
     bpy.context.view_layer.objects.active = part_a
     try:
@@ -462,12 +466,16 @@ def apply_master_reference_pattern(part_a, part_b, centroid: Vector, normal: Vec
         log(f"Union to {part_a.name} successful")
     except Exception as e:
         log(f"Union failed: {e}, using fallback join")
-        bpy.ops.object.select_all(action='DESELECT')
-        part_a.select_set(True)
-        master_peg.select_set(True)
-        bpy.context.view_layer.objects.active = part_a
-        bpy.ops.object.join()
-        master_peg = None  # Was merged
+        try:
+            bpy.ops.object.select_all(action='DESELECT')
+            part_a.select_set(True)
+            master_peg.select_set(True)
+            bpy.context.view_layer.objects.active = part_a
+            bpy.ops.object.join()
+            master_peg = None  # Was merged
+        except Exception as e2:
+            log(f"Fallback join also failed: {e2}")
+            union_failed = True
     
     # Step 3: Create Cutter Peg (scaled for clearance)
     scale_factor = DEFAULT_CLEARANCE_SCALE
@@ -489,6 +497,7 @@ def apply_master_reference_pattern(part_a, part_b, centroid: Vector, normal: Vec
         log(f"Difference from {part_b.name} successful")
     except Exception as e:
         log(f"Difference failed: {e}")
+        difference_failed = True
     
     # Cleanup
     if master_peg and master_peg.name in bpy.data.objects:
@@ -499,7 +508,12 @@ def apply_master_reference_pattern(part_a, part_b, centroid: Vector, normal: Vec
     # Step 5: Register peg
     registry.register(peg_start, peg_end, diameter / 2)
     
-    return True
+    # Return detailed result
+    return {
+        'success': not (union_failed and difference_failed),  # Partial success counts
+        'union_failed': union_failed,
+        'difference_failed': difference_failed
+    }
 
 
 # =============================================================================
@@ -594,7 +608,7 @@ def slice_and_connect(obj, grid_config, joint_params):
                         # Apply Master Reference Pattern
                         normal = -plane_no  # Pin points from B toward A
                         
-                        success = apply_master_reference_pattern(
+                        result = apply_master_reference_pattern(
                             part_a=part_b,  # Pin goes to positive side
                             part_b=part_a,  # Hole goes to negative side
                             centroid=centroid,
@@ -604,7 +618,31 @@ def slice_and_connect(obj, grid_config, joint_params):
                             shape=shape
                         )
                         
-                        if success:
+                        # result is now a dict with success, union_failed, difference_failed
+                        if isinstance(result, dict):
+                            if result.get('success', False):
+                                # Record connector for part_b (pin)
+                                part_connectors[part_b.name].append({
+                                    'position': [centroid.x, centroid.y, centroid.z],
+                                    'normal': [normal.x, normal.y, normal.z],
+                                    'diameter': diameter,
+                                    'depth': depth,
+                                    'type': 'pin',
+                                    'shape': shape,
+                                    'failed': result.get('union_failed', False)
+                                })
+                                # Record connector for part_a (hole)
+                                hole_normal = plane_no  # Hole faces opposite direction
+                                part_connectors[part_a.name].append({
+                                    'position': [centroid.x, centroid.y, centroid.z],
+                                    'normal': [hole_normal.x, hole_normal.y, hole_normal.z],
+                                    'diameter': diameter,
+                                    'depth': depth,
+                                    'type': 'hole',
+                                    'shape': shape,
+                                    'failed': result.get('difference_failed', False)
+                                })
+                        elif result:  # Legacy boolean return (backwards compat)
                             # Record connector for part_b (pin)
                             part_connectors[part_b.name].append({
                                 'position': [centroid.x, centroid.y, centroid.z],
@@ -612,17 +650,19 @@ def slice_and_connect(obj, grid_config, joint_params):
                                 'diameter': diameter,
                                 'depth': depth,
                                 'type': 'pin',
-                                'shape': shape
+                                'shape': shape,
+                                'failed': False
                             })
                             # Record connector for part_a (hole)
-                            hole_normal = plane_no  # Hole faces opposite direction
+                            hole_normal = plane_no
                             part_connectors[part_a.name].append({
                                 'position': [centroid.x, centroid.y, centroid.z],
                                 'normal': [hole_normal.x, hole_normal.y, hole_normal.z],
                                 'diameter': diameter,
                                 'depth': depth,
                                 'type': 'hole',
-                                'shape': shape
+                                'shape': shape,
+                                'failed': False
                             })
             
             parts = new_parts
