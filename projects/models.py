@@ -302,7 +302,6 @@ class UserSettings(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     settings_type = models.CharField(max_length=50, choices=[
         ('general', 'General Settings'),
-        ('slicer', 'Slicer Settings'),
         ('appearance', 'Appearance Settings'),
         ('machines', 'Machine Settings')
     ])

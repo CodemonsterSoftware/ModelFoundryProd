@@ -100,7 +100,7 @@
                         <div class="mb-4">
                             <label class="form-label">STL File</label>
                             <div class="dropzone" id="dropzone">
-                                <input type="file" id="stl_file" name="stl_file" accept=".stl" required>
+                                <input type="file" id="stl_file" name="input_file" accept=".stl" required>
                                 <div class="dropzone-icon">
                                     <i class="bi bi-cloud-arrow-up"></i>
                                 </div>
@@ -497,7 +497,7 @@
             resultContainer.classList.add('d-none');
 
             try {
-                const response = await fetch('{% url "forge:api_convert" %}', {
+                const response = await fetch('/forge/api/m/converter/run/', {
                     method: 'POST',
                     body: formData
                 });

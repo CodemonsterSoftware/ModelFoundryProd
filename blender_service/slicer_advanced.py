@@ -517,15 +517,284 @@ def apply_master_reference_pattern(part_a, part_b, centroid: Vector, normal: Vec
 
 
 # =============================================================================
-# Main Slicing Function
+# Tenon Logic
 # =============================================================================
-def slice_and_connect(obj, grid_config, joint_params):
+def create_pyramid_frustum(size, height, top_ratio=0.7):
+    """
+    Create a square pyramid frustum (for socket/tenon half).
+    size: Base edge length
+    height: Height of the frustum
+    top_ratio: Ratio of top face size to base size
+    """
+    half_base = size / 2
+    half_top = (size * top_ratio) / 2
+    
+    verts = [
+        (-half_base, -half_base, 0), (half_base, -half_base, 0), (half_base, half_base, 0), (-half_base, half_base, 0),  # Base
+        (-half_top, -half_top, height), (half_top, -half_top, height), (half_top, half_top, height), (-half_top, half_top, height)  # Top
+    ]
+    
+    faces = [
+        (0, 1, 2, 3),  # Base
+        (4, 7, 6, 5),  # Top
+        (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)  # Sides
+    ]
+    
+    mesh = bpy.data.meshes.new("Frustum")
+    mesh.from_pydata(verts, [], faces)
+    obj = bpy.data.objects.new("Frustum", mesh)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+def create_double_pyramid(size, height, fit_tolerance=0.0):
+    """
+    Create the full tenon shape (two frustums back-to-back).
+    Returns the object.
+    """
+    # Create top half
+    top = create_pyramid_frustum(size - fit_tolerance, height / 2 - fit_tolerance)
+    
+    # Create bottom half
+    bottom = create_pyramid_frustum(size - fit_tolerance, height / 2 - fit_tolerance)
+    bottom.rotation_euler = (math.pi, 0, 0) # Flip upside down
+    
+    # Join them
+    bpy.context.view_layer.objects.active = top
+    bpy.ops.object.select_all(action='DESELECT')
+    top.select_set(True)
+    bottom.select_set(True)
+    bpy.ops.object.join()
+    
+    top.name = "Tenon_Insert"
+    return top
+
+def generate_grid_positions(obj, plane_co, plane_no, spacing, margin):
+    """
+    Generate a grid of positions on the cut surface of the object.
+    
+    1. Define a grid on the plane based on object bounds.
+    2. Raycast to find which grid points are actually on the object surface (the cut face).
+    3. Filter by margin from edges.
+    """
+    # Define local coordinate system for the plane
+    z_axis = plane_no.normalized()
+    if abs(z_axis.z) < 0.9:
+        x_axis = z_axis.cross(Vector((0, 0, 1))).normalized()
+    else:
+        x_axis = z_axis.cross(Vector((1, 0, 0))).normalized()
+    y_axis = z_axis.cross(x_axis).normalized()
+    
+    # Get object bounds projected onto the plane
+    # Transform vertices to plane space
+    matrix = Matrix.Identity(4) # World space
+    
+    # We scan a grid aligned with plane axes
+    # Find bounds of the cut face. 
+    # Since we don't have the face explicitly separated, we can scan the object bounds.
+    # A better way is to use the bounds of the island if we had it.
+    # For now, use object bounds projected.
+    
+    verts = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    if not verts:
+        return []
+
+    # Project all verts to 2D plane coordinates (u, v)
+    u_vals = []
+    v_vals = []
+    
+    # Project vectors: v - plane_co dot axes
+    for v in verts:
+        rel = v - plane_co
+        u = rel.dot(x_axis)
+        v_val = rel.dot(y_axis)
+        u_vals.append(u)
+        v_vals.append(v_val)
+        
+    min_u, max_u = min(u_vals), max(u_vals)
+    min_v, max_v = min(v_vals), max(v_vals)
+    
+    # Generate grid points
+    positions = []
+    
+    # Center lines
+    range_u = max_u - min_u
+    range_v = max_v - min_v
+    
+    count_u = int(range_u / spacing) + 1
+    count_v = int(range_v / spacing) + 1
+    
+    # Start centering
+    start_u = (min_u + max_u) / 2 - (count_u - 1) * spacing / 2
+    start_v = (min_v + max_v) / 2 - (count_v - 1) * spacing / 2
+    
+    for i in range(count_u):
+        for j in range(count_v):
+            u = start_u + i * spacing
+            v = start_v + j * spacing
+            
+            # 3D position on plane
+            pos = plane_co + u * x_axis + v * y_axis
+            
+            # Check if this point is on the mesh surface (cut face)
+            # We assume the cut face is flat.
+            # We can use raycast from slightly above and below
+            
+            # Raycast check:
+            # Cast ray along normal. If we hit the face at very close distance, it's on the surface.
+            # Actually, since we generated points ON the plane, we just need to check if they are INSIDE the face boundaries.
+            # We can use (pos + epsilon * normal) raycast towards -normal.
+            # If hit distance is epsilon, we are on surface.
+            
+            epsilon = 0.1
+            ray_start = pos + z_axis * epsilon
+            result, location, normal, index = obj.ray_cast(ray_start, -z_axis)
+            
+            if result:
+                dist = (location - ray_start).length
+                if abs(dist - epsilon) < 0.01:
+                    # Valid point on surface.
+                    # Now check margin.
+                    # We need to ensure we are 'margin' distance away from any edge.
+                    # Raycast in 4 directions? Or just use a simpler heuristic?
+                    # A robust way is multiple raycasts around the point to see if we fall off.
+                    
+                    is_safe = True
+                    check_dirs = [x_axis, -x_axis, y_axis, -y_axis]
+                    for d in check_dirs:
+                        # Cast ray outwards for margin distance.
+                        # If we *don't* hit anything, or hit something far away?
+                        # No, we are ON the surface. We want to know if the surface ends.
+                        # This is hard with raycast on the same plane.
+                        
+                        # Alternative: Valid if (pos + d * margin) is also on surface.
+                        margin_point = pos + d * margin
+                        m_ray_start = margin_point + z_axis * epsilon
+                        m_res, _, _, _ = obj.ray_cast(m_ray_start, -z_axis)
+                        if not m_res:
+                            is_safe = False
+                            break
+                    
+                    if is_safe:
+                        positions.append(pos)
+                        
+    return positions
+
+def apply_tenon_pattern(part_a, part_b, centroid, normal, params, registry):
+    """
+    Apply Tenon & Socket pattern.
+    Unlike pins, this generates a GRID of sockets on the interface.
+    
+    part_a: The part getting sockets (one side)
+    part_b: The other part getting sockets (other side)
+    centroid: Centroid of the cut interface (used as safe center reference)
+    normal: Normal vector pointing from A to B (or similar)
+    """
+    size = params.get('size', 12.0)
+    spacing = params.get('spacing', 30.0)
+    margin = params.get('margin', 4.0)
+    tolerance = params.get('tolerance', 0.2)
+    depth = size # Tenon depth/height usually relates to size, say cube-ish
+    
+    log(f"Applying Tenon Grid: size={size}, spacing={spacing}, margin={margin}")
+    
+    # We need to find the specific cut plane derived from centroid + normal
+    plane_co = centroid
+    plane_no = normal
+    
+    # Calculate grid positions on Part A's cut face
+    # We use Part A for calculation
+    positions = generate_grid_positions(part_a, plane_co, plane_no, spacing, margin + size/2)
+    
+    if not positions:
+        # Fallback to single center tenon if grid yields nothing
+        log("No grid positions found, falling back to center")
+        positions = [centroid]
+    
+    log(f"Generated {len(positions)} tenon positions")
+    
+    success_count = 0
+    successful_positions = []
+    
+    for pos in positions:
+        # Create Socket Geometry (Difference)
+        # Socket size = size + tolerance
+        # Socket depth = size/2 + tolerance? Usually just accommodate the pyramid.
+        
+        # We need a socket cutter.
+        # It's a double pyramid but we only subtract the relevant half from each part.
+        # Actually simplest is to subtract the full double pyramid (slightly enlarged) from BOTH parts.
+        
+        socket_cutter = create_double_pyramid(size + tolerance, size + tolerance, fit_tolerance=0)
+        
+        # Align
+        up = Vector((0, 0, 1))
+        target = normal.normalized()
+        quat = up.rotation_difference(target)
+        socket_cutter.rotation_euler = quat.to_euler()
+        socket_cutter.location = pos
+        
+        # Apply transforms
+        bpy.ops.object.select_all(action='DESELECT')
+        socket_cutter.select_set(True)
+        bpy.context.view_layer.objects.active = socket_cutter
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        
+        # Perform Boolean Difference on Part A
+        # Duplicate cutter for B
+        cutter_b = duplicate_object(socket_cutter)
+        
+        bool_a_success = False
+        try:
+            mod = part_a.modifiers.new(name="TenonSocket", type='BOOLEAN')
+            mod.object = socket_cutter
+            mod.operation = 'DIFFERENCE'
+            mod.solver = 'FAST'
+            bpy.context.view_layer.objects.active = part_a
+            bpy.ops.object.modifier_apply(modifier="TenonSocket")
+            bool_a_success = True
+        except Exception as e:
+            log(f"Socket A failed: {e}")
+            
+        bool_b_success = False
+        try:
+            mod = part_b.modifiers.new(name="TenonSocket", type='BOOLEAN')
+            mod.object = cutter_b
+            mod.operation = 'DIFFERENCE'
+            mod.solver = 'FAST'
+            bpy.context.view_layer.objects.active = part_b
+            bpy.ops.object.modifier_apply(modifier="TenonSocket")
+            bool_b_success = True
+        except Exception as e:
+            log(f"Socket B failed: {e}")
+            
+        # Cleanup cutters
+        bpy.data.objects.remove(socket_cutter, do_unlink=True)
+        bpy.data.objects.remove(cutter_b, do_unlink=True)
+        
+        if bool_a_success and bool_b_success:
+            success_count += 1
+            successful_positions.append(pos)
+            # Register collision (optional, mainly for spacing check if we did dynamic placement)
+            # registry.register(pos, pos + normal, size) 
+            
+    # Create the Tenon Insert File (just one, since they are identical)
+    # We should export this separately?
+    # For now, we return metadata about it.
+    
+    return {
+        "success": success_count > 0,
+        "count": success_count,
+        "positions": successful_positions,
+        "generated_files": []
+    }
+
+def slice_and_connect(obj, grid_config, joint_params, joint_type='none'):
     """
     Main slicing function with advanced peg placement.
     Returns tuple of (parts_list, part_connectors_dict)
     where part_connectors_dict maps part object name to list of connector info.
     """
-    add_connectors = joint_params.get('diameter', 0) > 0
+    add_connectors = (joint_params.get('diameter', 0) > 0) or (joint_type == 'tenon')
     shape = joint_params.get('shape', 'circle')
     diameter = joint_params.get('diameter', DEFAULT_PEG_DIAMETER)
     depth = joint_params.get('height', joint_params.get('depth', DEFAULT_PEG_DEPTH))
@@ -543,7 +812,7 @@ def slice_and_connect(obj, grid_config, joint_params):
     size = max_vec - min_vec
     
     log(f"Object bounds: min={min_vec}, max={max_vec}, size={size}")
-    log(f"Connectors: {add_connectors}, Shape: {shape}")
+    log(f"Connectors: {add_connectors}, Type: {joint_type}, Shape: {shape}")
     
     parts = [obj]
     axes = [('x', 0), ('y', 1), ('z', 2)]
@@ -605,22 +874,85 @@ def slice_and_connect(obj, grid_config, joint_params):
                 # Add connectors for each island
                 if add_connectors and valid_a and valid_b:
                     for centroid in centroids_a:
-                        # Apply Master Reference Pattern
+                        # Apply Pattern
                         normal = -plane_no  # Pin points from B toward A
                         
-                        result = apply_master_reference_pattern(
-                            part_a=part_b,  # Pin goes to positive side
-                            part_b=part_a,  # Hole goes to negative side
-                            centroid=centroid,
-                            normal=normal,
-                            params=joint_params,
-                            registry=registry,
-                            shape=shape
-                        )
-                        
-                        # result is now a dict with success, union_failed, difference_failed
-                        if isinstance(result, dict):
+                        if joint_type == 'tenon':
+                            result = apply_tenon_pattern(
+                                part_a=part_b, # B gets sockets
+                                part_b=part_a, # A gets sockets (both get sockets)
+                                centroid=centroid,
+                                normal=normal,
+                                params=joint_params,
+                                registry=registry
+                            )
+                            # Return value is just stats for now
                             if result.get('success', False):
+                                # We record them as 'hole' type for now so the system knows there are connectors.
+                                # We can give them a special 'shape' so frontend can adapt later.
+                                tenon_positions = result.get('positions', []) # Need to make sure apply_tenon_pattern returns this
+                                tenon_size = joint_params.get('size', 12.0)
+                                
+                                for t_pos in tenon_positions:
+                                    # Both parts get a socket (hole)
+                                    part_connectors[part_b.name].append({
+                                        'position': [t_pos.x, t_pos.y, t_pos.z],
+                                        'normal': [normal.x, normal.y, normal.z],
+                                        'diameter': tenon_size, # Approximate
+                                        'depth': tenon_size/2,
+                                        'type': 'tenon_socket',
+                                        'shape': 'square',
+                                        'failed': False
+                                    })
+                                    
+                                    hole_normal = plane_no
+                                    part_connectors[part_a.name].append({
+                                        'position': [t_pos.x, t_pos.y, t_pos.z],
+                                        'normal': [hole_normal.x, hole_normal.y, hole_normal.z],
+                                        'diameter': tenon_size,
+                                        'depth': tenon_size/2,
+                                        'type': 'tenon_socket',
+                                        'shape': 'square',
+                                        'failed': False
+                                    })
+                        
+                        else:
+                            # Standard Pin/Dowel
+                            result = apply_master_reference_pattern(
+                                part_a=part_b,  # Pin goes to positive side
+                                part_b=part_a,  # Hole goes to negative side
+                                centroid=centroid,
+                                normal=normal,
+                                params=joint_params,
+                                registry=registry,
+                                shape=shape
+                            )
+                            
+                            # result is now a dict with success, union_failed, difference_failed
+                            if isinstance(result, dict):
+                                if result.get('success', False):
+                                    # Record connector for part_b (pin)
+                                    part_connectors[part_b.name].append({
+                                        'position': [centroid.x, centroid.y, centroid.z],
+                                        'normal': [normal.x, normal.y, normal.z],
+                                        'diameter': diameter,
+                                        'depth': depth,
+                                        'type': 'pin',
+                                        'shape': shape,
+                                        'failed': result.get('union_failed', False)
+                                    })
+                                    # Record connector for part_a (hole)
+                                    hole_normal = plane_no  # Hole faces opposite direction
+                                    part_connectors[part_a.name].append({
+                                        'position': [centroid.x, centroid.y, centroid.z],
+                                        'normal': [hole_normal.x, hole_normal.y, hole_normal.z],
+                                        'diameter': diameter,
+                                        'depth': depth,
+                                        'type': 'hole',
+                                        'shape': shape,
+                                        'failed': result.get('difference_failed', False)
+                                    })
+                            elif result:  # Legacy boolean return (backwards compat)
                                 # Record connector for part_b (pin)
                                 part_connectors[part_b.name].append({
                                     'position': [centroid.x, centroid.y, centroid.z],
@@ -629,10 +961,10 @@ def slice_and_connect(obj, grid_config, joint_params):
                                     'depth': depth,
                                     'type': 'pin',
                                     'shape': shape,
-                                    'failed': result.get('union_failed', False)
+                                    'failed': False
                                 })
                                 # Record connector for part_a (hole)
-                                hole_normal = plane_no  # Hole faces opposite direction
+                                hole_normal = plane_no
                                 part_connectors[part_a.name].append({
                                     'position': [centroid.x, centroid.y, centroid.z],
                                     'normal': [hole_normal.x, hole_normal.y, hole_normal.z],
@@ -640,30 +972,8 @@ def slice_and_connect(obj, grid_config, joint_params):
                                     'depth': depth,
                                     'type': 'hole',
                                     'shape': shape,
-                                    'failed': result.get('difference_failed', False)
+                                    'failed': False
                                 })
-                        elif result:  # Legacy boolean return (backwards compat)
-                            # Record connector for part_b (pin)
-                            part_connectors[part_b.name].append({
-                                'position': [centroid.x, centroid.y, centroid.z],
-                                'normal': [normal.x, normal.y, normal.z],
-                                'diameter': diameter,
-                                'depth': depth,
-                                'type': 'pin',
-                                'shape': shape,
-                                'failed': False
-                            })
-                            # Record connector for part_a (hole)
-                            hole_normal = plane_no
-                            part_connectors[part_a.name].append({
-                                'position': [centroid.x, centroid.y, centroid.z],
-                                'normal': [hole_normal.x, hole_normal.y, hole_normal.z],
-                                'diameter': diameter,
-                                'depth': depth,
-                                'type': 'hole',
-                                'shape': shape,
-                                'failed': False
-                            })
             
             parts = new_parts
     
@@ -702,16 +1012,46 @@ try:
     
     grid = params.get('grid', {'x': 1, 'y': 1, 'z': 1})
     joint_params = params.get('joint_params', {})
+    joint_type = params.get('joint_type', 'none')
     
     log(f"Grid config: {grid}")
     log(f"Joint params: {joint_params}")
     
-    parts, part_connectors = slice_and_connect(obj, grid, joint_params)
+    parts, part_connectors = slice_and_connect(obj, grid, joint_params, joint_type=joint_type)
     
     log(f"Slicing complete. {len(parts)} parts created.")
     
     # Export parts
     output_files = []
+    
+    # If Tenon mode, generate and export the Tenon Insert
+    if joint_type == 'tenon':
+        tenon_size = joint_params.get('size', 12.0)
+        tenon_file = f"{base_name}_tenon_{tenon_size}mm.stl"
+        tenon_path = os.path.join(output_dir, tenon_file)
+        
+        # Create standard tenon (no tolerance for the print itself)
+        tenon_obj = create_double_pyramid(tenon_size, tenon_size, fit_tolerance=0.0)
+        
+        # Export
+        bpy.ops.object.select_all(action='DESELECT')
+        tenon_obj.select_set(True)
+        bpy.context.view_layer.objects.active = tenon_obj
+        # Center at origin is already default for creation
+        bpy.ops.export_mesh.stl(filepath=tenon_path, use_selection=True)
+        
+        output_files.append({
+            "filepath": os.path.join(output_dir_rel, tenon_file),
+            "filename": tenon_file,
+            "has_connectors": False,
+            "connectors": []
+        })
+        log(f"Exported Tenon Insert: {tenon_file}")
+        
+        # Remove it
+        bpy.data.objects.remove(tenon_obj, do_unlink=True)
+
+
     for i, part in enumerate(parts):
         bpy.ops.object.select_all(action='DESELECT')
         part.select_set(True)

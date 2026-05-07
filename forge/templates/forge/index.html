@@ -17,111 +17,172 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="display-5">
-                <i class="bi bi-hammer"></i> Forge
-            </h1>
-            <p class="lead text-muted">Tools for modifying 3D files</p>
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="display-5">
+                    <i class="fas fa-hammer"></i> Forge Modules
+                </h1>
+                <p class="lead text-muted">Parametric tools, generators, and mesh processors</p>
+            </div>
+            <div>
+                <button class="btn btn-outline-secondary me-2" id="editModulesBtn" onclick="toggleEditMode()">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#installModuleModal">
+                    <i class="fas fa-plus-circle"></i> Install Module
+                </button>
+            </div>
         </div>
     </div>
 
+    <!-- Active Modules -->
     <div class="row g-4">
-        <!-- STL to STEP Conversion - DISABLED: Putting a pin in this feature
+        {% for module in modules %}
         <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm">
-                <img src="https://placehold.co/600x400?text=STL+to+STEP" class="card-img-top"
-                    alt="STL to STEP Converter">
+            <div class="card h-100 shadow-sm border-{{ module.backend|default:'secondary' }} position-relative">
+                <button class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 uninstall-btn d-none" 
+                        title="Uninstall Module" 
+                        onclick="confirmUninstall('{{ module.id }}', '{{ module.name|escapejs }}')"
+                        style="z-index: 10;">
+                    <i class="fas fa-trash"></i>
+                </button>
                 <div class="card-body">
                     <h5 class="card-title">
-                        <i class="bi bi-arrow-repeat"></i> STL to STEP Conversion
+                        <i class="fas {{ module.icon|default:'fa-puzzle-piece' }}"></i> {{ module.name }}
                     </h5>
-                    <p class="card-text">Convert mesh files (STL) to solid CAD format (STEP) for use in CAD software
-                        like Fusion 360, SolidWorks, or FreeCAD.</p>
+                    <p class="card-text">{{ module.description }}</p>
                     <ul class="list-unstyled text-muted small">
-                        <li><i class="bi bi-check-circle text-success"></i> Automatic mesh repair</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Creates solid body</li>
-                        <li><i class="bi bi-info-circle text-info"></i> Curved surfaces remain faceted</li>
+                        <li><i class="fas fa-microchip text-info"></i> Backend: <strong>{{ module.backend|title }}</strong></li>
+                        <li><i class="fas fa-tag"></i> Version: {{ module.version|default:'1.0' }}</li>
+                        <li><i class="fas fa-user"></i> By: {{ module.author|default:'Unknown' }}</li>
                     </ul>
                 </div>
+                <!-- Action link uses dynamic URL routing via module_id -->
                 <div class="card-footer bg-transparent border-top-0">
-                    <a href="{% url 'forge:convert' %}" class="btn btn-primary w-100">
-                        <i class="bi bi-upload"></i> Convert STL to STEP
+                    <a href="{% url 'forge:module_view' module.id %}" class="btn btn-primary w-100">
+                        <i class="fas fa-play"></i> Launch Tool
                     </a>
                 </div>
             </div>
         </div>
-        -->
-
-        <!-- Grid Slicer -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm">
-                <img src="{% static 'img/forge/forge_grid_slicer.png' %}" class="card-img-top" alt="Grid Slicer">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-grid-3x3"></i> Grid Slicer
-                    </h5>
-                    <p class="card-text">Split large models into smaller printable parts with automatic alignment
-                        features.</p>
-                    <ul class="list-unstyled text-muted small">
-                        <li><i class="bi bi-check-circle text-success"></i> Configurable grid divisions</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Alignment pins (printed)</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Dowel holes (for rods)</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Multi-tail dovetails</li>
-                    </ul>
-                </div>
-                <div class="card-footer bg-transparent border-top-0">
-                    <a href="{% url 'forge:slice' %}" class="btn btn-primary w-100">
-                        <i class="bi bi-scissors"></i> Slice Model
-                    </a>
-                </div>
-            </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <i class="fas fa-boxes display-1 text-muted mb-3"></i>
+            <h3>No modules installed</h3>
+            <p class="text-muted">Click 'Install Module' to add your first parametric tool.</p>
         </div>
-
-        <!-- Rune Etcher -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm">
-                <img src="{% static 'img/forge/forge_rune_etcher.png' %}" class="card-img-top" alt="Rune Etcher">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-shield-lock"></i> Rune Etcher
-                    </h5>
-                    <p class="card-text">Encode data into stl files for theft protection.</p>
-                    <ul class="list-unstyled text-muted small">
-                        <li><i class="bi bi-check-circle text-success"></i> Watermark STL files</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Hidden metadata</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Ownership verification</li>
-                    </ul>
-                </div>
-                <div class="card-footer bg-transparent border-top-0">
-                    <a href="{% url 'forge:rune_etcher' %}" class="btn btn-primary w-100">
-                        <i class="fas fa-magic"></i> Etch Rune
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% comment %}
-        <!-- Sizer Tool -->
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="bi bi-person-bounding-box"></i> 3D Sizer
-                    </h5>
-                    <p class="card-text">Check if 3D prints will fit specific body parts.</p>
-                    <ul class="list-unstyled text-muted small">
-                        <li><i class="bi bi-check-circle text-success"></i> Body part primitives</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Custom Dimensions</li>
-                        <li><i class="bi bi-check-circle text-success"></i> Visual fit check</li>
-                    </ul>
-                </div>
-                <div class="card-footer bg-transparent border-top-0">
-                    <a href="{% url 'forge:sizer' %}" class="btn btn-primary w-100">
-                        <i class="bi bi- rulers"></i> Open Sizer
-                    </a>
-                </div>
-            </div>
-        </div>
-        {% endcomment %}
+        {% endfor %}
     </div>
+
+    <!-- Legacy Migration Section Header -->
+    {% if not modules %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <h4 class="text-muted border-bottom pb-2">Legacy Tools</h4>
+        </div>
+        <div class="col-md-6 col-lg-4 mt-3">
+             <div class="card shadow-sm h-100 border-warning">
+                 <div class="card-body">
+                     <h5>Grid Slicer (Legacy)</h5>
+                     <p>Wait, the links were removed. Please migrate legacy interfaces to modules.</p>
+                 </div>
+             </div>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
+
+<!-- Install Module Modal -->
+<div class="modal fade" id="installModuleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Install GitHub Module</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="installForm">
+          <div class="mb-3">
+            <label for="manifestUrl" class="form-label">Manifest URL</label>
+            <input type="url" class="form-control" id="manifestUrl" placeholder="https://raw.githubusercontent.com/.../manifest.json" required>
+            <div class="form-text">Paste the raw URL to the manifest.json file from a compatible Github repository.</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="installBtn" onclick="submitInstall()">Install</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function submitInstall() {
+    const urlInput = document.getElementById('manifestUrl');
+    const url = urlInput.value;
+    const btn = document.getElementById('installBtn');
+    
+    if (!url) return;
+    
+    // Disable inputs and show loading state
+    urlInput.disabled = true;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Installing...';
+    
+    fetch('{% url "forge:install_module" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: 'manifest_url=' + encodeURIComponent(url)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if(data.success) {
+            window.location.reload();
+        } else {
+            alert('Failed to install module: ' + data.error);
+            // Restore UI state
+            urlInput.disabled = false;
+            btn.disabled = false;
+            btn.innerHTML = 'Install';
+        }
+    })
+    .catch(err => {
+        alert('Network error occurred during installation.');
+        urlInput.disabled = false;
+        btn.disabled = false;
+        btn.innerHTML = 'Install';
+    });
+}
+
+function toggleEditMode() {
+    const btns = document.querySelectorAll('.uninstall-btn');
+    const editBtn = document.getElementById('editModulesBtn');
+    btns.forEach(btn => btn.classList.toggle('d-none'));
+    editBtn.classList.toggle('active');
+}
+
+function confirmUninstall(moduleId, moduleName) {
+    if (confirm(`Are you sure you want to uninstall the module "${moduleName}"?\nThis action will delete its files and cannot be undone.`)) {
+        fetch(`/forge/uninstall/${moduleId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if(data.success) {
+                window.location.reload();
+            } else {
+                alert('Failed to uninstall module: ' + data.error);
+            }
+        });
+    }
+}
+</script>
 {% endblock %}

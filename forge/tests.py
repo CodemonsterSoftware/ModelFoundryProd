@@ -1,18 +1,25 @@
 """
-Tests for Forge app - 3D File Tools
+Tests for Forge app — module framework and service logic.
+
+Note: Service tests import directly from the module tree now that
+slicer.py / rune_etcher.py / converter.py live inside their respective
+module directories rather than forge/services/.
 """
+import sys
+from pathlib import Path
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
-from django.core.files.uploadedfile import SimpleUploadedFile
 import json
-import tempfile
-from pathlib import Path
+
+# Add project root so paths resolve correctly in tests
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 class ForgeViewTests(TestCase):
-    """Test Forge page views."""
-    
+    """Test Forge framework views."""
+
     def setUp(self):
         self.user = User.objects.create_user(
             username='testuser',
@@ -20,25 +27,13 @@ class ForgeViewTests(TestCase):
         )
         self.client = Client()
         self.client.login(username='testuser', password='testpass123')
-    
+
     def test_forge_index_view(self):
         """Test forge index page loads."""
         response = self.client.get(reverse('forge:index'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'forge/index.html')
-    
-    def test_forge_convert_view(self):
-        """Test convert page loads."""
-        response = self.client.get(reverse('forge:convert'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'forge/convert.html')
-    
-    def test_forge_slice_view(self):
-        """Test slice page loads."""
-        response = self.client.get(reverse('forge:slice'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'forge/slice.html')
-    
+
     def test_requires_login(self):
         """Test that forge pages require login."""
         self.client.logout()
@@ -46,99 +41,94 @@ class ForgeViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn('login', response.url)
 
+    def test_module_view_not_found(self):
+        """Test that an unknown module_id returns 404."""
+        response = self.client.get(
+            reverse('forge:module_view', kwargs={'module_id': 'nonexistent_xyz'})
+        )
+        self.assertEqual(response.status_code, 404)
 
-class ForgeAPITests(TestCase):
-    """Test Forge API endpoints."""
-    
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username='testuser',
-            password='testpass123'
-        )
-        self.client = Client()
-        self.client.login(username='testuser', password='testpass123')
-        
-        # Create a simple STL content (binary STL header + minimal data)
-        # This is a minimal valid STL file structure
-        self.stl_content = (
-            b'solid test\n'
-            b'facet normal 0 0 1\n'
-            b'  outer loop\n'
-            b'    vertex 0 0 0\n'
-            b'    vertex 1 0 0\n'
-            b'    vertex 0 1 0\n'
-            b'  endloop\n'
-            b'endfacet\n'
-            b'endsolid test\n'
-        )
-    
-    def test_api_slice_requires_post(self):
-        """Test that slice API requires POST."""
-        response = self.client.get(reverse('forge:api_slice'))
-        self.assertEqual(response.status_code, 405)
-    
-    def test_api_convert_requires_post(self):
-        """Test that convert API requires POST."""
-        response = self.client.get(reverse('forge:api_convert'))
-        self.assertEqual(response.status_code, 405)
-    
-    def test_api_slice_requires_file(self):
-        """Test that slice API requires a file."""
-        response = self.client.post(reverse('forge:api_slice'), {
-            'grid_x': 2,
-            'grid_y': 2,
-            'grid_z': 1,
-            'joint_type': 'none'
-        })
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertFalse(data['success'])
-    
     def test_api_job_status_not_found(self):
-        """Test job status for non-existent job."""
-        response = self.client.get(reverse('forge:api_job_status', args=['nonexistent']))
+        """Test job status for non-existent job returns 404."""
+        response = self.client.get(
+            reverse('forge:api_job_status', args=['nonexistent-job-id'])
+        )
         self.assertEqual(response.status_code, 404)
-    
+
     def test_api_download_not_found(self):
-        """Test download for non-existent job."""
-        response = self.client.get(reverse('forge:api_download', args=['nonexistent']))
+        """Test download endpoint for non-existent job returns 404."""
+        response = self.client.get(
+            reverse('forge:api_download', args=['nonexistent-job-id'])
+        )
         self.assertEqual(response.status_code, 404)
 
+    def test_api_module_run_requires_post(self):
+        """Test that the generic module run endpoint only accepts POST."""
+        response = self.client.get(
+            reverse('forge:api_module_run', kwargs={'module_id': 'grid_slicer'})
+        )
+        self.assertEqual(response.status_code, 405)
 
-class SlicerServiceTests(TestCase):
-    """Test slicer service functions."""
-    
+
+class SlicerModuleServiceTests(TestCase):
+    """Test grid_slicer module's bundled slicer service."""
+
+    MODULE_DIR = Path(__file__).parent / 'modules' / 'grid_slicer'
+
+    def setUp(self):
+        if str(self.MODULE_DIR) not in sys.path:
+            sys.path.insert(0, str(self.MODULE_DIR))
+
     def test_import_slicer(self):
-        """Test that slicer module can be imported."""
+        """Slicer service should be importable from the module directory."""
         try:
-            from forge.services import slicer
+            import slicer  # noqa: F401
             self.assertTrue(True)
         except ImportError as e:
             self.skipTest(f"Slicer dependencies not installed: {e}")
 
-
-class JointsServiceTests(TestCase):
-    """Test joints service functions."""
-    
     def test_import_joints(self):
-        """Test that joints module can be imported."""
+        """Joints helper should be importable from the grid_slicer module directory."""
         try:
-            from forge.services import joints
+            import joints  # noqa: F401
             self.assertTrue(True)
         except ImportError as e:
             self.skipTest(f"Joints dependencies not installed: {e}")
 
 
-class ConverterServiceTests(TestCase):
-    """Test converter service functions."""
-    
+class EtcherModuleServiceTests(TestCase):
+    """Test rune_etcher module's bundled service."""
+
+    MODULE_DIR = Path(__file__).parent / 'modules' / 'rune_etcher'
+
+    def setUp(self):
+        if str(self.MODULE_DIR) not in sys.path:
+            sys.path.insert(0, str(self.MODULE_DIR))
+
+    def test_import_rune_etcher(self):
+        """RuneEtcher service should be importable from the module directory."""
+        try:
+            from rune_etcher import RuneEtcher  # noqa: F401
+            self.assertTrue(True)
+        except ImportError as e:
+            self.skipTest(f"Rune etcher dependencies not installed: {e}")
+
+
+class ConverterModuleServiceTests(TestCase):
+    """Test converter module's bundled service."""
+
+    MODULE_DIR = Path(__file__).parent / 'modules' / 'converter'
+
+    def setUp(self):
+        if str(self.MODULE_DIR) not in sys.path:
+            sys.path.insert(0, str(self.MODULE_DIR))
+
     def test_import_converter(self):
-        """Test that converter module can be imported."""
-        from forge.services import converter
+        """Converter service should be importable from the module directory."""
+        from converter import convert_stl_to_step  # noqa: F401
         self.assertTrue(True)
-    
+
     def test_pythonocc_detection(self):
-        """Test pythonocc availability detection."""
-        from forge.services.converter import PYTHONOCC_AVAILABLE
-        # Just verify the flag is set correctly (True or False)
+        """PYTHONOCC_AVAILABLE flag should be a bool (True if installed, False if not)."""
+        from converter import PYTHONOCC_AVAILABLE
         self.assertIsInstance(PYTHONOCC_AVAILABLE, bool)

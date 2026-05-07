@@ -214,7 +214,7 @@
                         <div class="mb-4">
                             <label class="form-label">STL File</label>
                             <div class="dropzone" id="dropzone">
-                                <input type="file" id="stl_file" name="stl_file" accept=".stl">
+                                <input type="file" id="stl_file" name="input_file" accept=".stl">
                                 <div class="dropzone-icon">
                                     <i class="bi bi-cloud-arrow-up"></i>
                                 </div>
@@ -457,10 +457,10 @@
                                             <i class="bi bi-grip-vertical me-1"></i>Dowels
                                         </label>
 
-                                        <input type="radio" class="btn-check" name="joint_type" id="joint_tenons"
-                                            value="tenons">
-                                        <label class="btn btn-outline-primary" for="joint_tenons">
-                                            <i class="bi bi-box me-1"></i>Tenons
+                                        <input type="radio" class="btn-check" name="joint_type" id="joint_tenon"
+                                            value="tenon">
+                                        <label class="btn btn-outline-primary" for="joint_tenon">
+                                            <i class="bi bi-gem me-1"></i>Tenon
                                         </label>
 
                                         <!-- Dovetails - Hidden until fully implemented -->
@@ -513,45 +513,34 @@
                             </div>
 
 
-                            <!-- Tenon Options (shown when tenons selected) -->
+                            <!-- Tenon Options -->
                             <div id="tenon-options" class="mb-4 d-none">
                                 <h6 class="border-bottom pb-2 mb-3">Tenon Settings</h6>
-                                <p class="small text-muted mb-2">Square-base pyramidal pins with 45° walls.</p>
                                 <div class="row">
-                                    <div class="col-4 mb-2">
-                                        <label for="tenon_edge" class="form-label">Pin Size (mm)</label>
-                                        <input type="number" class="form-control" id="tenon_edge" name="tenon_edge"
-                                            value="12" min="5" max="30" step="0.5">
-                                        <div class="form-text small">Square base edge</div>
+                                    <div class="col-6 mb-2">
+                                        <label for="tenon_size" class="form-label">Size (mm)</label>
+                                        <input type="number" class="form-control" id="tenon_size" name="tenon_size"
+                                            value="12" step="0.1">
+                                        <div class="form-text small">Edge length</div>
                                     </div>
-                                    <div class="col-4 mb-2">
+                                    <div class="col-6 mb-2">
                                         <label for="tenon_spacing" class="form-label">Spacing (mm)</label>
                                         <input type="number" class="form-control" id="tenon_spacing"
-                                            name="tenon_spacing" value="30" min="10" max="100" step="1">
-                                        <div class="form-text small">Between pin centers</div>
+                                            name="tenon_spacing" value="30" step="1">
                                     </div>
-                                    <div class="col-4 mb-2">
+                                    <div class="col-6">
                                         <label for="tenon_margin" class="form-label">Margin (mm)</label>
                                         <input type="number" class="form-control" id="tenon_margin" name="tenon_margin"
-                                            value="4" min="1" max="20" step="0.5">
-                                        <div class="form-text small">Min edge distance</div>
+                                            value="4" step="0.1">
                                     </div>
-                                </div>
-                                <div class="row mt-2">
-                                    <div class="col-4 mb-2">
-                                        <label for="tenon_height" class="form-label">Pin Height (mm)</label>
-                                        <input type="number" class="form-control" id="tenon_height" name="tenon_height"
-                                            value="6" min="2" max="20" step="0.1">
-                                        <div class="form-text small">Auto: Size × 0.5</div>
-                                    </div>
-                                    <div class="col-4 mb-2">
+                                    <div class="col-6">
                                         <label for="tenon_tolerance" class="form-label">Tolerance (mm)</label>
                                         <input type="number" class="form-control" id="tenon_tolerance"
-                                            name="tenon_tolerance" value="0.2" min="0.05" max="1.0" step="0.01">
-                                        <div class="form-text small">Fit gap for accuracy</div>
+                                            name="tenon_tolerance" value="0.2" step="0.05">
                                     </div>
                                 </div>
                             </div>
+
 
                             <!-- Dovetail Options -->
                             <div id="dovetail-options" class="mb-4 d-none">
@@ -2434,35 +2423,21 @@
                 if (this.value === 'pins' || this.value === 'dowels') {
                     pinOptions.classList.remove('d-none');
                     dovetailOptions.classList.add('d-none');
-                    tenonOptions.classList.add('d-none');
+                    if (tenonOptions) tenonOptions.classList.add('d-none');
                 } else if (this.value === 'dovetails') {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.remove('d-none');
-                    tenonOptions.classList.add('d-none');
-                } else if (this.value === 'tenons') {
+                    if (tenonOptions) tenonOptions.classList.add('d-none');
+                } else if (this.value === 'tenon') {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.add('d-none');
-                    tenonOptions.classList.remove('d-none');
+                    if (tenonOptions) tenonOptions.classList.remove('d-none');
                 } else {
                     pinOptions.classList.add('d-none');
                     dovetailOptions.classList.add('d-none');
-                    tenonOptions.classList.add('d-none');
+                    if (tenonOptions) tenonOptions.classList.add('d-none');
                 }
             });
-        });
-
-        // Tenon auto-calculation: Pin Height = Pin Size × 0.5
-        document.getElementById('tenon_edge').addEventListener('change', function () {
-            const heightInput = document.getElementById('tenon_height');
-            // Only auto-update if user hasn't manually edited
-            if (!heightInput.dataset.userEdited) {
-                heightInput.value = (parseFloat(this.value) * 0.5).toFixed(1);
-            }
-        });
-
-        // Track manual edits to tenon height to disable auto-calculation
-        document.getElementById('tenon_height').addEventListener('input', function () {
-            this.dataset.userEdited = 'true';
         });
 
         // Rotation button handlers
@@ -2870,7 +2845,7 @@
                 // Append auto-loaded blob if no file selected
                 const fileInput = document.getElementById('stl_file');
                 if (fileInput.files.length === 0 && window.autoLoadedBlob) {
-                    formData.set('stl_file', window.autoLoadedBlob, targetProjectCtx.partFilename || 'autoloaded.stl');
+                    formData.set('input_file', window.autoLoadedBlob, targetProjectCtx.partFilename || 'autoloaded.stl');
                 } else if (fileInput.files.length === 0) {
                     alert('Please select an STL file.');
                     submitBtn.disabled = false;
@@ -2878,7 +2853,7 @@
                     return;
                 }
 
-                const response = await fetch('{% url "forge:api_slice" %}', {
+                const response = await fetch('/forge/api/m/grid_slicer/run/', {
                     method: 'POST',
                     body: formData
                 });
@@ -2896,25 +2871,28 @@
                     // Hide result container on success as we show parts preview instead
                     resultContainer.classList.add('d-none');
 
+                    // The framework wraps the job.json dict under data.payload
+                    const payload = data.payload || {};
+
                     // Show Save to Project button
                     document.getElementById('save-to-project-btn').classList.remove('d-none');
                     // Store job ID for saving
                     document.getElementById('save-to-project-btn').dataset.jobId = data.job_id;
 
                     // Show warnings if any (e.g., Blender unavailable)
-                    if (data.warnings && data.warnings.length > 0) {
+                    if (payload.warnings && payload.warnings.length > 0) {
                         resultContainer.classList.remove('d-none');
                         resultAlert.className = 'alert alert-warning text-dark';
-                        resultMessage.innerHTML = '<strong>⚠ Warnings:</strong><br>' + data.warnings.join('<br>');
+                        resultMessage.innerHTML = '<strong>⚠ Warnings:</strong><br>' + payload.warnings.join('<br>');
                         downloadLink.classList.add('d-none');
                     }
 
                     // Show dowel info if any
-                    if (data.dowels && data.dowels.length > 0) {
+                    if (payload.dowels && payload.dowels.length > 0) {
                         // Remove any existing dowel info alerts first
                         document.querySelectorAll('.dowel-info-alert').forEach(el => el.remove());
 
-                        const dowelInfo = data.dowels.map(d =>
+                        const dowelInfo = payload.dowels.map(d =>
                             `<li><strong>${d.filename}</strong> - Print <strong>${d.count_needed}</strong> copies (${d.diameter}mm x ${d.height}mm)</li>`
                         ).join('');
 
@@ -2931,12 +2909,12 @@
                     }
 
                     // Generate part preview cards
-                    if (data.parts && data.parts.length > 0) {
-                        await window.generatePartPreviews(data.job_id, data.parts);
+                    if (payload.parts && payload.parts.length > 0) {
+                        await window.generatePartPreviews(data.job_id, payload.parts);
 
                         // Aggregate all connectors from all parts and display in viewer
                         const allConnectors = [];
-                        data.parts.forEach(part => {
+                        payload.parts.forEach(part => {
                             if (part.connectors && part.connectors.length > 0) {
                                 part.connectors.forEach(conn => {
                                     allConnectors.push(conn);

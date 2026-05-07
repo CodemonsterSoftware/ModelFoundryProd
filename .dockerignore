@@ -53,9 +53,9 @@ docker-compose.yml
 
 # Environment
 .env
-.venv
-venv/
-ENV/
+**/.venv
+**/venv/
+**/ENV/
 
 # OS
 .DS_Store

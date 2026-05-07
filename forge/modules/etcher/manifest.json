@@ -1,0 +1,16 @@
+{
+    "id": "etcher",
+    "name": "Etcher",
+    "version": "1.0.0",
+    "author": "ModelFoundry",
+    "description": "Steganographic watermarking for 3D models.",
+    "icon": "bi-shield-lock",
+    "backend": "python",
+    "template": "forge/rune_etcher.html",
+    "main": "main.py",
+    "enabled": true,
+    "download": "https://github.com/CodemonsterSoftware/MF_Forge_Etcher/archive/refs/tags/v1.0.0.zip",
+    "dependencies": {
+        "pip": ["numpy", "trimesh"]
+    }
+}

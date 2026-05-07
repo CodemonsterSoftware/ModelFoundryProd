@@ -1,7 +1,7 @@
 {% extends 'projects/base.html' %}
 {% load static %}
 
-{% block title %}Rune Etcher - ModelFoundry{% endblock %}
+{% block title %}Etcher - ModelFoundry{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -65,7 +65,7 @@
 <div class="container py-5">
     <div class="row mb-4">
         <div class="col">
-            <h1 class="display-4">Rune Etcher</h1>
+            <h1 class="display-4">Etcher</h1>
             <p class="lead text-muted">Digital watermarking and steganography for STL files.</p>
         </div>
     </div>
@@ -98,7 +98,7 @@
                                 <div class="mb-4">
                                     <label class="form-label">Source STL File</label>
                                     <div class="dropzone" id="etchDropzone">
-                                        <input type="file" id="etchFile" name="stl_file" accept=".stl" required>
+                                        <input type="file" id="etchFile" name="input_file" accept=".stl" required>
                                         <div class="dropzone-icon">
                                             <i class="bi bi-cloud-arrow-up"></i>
                                         </div>
@@ -199,7 +199,7 @@
                                 <div class="mb-4">
                                     <label class="form-label">Etched STL File</label>
                                     <div class="dropzone" id="readDropzone">
-                                        <input type="file" id="readFile" name="stl_file" accept=".stl" required>
+                                        <input type="file" id="readFile" name="input_file" accept=".stl" required>
                                         <div class="dropzone-icon">
                                             <i class="bi bi-search"></i>
                                         </div>
@@ -292,148 +292,122 @@
 
 {% block extra_js %}
 <script>
-    $(document).ready(function () {
-        // --- Drag and Drop Logic ---
-        function setupDropzone(dropzoneId, inputId, filenameDisplayId) {
-            const dropzone = $(dropzoneId);
-            const input = $(inputId);
-            const filenameDisplay = $(filenameDisplayId);
+    function getCsrfToken() {
+        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+        return cookie ? cookie.trim().split('=')[1] : '';
+    }
 
-            // Handle click to select
-            dropzone.on('click', function (e) {
-                if (e.target !== input[0]) {
-                    input[0].click();
-                }
+    function setupDropzone(dropzoneId, inputId, filenameDisplayId) {
+        const dropzone = document.getElementById(dropzoneId);
+        const input = document.getElementById(inputId);
+        const filenameDisplay = document.getElementById(filenameDisplayId);
+
+        dropzone.addEventListener('click', function (e) {
+            if (e.target !== input) input.click();
+        });
+        input.addEventListener('click', e => e.stopPropagation());
+        input.addEventListener('change', function () {
+            if (this.files && this.files.length > 0) {
+                filenameDisplay.textContent = this.files[0].name;
+                filenameDisplay.classList.remove('d-none');
+                dropzone.classList.add('has-file');
+            } else {
+                filenameDisplay.classList.add('d-none');
+                dropzone.classList.remove('has-file');
+            }
+        });
+        dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+        dropzone.addEventListener('dragleave', e => { e.preventDefault(); dropzone.classList.remove('dragover'); });
+        dropzone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                // Programmatically assign dropped files to input
+                const dt = new DataTransfer();
+                dt.items.add(files[0]);
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    setupDropzone('etchDropzone', 'etchFile', 'etchFilename');
+    setupDropzone('readDropzone', 'readFile', 'readFilename');
+
+    // ---- Etch ----
+    document.getElementById('etchForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('etchBtn');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Etching...';
+        document.getElementById('etchResult').classList.add('d-none');
+        document.getElementById('etchError').classList.add('d-none');
+
+        try {
+            const formData = new FormData(this);
+            formData.append('action', 'etch');  // Tell the module which operation to run
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
+
+            const response = await fetch('/forge/api/m/etcher/run/', {
+                method: 'POST',
+                body: formData
             });
+            const data = await response.json();
 
-            input.on('click', function (e) {
-                e.stopPropagation();
-            });
-
-            // Handle file selection
-            input.on('change', function () {
-                if (this.files && this.files.length > 0) {
-                    const file = this.files[0];
-                    filenameDisplay.text(file.name).removeClass('d-none');
-                    dropzone.addClass('has-file');
-                } else {
-                    filenameDisplay.addClass('d-none');
-                    dropzone.removeClass('has-file');
-                }
-            });
-
-            // Drag and drop events
-            dropzone.on('dragover', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.addClass('dragover');
-            });
-
-            dropzone.on('dragleave', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.removeClass('dragover');
-            });
-
-            dropzone.on('drop', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.removeClass('dragover');
-
-                const files = e.originalEvent.dataTransfer.files;
-                if (files.length > 0) {
-                    // Update input files
-                    input[0].files = files;
-
-                    // Trigger change event
-                    input.trigger('change');
-                }
-            });
+            if (data.success) {
+                document.getElementById('downloadLink').href = `/forge/api/download/${data.job_id}/`;
+                document.getElementById('etchResult').classList.remove('d-none');
+            } else {
+                document.getElementById('etchErrorMsg').textContent = data.error || data.message || 'Unknown error';
+                document.getElementById('etchError').classList.remove('d-none');
+            }
+        } catch (err) {
+            document.getElementById('etchErrorMsg').textContent = 'Network error: ' + err.message;
+            document.getElementById('etchError').classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
         }
+    });
 
-        setupDropzone('#etchDropzone', '#etchFile', '#etchFilename');
-        setupDropzone('#readDropzone', '#readFile', '#readFilename');
+    // ---- Read ----
+    document.getElementById('readForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('readBtn');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reading...';
+        document.getElementById('readResult').classList.add('d-none');
+        document.getElementById('readError').classList.add('d-none');
 
+        try {
+            const formData = new FormData(this);
+            formData.append('action', 'read');  // Tell the module which operation to run
+            formData.append('csrfmiddlewaretoken', getCsrfToken());
 
-        // Etch Logic
-        $('#etchForm').on('submit', function (e) {
-            e.preventDefault();
-
-            var formData = new FormData(this);
-            var btn = $('#etchBtn');
-            var originalText = btn.html();
-
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Etching...');
-            $('#etchResult').addClass('d-none');
-            $('#etchError').addClass('d-none');
-
-            $.ajax({
-                url: '{% url "forge:api_etch_rune" %}',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-                success: function (response) {
-                    if (response.success) {
-                        $('#downloadLink').attr('href', response.download_url);
-                        $('#etchResult').removeClass('d-none');
-                    } else {
-                        $('#etchErrorMsg').text(response.error || 'Unknown error');
-                        $('#etchError').removeClass('d-none');
-                    }
-                },
-                error: function (xhr) {
-                    var error = xhr.responseJSON ? xhr.responseJSON.error : 'Server error';
-                    $('#etchErrorMsg').text(error);
-                    $('#etchError').removeClass('d-none');
-                },
-                complete: function () {
-                    btn.prop('disabled', false).html(originalText);
-                }
+            const response = await fetch('/forge/api/m/etcher/run/', {
+                method: 'POST',
+                body: formData
             });
-        });
+            const data = await response.json();
 
-        // Read Logic
-        $('#readForm').on('submit', function (e) {
-            e.preventDefault();
-
-            var formData = new FormData(this);
-            var btn = $('#readBtn');
-            var originalText = btn.html();
-
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Reading...');
-            $('#readResult').addClass('d-none');
-            $('#readError').addClass('d-none');
-
-            $.ajax({
-                url: '{% url "forge:api_read_rune" %}',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
-                success: function (response) {
-                    if (response.success) {
-                        var msg = response.message;
-                        if (!msg) msg = "<em>(No message found)</em>";
-                        $('#decodedMessage').html(msg);
-                        $('#readResult').removeClass('d-none');
-                    } else {
-                        $('#readErrorMsg').text(response.error || 'Unknown error');
-                        $('#readError').removeClass('d-none');
-                    }
-                },
-                error: function (xhr) {
-                    var error = xhr.responseJSON ? xhr.responseJSON.error : 'Server error';
-                    $('#readErrorMsg').text(error);
-                    $('#readError').removeClass('d-none');
-                },
-                complete: function () {
-                    btn.prop('disabled', false).html(originalText);
-                }
-            });
-        });
+            if (data.success) {
+                const msg = data.payload?.decoded_message || '<em>(No message found)</em>';
+                document.getElementById('decodedMessage').innerHTML = msg;
+                document.getElementById('readResult').classList.remove('d-none');
+            } else {
+                document.getElementById('readErrorMsg').textContent = data.error || data.message || 'Unknown error';
+                document.getElementById('readError').classList.remove('d-none');
+            }
+        } catch (err) {
+            document.getElementById('readErrorMsg').textContent = 'Network error: ' + err.message;
+            document.getElementById('readError').classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
     });
 </script>
 {% endblock %}

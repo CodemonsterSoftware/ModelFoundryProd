@@ -395,7 +395,7 @@ def part_details(request, part_id):
     
     # Only include stl_url if the file exists
     if part.stl_file:
-        data['stl_url'] = request.build_absolute_uri(part.stl_file.url)
+        data['stl_url'] = part.stl_file.url
     
     return JsonResponse(data)
 
@@ -1459,7 +1459,7 @@ def set_project_thumbnail(request, image_id):
 @login_required
 def settings(request):
     user = request.user
-    settings_types = ['general', 'slicer', 'appearance']
+    settings_types = ['general', 'appearance']
     user_settings_instances = {}
     forms = {}
 
@@ -1495,11 +1495,7 @@ def settings(request):
 
             if settings_type_submitted == 'general':
                 current_data['default_material'] = request.POST.get('default_material')
-            elif settings_type_submitted == 'slicer':
-                current_data['slicer_type'] = request.POST.get('slicer_type')
-                current_data['slicer_path'] = request.POST.get('slicer_path')
-                current_data['profiles_path'] = request.POST.get('profiles_path')
-                current_data['direct_slicing'] = request.POST.get('direct_slicing') == 'on'
+
             elif settings_type_submitted == 'appearance':
                 theme_preference = request.POST.get('theme_preference')
                 current_data['theme_preference'] = theme_preference

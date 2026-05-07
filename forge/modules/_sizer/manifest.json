@@ -1,0 +1,11 @@
+{
+    "id": "sizer",
+    "name": "Model Sizer",
+    "version": "1.0.0",
+    "author": "ModelFoundry",
+    "description": "Scale models to fit specific dimensions.",
+    "icon": "bi-rulers",
+    "backend": "python",
+    "enabled": false,
+    "template": "forge/sizer.html"
+}

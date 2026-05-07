@@ -1,0 +1,16 @@
+{
+    "id": "grid_slicer",
+    "name": "Grid Slicer",
+    "version": "1.0.0",
+    "author": "ModelFoundry",
+    "description": "Slice models into printable parts with joinery.",
+    "icon": "bi-scissors",
+    "backend": "python",
+    "template": "forge/slice.html",
+    "main": "main.py",
+    "enabled": true,
+    "download": "https://github.com/CodemonsterSoftware/MF_Forge_GridSlicer/archive/refs/tags/v1.0.0.zip",
+    "dependencies": {
+        "pip": ["trimesh", "numpy-stl"]
+    }
+}

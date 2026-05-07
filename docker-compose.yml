@@ -5,6 +5,7 @@ services:
     build: .
     image: codemonstersoftware/modelfoundry:latest
     volumes:
+      - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
@@ -46,16 +47,6 @@ services:
       retries: 5
     networks:
       - app_network
-  # curaengine:
-  #   build: 
-  #     context: ./curaengine
-  #   volumes:
-  #     - cura_data:/app/data
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - app_network
-
   blender:
     build:
       context: ./blender_service
@@ -75,6 +66,3 @@ volumes:
   media_volume:
   logs_volume:
   postgres_data:
-  cura_data:
-
-
