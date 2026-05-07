@@ -10,8 +10,7 @@
         width: 100%;
         padding-top: 75%; /* 4:3 Aspect Ratio */
         overflow: hidden;
-        background-color: #f8f9fa;
-        /* Removed border radius */
+        background-color: var(--bg-darker);
     }
     .project-image-container img {
         position: absolute;
@@ -21,7 +20,6 @@
         height: 100%;
         object-fit: cover;
         object-position: top center;
-        background-color: #f8f9fa;
     }
     .project-image-container .no-image {
         position: absolute;
@@ -29,100 +27,114 @@
         left: 50%;
         transform: translate(-50%, -50%);
     }
-    .search-container {
-        position: relative;
-        margin-bottom: 1.5rem;
-    }
-    .search-container .search-icon {
-        position: absolute;
-        left: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6c757d;
-    }
-    .search-container .clear-icon {
-        position: absolute;
-        right: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6c757d;
-        cursor: pointer;
-        display: none;
-    }
-    .search-container input {
-        padding-left: 2.5rem;
-        padding-right: 2.5rem;
-        border-radius: 50px;
-        background-color: var(--bs-dark);
-        border-color: var(--border-dark);
-        color: var(--bs-light);
-    }
-    .search-container input:focus {
-        background-color: var(--bs-dark);
-        border-color: var(--bs-primary);
-        color: var(--bs-light);
-        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-    }
-    .no-results {
-        display: none;
-        text-align: center;
-        padding: 2rem;
-    }
-    /* Added styles for card links */
     .card-link {
         display: block;
         color: inherit;
         text-decoration: none;
-        height: 100%;
     }
     .card-link:hover {
-        text-decoration: none;
         color: inherit;
     }
-    /* Remove card border radius */
-    .card {
-        border-radius: 0 !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    /* Search Bar Styling */
+    .search-container {
+        position: relative;
     }
-    /* Card hover effect */
-    .card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15) !important;
+    .search-container .search-icon {
+        position: absolute;
+        left: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        z-index: 10;
+    }
+    .search-container .clear-icon {
+        position: absolute;
+        right: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        cursor: pointer;
+        display: none;
+        z-index: 10;
+    }
+    .search-container input {
+        padding-left: 3rem !important;
+        padding-right: 3rem !important;
+        border-radius: 12px !important;
+        background-color: var(--bg-darker) !important;
+        border: 1px solid var(--border-dark) !important;
+        color: var(--text-light) !important;
+        font-weight: 500;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .search-container input::placeholder {
+        color: var(--text-muted) !important;
+        opacity: 0.8;
+    }
+    .search-container input:focus {
+        background-color: var(--bg-dark) !important;
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+        color: var(--text-light) !important;
+    }
+    
+    /* Badge Styling (Bypassing cache) */
+    .premium-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.35em 0.65em;
+        border-radius: 6px;
+        background-color: var(--bg-grey);
+        border: 1px solid var(--border-dark);
+        color: var(--text-light);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="mb-0">Projects</h1>
-        <div>
-            <a href="{% url 'projects:import_project' %}" class="btn btn-success me-2">
-                <i class="fas fa-file-import me-2"></i>Import Project
-            </a>
-            <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>Create Project
-            </a>
+<div class="container-fluid premium-index-wrapper px-4 mt-4">
+    
+    <!-- Hero Section -->
+    <div class="premium-hero animate-enter" style="animation-delay: 0ms;">
+        <div class="row align-items-center position-relative" style="z-index: 1;">
+            <div class="col-md-8">
+                <h1 class="display-5 hero-title mb-2 fw-bold">Projects</h1>
+                <p class="lead text-muted mb-0">Manage your 3D printing projects, track parts, and monitor progress.</p>
+            </div>
+            <div class="col-md-4 text-md-end mt-4 mt-md-0 d-flex justify-content-md-end gap-2">
+                <a href="{% url 'projects:import_project' %}" class="btn btn-outline-secondary" style="border-radius: 10px;">
+                    <i class="fas fa-file-import me-2"></i>Import
+                </a>
+                <a href="{% url 'projects:project_create' %}" class="btn btn-primary" style="border-radius: 10px;">
+                    <i class="fas fa-plus me-2"></i>New Project
+                </a>
+            </div>
         </div>
     </div>
     
     <!-- Search Bar -->
-    <div class="search-container">
+    <div class="search-container animate-enter mt-4 mb-4" style="animation-delay: 100ms;">
         <i class="fas fa-search search-icon"></i>
-        <input type="text" id="projectSearch" class="form-control form-control-lg" placeholder="Search projects by name, description, tags, or files...">
+        <input type="text" id="projectSearch" class="form-control form-control-lg" placeholder="Search projects by name, description, tags, or files..." style="border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         <i class="fas fa-times-circle clear-icon" id="clearSearch"></i>
     </div>
 
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="projectsContainer">
+    <!-- Active Projects -->
+    <div class="row g-4 mt-1" id="projectsContainer">
         {% for project in projects %}
-        <div class="col project-card" 
+        <div class="col-md-6 col-lg-4 col-xl-3 project-card animate-enter" 
+             style="animation-delay: {{ forloop.counter|add:'1' }}00ms;"
              data-name="{{ project.name|lower }}" 
              data-description="{{ project.description|lower }}" 
              data-tags="{% for tag in project.tags.all %}{{ tag.name|lower }} {% endfor %}"
              data-files="{% for image in project.images.all %}{{ image.image.name|lower }} {% endfor %}">
-            <div class="card h-100 border-0 shadow-sm">
-                <a href="{% url 'projects:project_detail' project.pk %}" class="card-link">
-                    <div class="project-image-container">
+            <div class="card h-100 premium-card">
+                <a href="{% url 'projects:project_detail' project.pk %}" class="card-link d-flex flex-column h-100">
+                    <div class="project-image-container border-bottom border-dark">
                         {% if project.images.first %}
                         <img src="{{ project.images.first.image.url }}" alt="{{ project.name }}">
                         {% else %}
@@ -131,23 +143,23 @@
                         </div>
                         {% endif %}
                     </div>
-                    <div class="card-body">
-                        <h5 class="card-title">{{ project.name }}</h5>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="text-muted me-3">
-                                    <i class="fas fa-cube me-1"></i>{{ project.total_parts }} parts
-                                </small>
-                                <small class="text-muted">
-                                    <i class="fas fa-clock me-1"></i>{{ project.created_at|date:"M j, Y" }}
-                                </small>
-                            </div>
+                    <div class="card-body d-flex flex-column flex-grow-1">
+                        <h5 class="card-title fw-bold mb-3">{{ project.name }}</h5>
+                        
+                        <div class="mb-3">
+                            <span class="premium-badge">
+                                <i class="fas fa-cube text-info"></i> {{ project.total_parts }} Parts
+                            </span>
+                            <span class="premium-badge">
+                                <i class="fas fa-clock text-warning"></i> {{ project.created_at|date:"M j, Y" }}
+                            </span>
                         </div>
+                        
                         {% if project.tags.all %}
-                        <div class="mt-2">
+                        <div class="mt-auto pt-2 d-flex flex-wrap gap-2">
                             {% for tag in project.tags.all %}
-                                <span class="badge bg-secondary me-1">
-                                    <i class="fas fa-tag me-1"></i>{{ tag.name }}
+                                <span class="premium-badge" style="background-color: var(--bg-darker); border-color: var(--border-dark);">
+                                    <i class="fas fa-tag text-primary"></i> {{ tag.name }}
                                 </span>
                             {% endfor %}
                         </div>
@@ -157,25 +169,34 @@
             </div>
         </div>
         {% empty %}
-        <div class="col-12">
-            <div class="text-center py-5">
-                <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
-                <p class="lead text-muted">No projects yet. Create your first project to get started!</p>
-                <a href="{% url 'projects:project_create' %}" class="btn btn-primary">
-                    <i class="fas fa-plus me-2"></i>Create Project
-                </a>
+        <div class="col-12 animate-enter" style="animation-delay: 200ms;">
+            <div class="empty-state-dashed">
+                <i class="fas fa-folder-open empty-icon"></i>
+                <h3 class="fw-bold">No projects yet</h3>
+                <p class="text-muted mb-4">Create your first 3D printing project to start organizing your files and parts.</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{% url 'projects:project_create' %}" class="btn btn-primary px-4 py-2" style="border-radius: 10px;">
+                        <i class="fas fa-plus me-2"></i> Create Project
+                    </a>
+                    <a href="{% url 'projects:import_project' %}" class="btn btn-outline-secondary px-4 py-2" style="border-radius: 10px;">
+                        <i class="fas fa-file-import me-2"></i> Import Project
+                    </a>
+                </div>
             </div>
         </div>
         {% endfor %}
     </div>
     
     <!-- No Results Message -->
-    <div class="no-results" id="noResults">
-        <i class="fas fa-search fa-3x text-muted mb-3"></i>
-        <p class="lead text-muted">No projects found matching your search.</p>
-        <button class="btn btn-outline-secondary" id="resetSearch">
-            <i class="fas fa-undo me-2"></i>Reset Search
-        </button>
+    <div class="no-results animate-enter" id="noResults" style="display: none; animation-delay: 0ms;">
+        <div class="empty-state-dashed mx-auto" style="max-width: 600px;">
+            <i class="fas fa-search empty-icon"></i>
+            <h3 class="fw-bold">No matches found</h3>
+            <p class="text-muted mb-4">We couldn't find any projects matching your search query.</p>
+            <button class="btn btn-outline-secondary px-4 py-2" id="resetSearch" style="border-radius: 10px;">
+                <i class="fas fa-undo me-2"></i> Clear Search
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %}
