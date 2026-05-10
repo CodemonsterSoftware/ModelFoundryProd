@@ -4,6 +4,8 @@ services:
   web:
     build: .
     image: codemonstersoftware/modelfoundry:latest
+    # UNCOMMENT the line below to switch back to the local development server (with auto-reload)
+    # command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
       - static_volume:/app/staticfiles

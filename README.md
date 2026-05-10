@@ -1,185 +1,98 @@
-# ModelFoundry
-![image](https://github.com/user-attachments/assets/73d357c7-1b15-4aa8-8b08-127df74ceef1)
+# ModelFoundry v2.0
 
-ModelFoundry is a Django-based web application designed to help users manage their 3D printing projects. It provides a comprehensive solution for tracking parts, materials, costs, and project progress.
+> [!NOTE]
+> *[📸 Insert New V2 Bento UI Hero Screenshot Here]*
 
+ModelFoundry is a premium, Django-based web application designed to help users manage, visualize, and track their 3D printing projects. Version 2.0 introduces a massive architectural overhaul featuring a highly modular 3D utility ecosystem, immersive media galleries, and a more polished "Bento Box" glassmorphic UI.
 
-## Features
-![image](https://github.com/user-attachments/assets/3a2f6a06-22d4-43ea-907f-5dec1a2ea6ab)
+## What's New in v2.0?
 
-- **Project Management**
-  - Create and organize 3D printing projects
-  - Track project progress and completion status
-  - Export and import projects for backup or sharing
-  - Manage project images and documentation
-    
-![image](https://github.com/user-attachments/assets/96cab528-10e5-4bf1-8c33-f4d51ded43b0)
+- **The Forge Module Ecosystem:** We've decoupled our 3D utilities into standalone, dynamic GitHub repositories. Modules like the Grid Slicer, Etcher, and Converter can now be installed and run locally via isolated Docker virtual environments. This allows you to add modules and functionality you want without dragging along the ones you don't
+- **Premium Glassmorphic UI:** A complete design overhaul utilizing modern "Bento Box" grid layouts, dynamic theming (Midnight Blue, Sunset Ember, Modern Mocha), and responsive `backdrop-filter` effects.
+- **Immersive Media:** Hero layouts now feature full-bleed, edge-to-edge `SplideJS` carousels with seamless gradient fades and `GLightbox` integration for cinematic project and assembly viewing.
+- **Advanced Bulk Actions:** Parts tables have been upgraded with tactile stepper trackers, live BOM (Bill of Materials) calculations, and scoped bulk Edit/Complete/Delete operations.
 
-- **Part Management**
-  - Add and organize 3D printed parts
-  - Upload and manage STL files
-  - Track part quantities and completion status
-  - Group parts for better organization
-  - Calculate material costs and volumes
-    
-![image](https://github.com/user-attachments/assets/7aca590d-3901-4fbc-84b5-ba1bc400cfb0)
+---
 
-- **Material Management**
-  - Create and manage material profiles
-  - Track material costs and usage
-  - Monitor material inventory
-  - Set material properties (density, cost, color)
-    
-![image](https://github.com/user-attachments/assets/36b246d7-a323-420f-8abe-65c087d75b10)
+## Core Features
 
+### Project Management
+- Create and organize large 3D printing projects to get a comprehensive Bill of Materials and cost estimate before you print.
+- Export and import projects for backup or sharing (now fully syncing designer metadata).
+- **[📸 Insert New Project Detail V2 Screenshot Here]**
 
-- **Purchased Parts**
-  - Track purchased components
-  - Monitor order status
-  - Link to product pages
-  - Track costs and quantities
-    
-![image](https://github.com/user-attachments/assets/543be7d3-d972-4dea-9702-bbd1f43ff8c9)
+### Advanced Part Tracking
+- Add, organize, and group 3D printed parts.
+- Track completion status using interactive "one-tap" progress steppers.
+- Real-time BOM calculations (costs and volumes) automatically updated in the UI.
+- Integrated 3D STL viewer with quick "Forge Actions" dropdowns.
+- **[📸 Insert New Parts Table V2 Screenshot Here]**
 
+### The Forge Ecosystem
+- Install standalone 3D utilities directly from GitHub via our new `manifest.json` architecture.
+- Run compute-heavy tasks safely in isolated virtual environments managed by Docker.
+- **[📸 Insert New Forge Index V2 Screenshot Here]**
 
-- **Instructions**
-  - Add step-by-step assembly instructions
-  - Include images for each step
-  - Organize instructions in order
-    
-![image](https://github.com/user-attachments/assets/43ed55e7-5dec-42a5-a90c-865fe95df8e0)
+### Dynamic Material & Designer Management
+- Create material profiles tracking cost, density, and color.
+- Create designer profiles, filtering projects by creator.
+- Instantly search projects and designers via real-time global search.
 
+### Interactive Assembly Instructions
+- Build step-by-step assembly guides with embedded photos and videos.
+- Cinematic viewing experience via `GLightbox` with custom neon-flicker hover effects.
+- **[📸 Insert New Assembly Gallery V2 Screenshot Here]**
 
-- **Designer Management**
-  - Create designer profiles
-  - Track projects by designer
-  - Add designer logos and information
+---
 
-- **Search Functionality**
-  - Instantly search for projects and designers
-  - Filter by names, tags, descriptions, and other attributes
-  - Real-time search capabilities across the application
+## Installation & Deployment
 
-## Installation
+**ModelFoundry v2.0 requires Docker Compose as the preferred and officially supported deployment method.** Due to the complex, multi-service architecture (which includes the core Django app, a PostgreSQL database, and a dedicated background Blender geometry processing service), running the app manually via python is only recommended for advanced module development.
+
+### Quick Start (Docker Compose)
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/ModelFoundry.git
+git clone https://github.com/CodemonsterSoftware/ModelFoundry.git
 cd ModelFoundry
 ```
 
-2. Create a virtual environment and activate it:
+2. Build and start the entire stack:
+```bash
+docker compose up --build -d
+```
+*Note: This command will automatically spin up the Web App, PostgreSQL database, and Blender background service.*
+
+3. Create your admin account (while the containers are running):
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+That's it! Access ModelFoundry at `http://localhost`.
+
+---
+
+### Local Development (Advanced)
+
+If you are actively developing Forge modules or modifying core Django views, you may want to run the web application locally without Docker to take advantage of your IDE's debugger.
+
+1. Start the backend services via Docker:
+```bash
+docker compose up db blender -d
+```
+2. Create and activate a virtual environment:
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
-
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-
-4. Set up the database:
+4. Run migrations and start the server:
 ```bash
 python manage.py migrate
-```
-
-5. Create a superuser:
-```bash
-python manage.py createsuperuser
-```
-
-6. Run the development server:
-```bash
 python manage.py runserver
-```
-
-## Docker Deployment
-
-ModelFoundry can be easily deployed using Docker. Here's how to get started:
-
-1. **Build the Docker image**:
-```bash
-docker build -t modelfoundry .
-```
-
-2. **Create a Docker volume for persistent data**:
-```bash
-docker volume create modelfoundry_data
-```
-
-3. **Run the container**:
-```bash
-docker run -d \
-  --name modelfoundry \
-  -p 8000:8000 \
-  -v modelfoundry_data:/app/data \
-  -e DJANGO_SECRET_KEY=your-secret-key \
-  -e DJANGO_DEBUG=False \
-  -e DJANGO_ALLOWED_HOSTS=your-domain.com \
-  modelfoundry
-```
-
-4. **Create a superuser**:
-```bash
-docker exec -it modelfoundry python manage.py createsuperuser
-```
-
-5. **Run migrations**:
-```bash
-docker exec -it modelfoundry python manage.py migrate
-```
-
-### Environment Variables
-
-The following environment variables can be configured:
-
-- `DJANGO_SECRET_KEY`: Django secret key for security
-- `DJANGO_DEBUG`: Set to False in production
-- `DJANGO_ALLOWED_HOSTS`: Comma-separated list of allowed hostnames
-- `DATABASE_URL`: Database connection URL (if using external database)
-- `MEDIA_ROOT`: Path to store uploaded files (default: /app/data/media)
-- `STATIC_ROOT`: Path to store static files (default: /app/data/static)
-
-### Docker Compose
-
-For a more complete setup with a database, you can use Docker Compose:
-
-```yaml
-version: '3'
-
-services:
-  web:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - modelfoundry_data:/app/data
-    environment:
-      - DJANGO_SECRET_KEY=your-secret-key
-      - DJANGO_DEBUG=False
-      - DJANGO_ALLOWED_HOSTS=your-domain.com
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
-    depends_on:
-      - db
-
-  db:
-    image: postgres:13
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=modelfoundry
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-
-volumes:
-  modelfoundry_data:
-  postgres_data:
-```
-
-To start the services:
-```bash
-docker-compose up -d
 ```
 
 ### Upgrading ModelFoundry
@@ -197,7 +110,6 @@ docker-compose up -d
    ```bash
    docker-compose down
    ```
-   ⚠️ **Note:** `docker-compose down` is SAFE - it only stops and removes containers. Your database and media files are stored in volumes and will NOT be deleted.
 
 3. **Rebuild the images:**
    ```bash
@@ -214,18 +126,6 @@ docker-compose up -d
    docker-compose logs -f web
    ```
 
-#### ⚠️ WARNING - Data Loss:
-
-**NEVER use `docker-compose down -v` unless you want to delete ALL data:**
-```bash
-# ❌ DANGEROUS - This deletes volumes and ALL your data!
-docker-compose down -v
-```
-
-The `-v` flag removes volumes, which will delete:
-- All database data (projects, parts, materials, etc.)
-- All uploaded files (STL files, images, instructions)
-- All static files
 
 #### Data Backup (Recommended Before Upgrades):
 
@@ -252,61 +152,27 @@ docker run --rm \
   alpine tar czf /backup/media_backup_$(date +%Y%m%d_%H%M%S).tar.gz /data
 ```
 
-**Note:** The volume names are prefixed with your project name. To find your exact volume names, run `docker volume ls` and look for volumes ending in `_postgres_data`, `_media_volume`, etc.
-
 ## Project Structure
 
 ```
 ModelFoundry/
-├── modelfoundry/          # Main project configuration
-├── projects/              # Main application
-│   ├── migrations/        # Database migrations
+├── modelfoundry/         # Main project configuration
+├── forge/                # Forge Module Framework
+│   ├── modules/          # Standalone module repositories
+│   └── module_registry.py # Dynamic module loader
+├── projects/             # Main application (Project Management)
+│   ├── migrations/       # Database migrations
 │   ├── static/           # Static files (CSS, JS, images)
 │   ├── templates/        # HTML templates
 │   ├── models.py         # Database models
 │   ├── views.py          # View functions
 │   ├── urls.py           # URL routing
 │   └── forms.py          # Form definitions
+├── blender_service/      # Background 3D geometry processing service
 ├── logs/                 # Application logs (automatically created)
 ├── requirements.txt      # Project dependencies
-└── manage.py            # Django management script
+└── manage.py             # Django management script
 ```
-
-## Usage
-
-1. **Creating a Project**
-   - Click "Create Project" on the home page
-   - Fill in project details (name, description, designer)
-   - Upload project images
-
-2. **Adding Parts**
-   - Navigate to your project
-   - Click "Add Parts"
-   - Enter part details (name, quantity, material)
-   - Upload STL files
-   - Assign parts to groups
-
-3. **Managing Materials**
-   - Go to the Materials page
-   - Add new materials with their properties
-   - Track material usage and costs
-
-4. **Tracking Progress**
-   - Update part completion status
-   - Monitor project costs
-   - Track purchased parts status
-
-5. **Designer Management**
-   - Create designer profiles with details
-   - Filter projects by designer
-   - Easily find designer projects when importing
-
-## Exporting and Importing Projects
-
-- **Export**: Click the "Export Project" button to download a ZIP file containing all project data and files
-- **Import**: Use the "Import Project" button to upload a previously exported project
-- Designer information is now included in exports and automatically matched when importing
-
 
 ## Contributing
 
@@ -323,7 +189,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Django framework
-- Bootstrap for frontend styling
+- Bootstrap & Tailwind-inspired Layouts
+- SplideJS & GLightbox for Media
 - Font Awesome for icons
-- STL library for 3D file handling
-- jQuery for enhanced JavaScript functionality
+- THREE.js / STL library for 3D file handling

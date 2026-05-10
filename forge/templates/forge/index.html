@@ -72,17 +72,17 @@
     <!-- Hero Section -->
     <div class="premium-hero animate-enter" style="animation-delay: 0ms;">
         <div class="row align-items-center position-relative" style="z-index: 1;">
-            <div class="col-md-8">
+            <div class="col-12">
                 <h1 class="display-5 hero-title mb-2 fw-bold">Forge Modules</h1>
-                <p class="lead text-muted mb-0">Parametric tools, generators, and advanced mesh processors designed for your workflow.</p>
-            </div>
-            <div class="col-md-4 text-md-end mt-4 mt-md-0 d-flex justify-content-md-end gap-2">
-                <button class="btn btn-outline-secondary" id="editModulesBtn" onclick="toggleEditMode()" style="border-radius: 10px;">
-                    <i class="fas fa-edit me-1"></i> Edit
-                </button>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#installModuleModal" style="border-radius: 10px;">
-                    <i class="fas fa-plus-circle me-1"></i> Install Module
-                </button>
+                <p class="lead text-muted mb-3">Parametric tools, generators, and advanced mesh processors designed for your workflow.</p>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                    <button class="btn btn-outline-secondary" id="editModulesBtn" onclick="toggleEditMode()" style="border-radius: 10px;">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#installModuleModal" style="border-radius: 10px;">
+                        <i class="fas fa-plus-circle me-1"></i> Install Module
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -138,22 +138,7 @@
         {% endfor %}
     </div>
 
-    <!-- Legacy Migration Section Header -->
-    {% if not modules %}
-    <div class="row mt-5 animate-enter" style="animation-delay: 300ms;">
-        <div class="col-12">
-            <h4 class="text-muted border-bottom border-secondary pb-2">Legacy Tools</h4>
-        </div>
-        <div class="col-md-6 col-lg-4 mt-3">
-             <div class="card premium-card border-warning" style="opacity: 0.8;">
-                 <div class="card-body">
-                     <h5 class="fw-bold text-warning"><i class="fas fa-exclamation-triangle me-2"></i> Grid Slicer (Legacy)</h5>
-                     <p class="small text-muted mb-0">The links were removed. Please migrate legacy interfaces to standard modules.</p>
-                 </div>
-             </div>
-        </div>
-    </div>
-    {% endif %}
+
 
 </div>
 

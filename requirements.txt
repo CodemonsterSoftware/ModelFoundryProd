@@ -15,4 +15,6 @@ scipy>=1.9.0
 shapely>=2.0.0
 trimesh>=4.0.0
 manifold3d>=2.0.0
-mapbox-earcut>=1.0.0
+mapbox-earcut>=1.0.0
+gunicorn>=21.2.0
+whitenoise>=6.6.0

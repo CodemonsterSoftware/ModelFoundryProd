@@ -48,6 +48,14 @@ class Project(models.Model):
         return self.parts.aggregate(total=Sum('quantity'))['total'] or 0
 
     @property
+    def progress_percentage(self):
+        total = self.total_parts
+        if total == 0:
+            return 0
+        completed = self.parts.aggregate(total_completed=Sum('completed'))['total_completed'] or 0
+        return int((completed / total) * 100)
+
+    @property
     def material_counts(self):
         counts = {}
         for part in self.parts.all():
@@ -286,6 +294,8 @@ class Instructions(models.Model):
         filename = self.file.name.lower()
         if filename.endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp')):
             return 'image'
+        elif filename.endswith(('.mp4', '.webm', '.ogg', '.mov')):
+            return 'video'
         elif filename.endswith('.pdf'):
             return 'pdf'
         elif filename.endswith(('.doc', '.docx')):
@@ -296,6 +306,11 @@ class Instructions(models.Model):
     def is_image(self):
         """Check if the file is an image"""
         return self.file_type == 'image'
+
+    @property
+    def is_video(self):
+        """Check if the file is a video"""
+        return self.file_type == 'video'
 
 class UserSettings(models.Model):
     """Model to store user settings in JSON format"""

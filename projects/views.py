@@ -14,6 +14,7 @@ from .forms import (
     ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm,
     MachineForm
 )
+from forge.module_registry import registry
 from django.db.models import Count, Sum, Max
 from django.contrib.auth.decorators import login_required
 import tempfile
@@ -89,6 +90,9 @@ class ProjectDetailView(DetailView):
         
         # Include instructions in the context
         context['instructions'] = project.instructions.all().order_by('order')
+        
+        # Include Forge modules
+        context['forge_modules'] = [m for m in registry.get_all_modules() if m.get('enabled', True)]
         
         # Include PurchasedPart model for status choices
         context['PurchasedPart'] = PurchasedPart
@@ -541,32 +545,7 @@ def add_multiple_parts(request, project_id):
         'materials': materials
     })
 
-def index(request):
-    recent_projects = Project.objects.all().order_by('-created_at')[:6]
-    
-    # If the user is logged in, check for theme preference
-    if request.user.is_authenticated and request.COOKIES.get('theme_preference') is None:
-        try:
-            import json
-            # Try to get the user's appearance settings
-            appearance_settings = UserSettings.objects.get(user=request.user, settings_type='appearance')
-            appearance_data = json.loads(appearance_settings.settings_data) if appearance_settings.settings_data else {}
-            
-            # If the user has a theme preference, set it in a cookie
-            if appearance_data.get('theme_preference'):
-                response = render(request, 'projects/index.html', {
-                    'recent_projects': recent_projects
-                })
-                # Set cookie to expire in 1 year
-                max_age = 365 * 24 * 60 * 60
-                response.set_cookie('theme_preference', appearance_data['theme_preference'], max_age=max_age)
-                return response
-        except (UserSettings.DoesNotExist, json.JSONDecodeError):
-            pass
-    
-    return render(request, 'projects/index.html', {
-        'recent_projects': recent_projects
-    })
+
 
 def copy_mirror_part(request, part_id):
     try:
@@ -1560,3 +1539,87 @@ def manage_tags(request, project_id):
         else:
             return JsonResponse({'status': 'error', 'message': 'Tag name is required'})
     return render(request, 'projects/manage_tags.html', {'project': project})
+
+@login_required
+@require_POST
+def bulk_edit_parts(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    try:
+        data = json.loads(request.body)
+        part_ids = data.get('part_ids', [])
+        if not part_ids:
+            return JsonResponse({'status': 'error', 'message': 'No parts selected'}, status=400)
+        
+        parts = Part.objects.filter(id__in=part_ids, project=project)
+        
+        material_id = data.get('material_id')
+        color = data.get('color')
+        group_id = data.get('group_id')
+        
+        update_fields = {}
+        if material_id is not None:
+            if material_id == '':
+                update_fields['material'] = None
+            else:
+                material = get_object_or_404(Material, id=material_id)
+                update_fields['material'] = material
+        if color:
+            update_fields['color'] = color
+        if group_id is not None:
+            if group_id == '':
+                update_fields['group'] = None
+            else:
+                group = get_object_or_404(Group, id=group_id)
+                update_fields['group'] = group
+                
+        if update_fields:
+            for part in parts:
+                for field, value in update_fields.items():
+                    setattr(part, field, value)
+                part.save()
+                
+        return JsonResponse({'status': 'success', 'message': f'Successfully updated {parts.count()} parts'})
+    except Exception as e:
+        logger.error(f'Error in bulk edit parts: {str(e)}')
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+def bulk_delete_parts(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    try:
+        data = json.loads(request.body)
+        part_ids = data.get('part_ids', [])
+        if not part_ids:
+            return JsonResponse({'status': 'error', 'message': 'No parts selected'}, status=400)
+            
+        parts = Part.objects.filter(id__in=part_ids, project=project)
+        count = parts.count()
+        parts.delete()
+        
+        return JsonResponse({'status': 'success', 'message': f'Successfully deleted {count} parts'})
+    except Exception as e:
+        logger.error(f'Error in bulk delete parts: {str(e)}')
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+def bulk_complete_parts(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    try:
+        data = json.loads(request.body)
+        part_ids = data.get('part_ids', [])
+        if not part_ids:
+            return JsonResponse({'status': 'error', 'message': 'No parts selected'}, status=400)
+            
+        parts = Part.objects.filter(id__in=part_ids, project=project)
+        count = 0
+        for part in parts:
+            part.completed = part.quantity
+            part.save()
+            count += 1
+            
+        return JsonResponse({'status': 'success', 'message': f'Successfully marked {count} parts as complete'})
+    except Exception as e:
+        logger.error(f'Error in bulk complete parts: {str(e)}')
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

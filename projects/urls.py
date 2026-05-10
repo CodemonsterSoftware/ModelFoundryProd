@@ -1,11 +1,12 @@
 from django.urls import path
 from django.contrib.auth.decorators import login_required
+from django.views.generic import RedirectView
 from . import views
 
 app_name = 'projects'
 
 urlpatterns = [
-    path('', views.index, name='index'),
+    path('', RedirectView.as_view(pattern_name='projects:project_list', permanent=False), name='index'),
     path('project/', login_required(views.ProjectListView.as_view()), name='project_list'),
     path('project/<int:pk>/', login_required(views.ProjectDetailView.as_view()), name='project_detail'),
     path('project/create/', login_required(views.ProjectCreateView.as_view()), name='project_create'),
@@ -30,6 +31,9 @@ urlpatterns = [
     path('part/<int:part_id>/update-progress/', login_required(views.update_part_progress), name='update_part_progress'),
     path('purchased-part/<int:part_id>/update-status/', login_required(views.update_purchased_part_status), name='update_purchased_part_status'),
     path('project/<int:project_id>/add-parts/', login_required(views.add_multiple_parts), name='add_multiple_parts'),
+    path('project/<int:project_id>/bulk-edit-parts/', login_required(views.bulk_edit_parts), name='bulk_edit_parts'),
+    path('project/<int:project_id>/bulk-delete-parts/', login_required(views.bulk_delete_parts), name='bulk_delete_parts'),
+    path('project/<int:project_id>/bulk-complete-parts/', login_required(views.bulk_complete_parts), name='bulk_complete_parts'),
     path('project/<int:project_id>/copy-mirror/', login_required(views.copy_mirror_part), name='copy_mirror_part'),
     path('designers/', login_required(views.designer_index), name='designer_index'),
     path('designer/<int:designer_id>/', login_required(views.designer_detail), name='designer_detail'),

@@ -58,6 +58,25 @@ def module_view(request, module_id: str):
 
         template = module.get('template', 'forge/module_generic.html')
         context = {'module': module}
+        
+        project_id = request.GET.get('project_id')
+        part_id = request.GET.get('part_id')
+        action = request.GET.get('action')
+        
+        if project_id and part_id:
+            try:
+                project = Project.objects.get(id=project_id, user=request.user)
+                part = Part.objects.get(id=part_id, project=project)
+                context['target_project_id'] = project.id
+                context['target_part_name'] = part.name
+                if part.stl_file:
+                    context['target_part_filename'] = os.path.basename(part.stl_file.name)
+                    context['target_part_url'] = part.stl_file.url
+                if action:
+                    context['target_action'] = action
+            except (Project.DoesNotExist, Part.DoesNotExist):
+                # Fail gracefully if parameters are invalid
+                pass
 
         return render(request, template, context)
     except KeyError:
