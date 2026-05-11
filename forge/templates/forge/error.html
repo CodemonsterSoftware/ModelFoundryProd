@@ -1,0 +1,23 @@
+{% extends 'projects/base.html' %}
+
+{% block title %}Forge - Module Error{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center animate-enter">
+            <div class="empty-state-dashed" style="border-color: rgba(220, 53, 69, 0.3);">
+                <i class="fas fa-exclamation-triangle text-danger empty-icon" style="opacity: 1; filter: drop-shadow(0 0 10px rgba(220,53,69,0.5));"></i>
+                <h2 class="fw-bold text-danger mb-3">Module Error</h2>
+                <p class="lead text-light mb-4">{{ error|default:"An unknown error occurred while trying to load this Forge module." }}</p>
+                
+                <p class="text-muted mb-4 small">This can happen if a module was recently uninstalled, failed to load its manifest, or if you followed a broken link.</p>
+                
+                <a href="{% url 'forge:forge_index' %}" class="btn btn-outline-secondary px-4 py-2" style="border-radius: 10px;">
+                    <i class="fas fa-arrow-left me-2"></i> Return to Forge
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

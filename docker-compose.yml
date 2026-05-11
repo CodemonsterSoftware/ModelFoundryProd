@@ -2,12 +2,8 @@ version: '3.8'
 
 services:
   web:
-    build: .
     image: codemonstersoftware/modelfoundry:latest
-    # UNCOMMENT the line below to switch back to the local development server (with auto-reload)
-    # command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
@@ -16,7 +12,7 @@ services:
     expose:
       - "8000"
     environment:
-      - DEBUG=1
+      - DEBUG=0
       - SECRET_KEY=your-secret-key-here
       - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
       - DOCKER_CONTAINER=true
@@ -50,10 +46,9 @@ services:
     networks:
       - app_network
   blender:
-    build:
-      context: ./blender_service
+    image: codemonstersoftware/modelfoundry-blender:latest
     volumes:
-      - ./media:/app/media
+      - media_volume:/app/media
     ports:
       - "8081:8081"
     networks:

@@ -58,7 +58,8 @@ class ModuleManager:
                 # 3. Purge existing installation if present
                 if dest_dir.exists():
                     logger.info(f"Overwriting existing module {module_id}...")
-                    shutil.rmtree(dest_dir)
+                    # ignore_errors=True prevents Windows/Docker file-locking crashes (Errno 39)
+                    shutil.rmtree(dest_dir, ignore_errors=True)
                     
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 
@@ -104,7 +105,8 @@ class ModuleManager:
                 venv_pip = venv_bin / 'pip'
                 
                 logger.info(f"Creating isolated virtual environment at {venv_dir}...")
-                subprocess.run(["python", "-m", "venv", str(venv_dir)], check=True)
+                # Use --clear to ensure a clean venv, especially if shutil.rmtree missed files due to Windows locking
+                subprocess.run(["python", "-m", "venv", "--clear", str(venv_dir)], check=True)
                 
                 # Read from the effectively fresh local manifest structure
                 local_manifest = dest_dir / 'manifest.json'
