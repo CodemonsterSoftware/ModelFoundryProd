@@ -181,6 +181,48 @@
         cursor: default;
     }
 
+    /* Part Thumbnail Hover Zoom */
+    .part-thumbnail-wrapper {
+        position: relative;
+        display: inline-block;
+        z-index: 1; /* Keep above status strip but below hover preview */
+    }
+    
+    .part-hover-preview {
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%) scale(0.8);
+        margin-left: 12px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        z-index: 1050;
+        pointer-events: none;
+        background: var(--bg-dark);
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid var(--border-dark);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    
+    .part-hover-preview img {
+        width: 350px;
+        height: 350px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+    
+    .part-thumbnail-wrapper:hover {
+        z-index: 1050;
+    }
+    
+    .part-thumbnail-wrapper:hover .part-hover-preview {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(-50%) scale(1);
+    }
+
     /* Hero Card Bento Vibe */
     .hero-card {
         display: grid;
@@ -549,7 +591,12 @@
                                 
                                 <div class="d-flex align-items-center ps-3">
                                     {% if part.thumbnail %}
-                                    <img src="{{ part.thumbnail.url }}" width="36" height="36" class="me-3 rounded shadow-sm">
+                                    <div class="part-thumbnail-wrapper me-3">
+                                        <img src="{{ part.thumbnail_small.url }}" width="36" height="36" class="rounded shadow-sm">
+                                        <div class="part-hover-preview">
+                                            <img src="{{ part.thumbnail_medium.url }}">
+                                        </div>
+                                    </div>
                                     {% else %}
                                     <div class="me-3 rounded bg-dark d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; border: 1px solid var(--border-dark);">
                                         <i class="fas fa-cube text-muted"></i>

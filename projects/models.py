@@ -7,10 +7,15 @@ import os
 import numpy as np
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
+from imagekit.models import ImageSpecField
+from imagekit.processors import ResizeToFill, ResizeToFit
 
 class Designer(models.Model):
     name = models.CharField(max_length=100)
     logo = models.ImageField(upload_to='designer_logos/', null=True, blank=True)
+    logo_thumbnail = ImageSpecField(source='logo',
+                                    processors=[ResizeToFit(200, 200)],
+                                    format='PNG')
     mmf_url = models.URLField(max_length=200, blank=True, null=True)
     patreon_url = models.URLField(max_length=200, blank=True, null=True)
     cults3d_url = models.URLField(max_length=200, blank=True, null=True)
@@ -167,6 +172,14 @@ class Part(models.Model):
     group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='parts')
     stl_file = models.FileField(upload_to='stl_files/', blank=True)
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True)
+    thumbnail_small = ImageSpecField(source='thumbnail',
+                                     processors=[ResizeToFill(150, 150)],
+                                     format='JPEG',
+                                     options={'quality': 85})
+    thumbnail_medium = ImageSpecField(source='thumbnail',
+                                      processors=[ResizeToFill(350, 350)],
+                                      format='JPEG',
+                                      options={'quality': 85})
     volume = models.FloatField(null=True, blank=True, help_text="Volume in cubic millimeters")
 
     def __str__(self):
@@ -270,6 +283,10 @@ class PurchasedPart(models.Model):
 class ProjectImage(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='project_images/')
+    image_thumbnail = ImageSpecField(source='image',
+                                     processors=[ResizeToFill(800, 600)],
+                                     format='JPEG',
+                                     options={'quality': 85})
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

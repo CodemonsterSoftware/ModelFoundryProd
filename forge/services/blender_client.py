@@ -122,5 +122,29 @@ class BlenderClient:
                 logger.warning(f"Path {path} is absolute but not inside MEDIA_ROOT {media_root}. "
                                "This might fail if not in shared volume.")
                 return str(path).replace(os.sep, '/') # Return as is, hope for best or mapped elsewhere
-        
         return str(path).replace(os.sep, '/')
+
+    def generate_thumbnail(self, input_path: str, output_path: str) -> bool:
+        """
+        Generate a 2D thumbnail from a 3D STL file.
+        
+        Args:
+            input_path: Path to input STL file (relative to MEDIA_ROOT).
+            output_path: Path to save the PNG thumbnail (relative to MEDIA_ROOT).
+            
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # We assume the render script is at media/scripts/render_thumbnail.py
+            # and is available in the shared volume at /app/media/scripts/render_thumbnail.py
+            context = {
+                "input_file": input_path,
+                "output_file": output_path
+            }
+            logger.info(f"Generating thumbnail for {input_path}")
+            self.run_script('scripts/render_thumbnail.py', context)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to generate thumbnail for {input_path}: {e}")
+            return False

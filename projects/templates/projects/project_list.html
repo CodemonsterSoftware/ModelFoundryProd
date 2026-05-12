@@ -136,7 +136,7 @@
                 <a href="{% url 'projects:project_detail' project.pk %}" class="card-link d-flex flex-column h-100">
                     <div class="project-image-container border-bottom border-dark">
                         {% if project.images.first %}
-                        <img src="{{ project.images.first.image.url }}" alt="{{ project.name }}">
+                        <img src="{{ project.images.first.image_thumbnail.url }}" alt="{{ project.name }}">
                         {% else %}
                         <div class="no-image">
                             <i class="fas fa-cube fa-3x text-muted"></i>

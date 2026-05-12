@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap5',
     'projects',
     'forge',
+    'imagekit',
     'widget_tweaks',
 ]
 
