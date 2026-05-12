@@ -1,7 +1,7 @@
 # ModelFoundry v2.0
 
-> [!NOTE]
-> *[📸 Insert New V2 Bento UI Hero Screenshot Here]*
+<img width="1486" height="813" alt="image" src="https://github.com/user-attachments/assets/8bd36c10-a5c7-4eb7-b946-628161b3ad59" />
+
 
 ModelFoundry is a premium, Django-based web application designed to help users manage, visualize, and track their 3D printing projects. Version 2.0 introduces a massive architectural overhaul featuring a highly modular 3D utility ecosystem, immersive media galleries, and a more polished "Bento Box" glassmorphic UI.
 
@@ -19,19 +19,22 @@ ModelFoundry is a premium, Django-based web application designed to help users m
 ### Project Management
 - Create and organize large 3D printing projects to get a comprehensive Bill of Materials and cost estimate before you print.
 - Export and import projects for backup or sharing (now fully syncing designer metadata).
-- **[📸 Insert New Project Detail V2 Screenshot Here]**
+<img width="1459" height="185" alt="image" src="https://github.com/user-attachments/assets/ce381ed0-1eee-472a-8158-5afe016b6daa" />
+
 
 ### Advanced Part Tracking
 - Add, organize, and group 3D printed parts.
 - Track completion status using interactive "one-tap" progress steppers.
 - Real-time BOM calculations (costs and volumes) automatically updated in the UI.
 - Integrated 3D STL viewer with quick "Forge Actions" dropdowns.
-- **[📸 Insert New Parts Table V2 Screenshot Here]**
+<img width="1472" height="692" alt="image" src="https://github.com/user-attachments/assets/7905634a-d832-41c2-98a5-da255e4db840" />
+
 
 ### The Forge Ecosystem
 - Install standalone 3D utilities directly from GitHub via our new `manifest.json` architecture.
 - Run compute-heavy tasks safely in isolated virtual environments managed by Docker.
-- **[📸 Insert New Forge Index V2 Screenshot Here]**
+<img width="1482" height="805" alt="image" src="https://github.com/user-attachments/assets/e00e125b-15a4-4f71-85b4-43a1cd5f3df9" />
+
 
 ### Dynamic Material & Designer Management
 - Create material profiles tracking cost, density, and color.
@@ -41,7 +44,8 @@ ModelFoundry is a premium, Django-based web application designed to help users m
 ### Interactive Assembly Instructions
 - Build step-by-step assembly guides with embedded photos and videos.
 - Cinematic viewing experience via `GLightbox` with custom neon-flicker hover effects.
-- **[📸 Insert New Assembly Gallery V2 Screenshot Here]**
+<img width="1459" height="568" alt="image" src="https://github.com/user-attachments/assets/2a8ba44f-57b0-4a52-bad6-ccf08b2ee758" />
+
 
 ---
 
