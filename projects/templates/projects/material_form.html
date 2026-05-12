@@ -1,28 +1,54 @@
 {% extends 'projects/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block title %}{% if material %}Edit{% else %}New{% endif %} Material{% endblock %}
+{% block title %}{% if material %}Edit{% else %}New{% endif %} Material - ModelFoundry{% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">{% if material %}Edit{% else %}New{% endif %} Material</h5>
+<div class="container-fluid premium-index-wrapper px-4 mt-4" style="max-width: 1000px;">
+    <!-- Hero Section -->
+    <div class="premium-hero animate-enter mb-4" style="animation-delay: 0ms;">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h1 class="fs-2 hero-title mb-1 fw-bold">{% if material %}Edit{% else %}New{% endif %} Material</h1>
+                <p class="text-muted mb-0 small">Configure your printing material specifications and properties.</p>
+            </div>
+            <a href="{% url 'projects:material_list' %}" class="btn btn-outline-secondary" style="border-radius: 10px;">
+                <i class="fas fa-arrow-left me-2"></i>Back to Inventory
+            </a>
         </div>
-        <div class="card-body">
+    </div>
+
+    <div class="card premium-card no-hover-glow animate-enter" style="animation-delay: 100ms;">
+        <div class="card-body p-4 p-md-5">
             <form method="post">
                 {% csrf_token %}
                 <div class="row">
-                    <div class="col-md-6">
-                        {{ form.name|as_crispy_field }}
+                    <div class="col-md-4">
+                        <div class="d-none">{{ form.brand|as_crispy_field }}</div>
+                        <div class="mb-3">
+                            <label class="form-label">Brand / Manufacturer</label>
+                            <select id="select2_brand" class="form-control"></select>
+                        </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         {{ form.type|as_crispy_field }}
                     </div>
+                    <div class="col-md-4">
+                        <div class="d-none">{{ form.color|as_crispy_field }}</div>
+                        <div class="mb-3" id="color_input_container">
+                            <label class="form-label" id="color_label">Color</label>
+                            <input type="color" id="custom_color_input" class="form-control form-control-color" style="width: 100%; height: 38px;" title="Choose your color">
+                            <select id="select2_color" class="form-control d-none"></select>
+                            <div id="ofd_loading" class="mt-2 text-info small" style="display: none;">
+                                <i class="fas fa-spinner fa-spin me-1"></i> Fetching specs...
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                
                 <div class="row">
                     <div class="col-md-6">
-                        {{ form.color|as_crispy_field }}
+                        {{ form.name|as_crispy_field }}
                     </div>
                     <div class="col-md-6">
                         {{ form.density|as_crispy_field }}
@@ -30,34 +56,40 @@
                 </div>
                 <div class="row">
                     <div class="col-md-6">
-                        {{ form.brand|as_crispy_field }}
+                        {{ form.link|as_crispy_field }}
                     </div>
                     <div class="col-md-6">
-                        {{ form.link|as_crispy_field }}
+                        {{ form.cost|as_crispy_field }}
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-6">
-                        {{ form.cost|as_crispy_field }}
-                    </div>
-                    <div class="col-md-6">
                         {{ form.weight|as_crispy_field }}
                     </div>
+                    <div class="col-md-6 pt-md-4 mt-md-2">
+                        {{ form.is_active|as_crispy_field }}
+                    </div>
                 </div>
-                {{ form.description|as_crispy_field }}
-                {{ form.is_active|as_crispy_field }}
-                <div class="d-flex justify-content-between">
-                    <a href="{% url 'projects:material_list' %}" class="btn btn-secondary">
-                        <i class="fas fa-times me-2"></i>Cancel
+                <div class="row">
+                    <div class="col-md-12">
+                        {{ form.description|as_crispy_field }}
+                    </div>
+                </div>
+
+                <hr class="my-4" style="border-color: var(--border-dark);">
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{% url 'projects:material_list' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                        Cancel
                     </a>
-                    <div>
+                    <div class="d-flex gap-3">
                         {% if material %}
-                        <a href="{% url 'projects:material_delete' material.id %}" class="btn btn-danger me-2">
+                        <a href="{% url 'projects:material_delete' material.id %}" class="btn btn-outline-danger rounded-pill px-4">
                             <i class="fas fa-trash me-2"></i>Delete
                         </a>
                         {% endif %}
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>Save
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 shadow-sm hover-lift">
+                            <i class="fas fa-save me-2"></i>Save Material
                         </button>
                     </div>
                 </div>
@@ -65,4 +97,440 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Disable the hover glow on the form card since it's a static entry form */
+    .premium-card.no-hover-glow:hover {
+        transform: none !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    }
+    .premium-card.no-hover-glow::before {
+        display: none !important;
+    }
+
+    /* Dark theme for Select2 */
+    .select2-container--default .select2-selection--single {
+        background-color: var(--bg-darker);
+        border: 1px solid var(--border-dark);
+        border-radius: 8px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: var(--text-light);
+        padding-left: 12px;
+    }
+    .select2-dropdown {
+        background-color: var(--bg-dark);
+        border: 1px solid var(--border-dark);
+    }
+    .select2-container--default .select2-results__option--selected {
+        background-color: var(--bg-grey);
+    }
+    .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+        background-color: var(--primary-color);
+    }
+    .select2-search--dropdown .select2-search__field {
+        background-color: var(--bg-darker);
+        border: 1px solid var(--border-dark);
+        color: var(--text-light);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    let ofdInventory = {};
+    let isAutoGeneratedName = true;
+    let originalTypeOptions = null;
+
+    $(document).ready(function() {
+        // Save original type options for dynamic filtering
+        originalTypeOptions = $('#id_type option').clone();
+        
+        // Initialize Select2 on Type field
+        $('#id_type').select2({ width: '100%' });
+
+        // Fix Django's color picker wiping out non-hex text values
+        // Changing it back to text prevents the browser from forcing #000000
+        $('#id_color').attr('type', 'text');
+
+        // If the backend rendered a default hex from an empty color picker, clear it
+        let initColor = $('#id_color').attr('value') || $('#id_color').val();
+        if (initColor === '#000000' || initColor === '#00000000') {
+            $('#id_color').val('');
+            initColor = '';
+        }
+
+        // Initialize color inputs
+        if (/^#[0-9A-F]{6}$/i.test(initColor)) {
+            $('#custom_color_input').val(initColor);
+        } else {
+            $('#custom_color_input').val('#000000');
+        }
+        
+        $('#custom_color_input').on('input', function() {
+            $('#id_color').val($(this).val());
+            updateDynamicName();
+        });
+
+        // Check if name was manually changed
+        $('#id_name').on('input', function() {
+            isAutoGeneratedName = false;
+        });
+        if($('#id_name').val().trim() !== '') {
+            isAutoGeneratedName = false;
+        }
+
+        // Setup Brand select2
+        $('#select2_brand').select2({
+            tags: true,
+            width: '100%',
+            placeholder: 'Select or type a brand...'
+        });
+
+        $('#select2_ofd_filament').select2({
+            width: '100%',
+            placeholder: 'Select specific filament to autofill...'
+        });
+
+        // Sync visual brand select with hidden real brand input
+        $('#select2_brand').on('change', function() {
+            $('#id_brand').val($(this).val());
+            updateTypes();
+            checkOFDMatch();
+            updateDynamicName();
+        });
+
+        $('#id_type').on('change', function() {
+            checkOFDMatch();
+            updateDynamicName();
+        });
+        
+        $('#custom_color_input').on('input', function() {
+            $('#id_color').val($(this).val());
+            updateDynamicName();
+        });
+
+        $('#select2_color').on('change', function() {
+            const option = $(this).find('option:selected');
+            const colorName = option.data('color_name') || $(this).val();
+            
+            let valToSave = colorName;
+            if (valToSave && valToSave.length > 50) valToSave = valToSave.substring(0, 50);
+            $('#id_color').val(valToSave);
+            
+            updateDynamicName();
+            
+            const colorUrl = option.data('color_url');
+            if (colorUrl && !option.data('hex')) {
+                fetch(`{% url "projects:api_ofd_filament" %}?url=${encodeURIComponent(colorUrl)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.color_hex) {
+                            option.data('hex', data.color_hex);
+                            const safeId = 'swatch-' + btoa(colorUrl).replace(/[^a-zA-Z0-9]/g, '');
+                            $(`.${safeId}`).css('background-color', data.color_hex);
+                            $('#select2_color').trigger('change.select2'); // redraw selection
+                        }
+                    });
+            }
+
+            const filUrl = option.data('fil_url');
+            if (filUrl && option.val()) {
+                applyOfdFilament(filUrl);
+            }
+        });
+
+        loadOFDInventory();
+    });
+
+    function loadOFDInventory() {
+        const cacheKey = 'ofd_inventory_cache_v3';
+        const cacheTimeKey = 'ofd_inventory_time_v3';
+        const now = new Date().getTime();
+        
+        const cachedData = localStorage.getItem(cacheKey);
+        const cachedTime = localStorage.getItem(cacheTimeKey);
+
+        // Cache for 24 hours
+        if (cachedData && cachedTime && (now - cachedTime < 24 * 60 * 60 * 1000)) {
+            ofdInventory = JSON.parse(cachedData);
+            populateBrands();
+        } else {
+            fetch('{% url "projects:api_ofd_inventory" %}')
+                .then(r => r.json())
+                .then(data => {
+                    ofdInventory = data;
+                    localStorage.setItem(cacheKey, JSON.stringify(data));
+                    localStorage.setItem(cacheTimeKey, now.toString());
+                    populateBrands();
+                })
+                .catch(err => console.error("Failed to fetch OFD", err));
+        }
+    }
+
+    function populateBrands() {
+        const brandSelect = $('#select2_brand');
+        const currentBrand = $('#id_brand').val();
+        
+        brandSelect.empty();
+        brandSelect.append(new Option('', '', false, false));
+        
+        const sortedBrands = Object.keys(ofdInventory).sort();
+        let currentBrandExists = false;
+        
+        sortedBrands.forEach(mfg => {
+            const isSelected = (mfg === currentBrand);
+            if (isSelected) currentBrandExists = true;
+            brandSelect.append(new Option(mfg, mfg, isSelected, isSelected));
+        });
+
+        // If it's an edit form and brand isn't in OFD, add it as a tag
+        if (currentBrand && !currentBrandExists) {
+            brandSelect.append(new Option(currentBrand, currentBrand, true, true));
+        }
+        
+        brandSelect.trigger('change'); // Trigger the match check
+    }
+
+    function updateTypes() {
+        const brand = $('#id_brand').val();
+        const typeSelect = $('#id_type');
+        const currentType = typeSelect.val();
+        
+        typeSelect.empty();
+        
+        originalTypeOptions.each(function() {
+            const val = $(this).val();
+            const text = $(this).text().toUpperCase();
+            
+            if (val === '') {
+                typeSelect.append($(this).clone());
+                return;
+            }
+            
+            if (brand && ofdInventory[brand]) {
+                let exists = false;
+                Object.keys(ofdInventory[brand]).forEach(k => {
+                    if (k.toUpperCase() === text) exists = true;
+                });
+                
+                if (exists) {
+                    typeSelect.append($(this).clone());
+                }
+            } else {
+                typeSelect.append($(this).clone());
+            }
+        });
+        
+        typeSelect.select2({ width: '100%' }); 
+        
+        // Try to reselect the previous value if it still exists
+        let optionExists = false;
+        typeSelect.find('option').each(function() {
+            if ($(this).val() === currentType) optionExists = true;
+        });
+        
+        if (optionExists) {
+            typeSelect.val(currentType);
+        } else {
+            typeSelect.val('');
+            updateDynamicName();
+        }
+        
+        typeSelect.trigger('change.select2');
+    }
+
+    function checkOFDMatch() {
+        const brand = $('#id_brand').val();
+        
+        let type = '';
+        if ($('#id_type').select2('data') && $('#id_type').select2('data').length > 0) {
+            type = $('#id_type').select2('data')[0].text;
+        }
+
+        const select2Color = $('#select2_color');
+        const customInput = $('#custom_color_input');
+        const hiddenColor = $('#id_color');
+
+        if (brand && type && ofdInventory[brand]) {
+            let matchedTypeKey = null;
+            Object.keys(ofdInventory[brand]).forEach(k => {
+                if (k.toUpperCase() === type.toUpperCase()) {
+                    matchedTypeKey = k;
+                }
+            });
+
+            if (matchedTypeKey && Object.keys(ofdInventory[brand][matchedTypeKey]).length > 0) {
+                $('#color_label').html('<i class="fas fa-magic text-info me-1"></i> OFD Variant');
+                customInput.addClass('d-none');
+                select2Color.removeClass('d-none');
+                
+                const currentColor = hiddenColor.val();
+                let matchFound = false;
+                
+                select2Color.empty();
+                select2Color.append(new Option('Select variant...', '', false, false));
+                
+                const filaments = ofdInventory[brand][matchedTypeKey];
+                Object.keys(filaments).sort().forEach(filName => {
+                    const variants = filaments[filName].variants;
+                    if (variants && variants.length > 0) {
+                        variants.forEach(v => {
+                            const displayName = `${filName} - ${v.name}`;
+                            const isSelected = (v.name === currentColor || displayName === currentColor);
+                            if (isSelected) matchFound = true;
+                            
+                            const opt = new Option(displayName, displayName, isSelected, isSelected);
+                            $(opt).data('color_url', v.url);
+                            $(opt).data('fil_url', filaments[filName].url);
+                            $(opt).data('color_name', v.name);
+                            select2Color.append(opt);
+                            
+                            if (v.url) {
+                                fetch(`{% url "projects:api_ofd_filament" %}?url=${encodeURIComponent(v.url)}`)
+                                    .then(r => r.json())
+                                    .then(data => {
+                                        if (data.color_hex) {
+                                            $(opt).data('hex', data.color_hex);
+                                            const safeId = 'swatch-' + btoa(v.url).replace(/[^a-zA-Z0-9]/g, '');
+                                            $(`.${safeId}`).css('background-color', data.color_hex);
+                                        }
+                                    });
+                            }
+                        });
+                    } else {
+                        const isSelected = (filName === currentColor);
+                        if (isSelected) matchFound = true;
+                        
+                        const opt = new Option(filName, filName, isSelected, isSelected);
+                        $(opt).data('fil_url', filaments[filName].url);
+                        $(opt).data('color_name', '');
+                        select2Color.append(opt);
+                    }
+                });
+                
+                select2Color.select2({
+                    width: '100%',
+                    tags: true,
+                    templateResult: formatColor,
+                    templateSelection: formatColor
+                });
+                
+                if (currentColor && !matchFound && !/^#[0-9A-F]{6,8}$/i.test(currentColor)) {
+                    select2Color.append(new Option(currentColor, currentColor, true, true));
+                    select2Color.trigger('change');
+                }
+                
+                return;
+            }
+        }
+        
+        // Fallback to color picker
+        $('#color_label').text('Color');
+        if (select2Color.hasClass('select2-hidden-accessible')) {
+            select2Color.select2('destroy');
+        }
+        select2Color.addClass('d-none');
+        customInput.removeClass('d-none');
+        
+        // When falling back, ensure the hidden field syncs with the color picker
+        $('#id_color').val(customInput.val());
+        updateDynamicName();
+    }
+
+    function formatColor(color) {
+        if (!color.id) return color.text;
+        var hex = $(color.element).data('hex');
+        var colorUrl = $(color.element).data('color_url');
+        var safeId = colorUrl ? 'swatch-' + btoa(colorUrl).replace(/[^a-zA-Z0-9]/g, '') : '';
+        
+        if (hex) {
+            return $(`<span><span class="${safeId}" style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:${hex}; margin-right:8px; border:1px solid rgba(255,255,255,0.2);"></span>${color.text}</span>`);
+        } else if (colorUrl) {
+            return $(`<span><span class="${safeId}" style="display:inline-block; width:12px; height:12px; border-radius:50%; background-color:transparent; margin-right:8px; border:1px solid rgba(255,255,255,0.2);"></span>${color.text}</span>`);
+        }
+        return $('<span>' + color.text + '</span>');
+    }
+
+    function updateDynamicName() {
+        if (!isAutoGeneratedName) return;
+
+        const brand = $('#id_brand').val() || '';
+        
+        let type = '';
+        if ($('#id_type').select2('data') && $('#id_type').select2('data').length > 0) {
+            type = $('#id_type').select2('data')[0].text;
+        }
+        
+        let colorOrVariant = '';
+        if (!$('#select2_color').hasClass('d-none')) {
+            colorOrVariant = $('#select2_color').val() || '';
+        } else {
+            colorOrVariant = $('#custom_color_input').val() || '';
+        }
+
+        const parts = [];
+        if (brand) parts.push(brand);
+        
+        if (!$('#select2_color').hasClass('d-none') && colorOrVariant) {
+            if (type && colorOrVariant.toUpperCase().includes(type.toUpperCase())) {
+                // skip generic type if it's already in the variant name
+            } else if (type) {
+                parts.push(type);
+            }
+            parts.push(colorOrVariant);
+        } else {
+            if (type) parts.push(type);
+            if (colorOrVariant) parts.push(colorOrVariant);
+        }
+
+        if (parts.length > 0) {
+            $('#id_name').val(parts.join(' '));
+        } else {
+            $('#id_name').val('');
+        }
+    }
+
+    function applyOfdFilament(url) {
+        $('#ofd_loading').show();
+        $('#select2_color').prop('disabled', true);
+
+        fetch(`{% url "projects:api_ofd_filament" %}?url=${encodeURIComponent(url)}`)
+            .then(r => r.json())
+            .then(data => {
+                if(data.density) $('#id_density').val(data.density);
+                
+                let desc = `Autofilled from OpenFilamentDatabase.\n`;
+                if(data.min_print_temperature && data.max_print_temperature) {
+                    desc += `Print Temp: ${data.min_print_temperature}°C - ${data.max_print_temperature}°C\n`;
+                }
+                if(data.min_bed_temperature && data.max_bed_temperature) {
+                    desc += `Bed Temp: ${data.min_bed_temperature}°C - ${data.max_bed_temperature}°C\n`;
+                }
+                if(data.diameter_tolerance) {
+                    desc += `Tolerance: ±${data.diameter_tolerance}mm\n`;
+                }
+                
+                if(!$('#id_description').val().trim()) {
+                    $('#id_description').val(desc);
+                }
+                
+                $('#ofd_loading').hide();
+                $('#select2_color').prop('disabled', false);
+            })
+            .catch(err => {
+                console.error(err);
+                $('#ofd_loading').hide();
+                $('#select2_color').prop('disabled', false);
+            });
+    }
+</script>
+{% endblock %}
+{% endblock %}

@@ -14,6 +14,7 @@ from .forms import (
     ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm,
     MachineForm
 )
+from forge.services.ofd_client import OFDClient
 from forge.module_registry import registry
 from django.db.models import Count, Sum, Max
 from django.contrib.auth.decorators import login_required
@@ -1667,3 +1668,22 @@ def bulk_complete_parts(request, project_id):
     except Exception as e:
         logger.error(f'Error in bulk complete parts: {str(e)}')
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def api_ofd_inventory(request):
+    """Returns the cached OFD inventory tree"""
+    inventory = OFDClient.get_inventory()
+    return JsonResponse(inventory, safe=False)
+
+@login_required
+def api_ofd_filament(request):
+    """Returns the raw JSON for a specific OFD filament"""
+    url = request.GET.get('url')
+    if not url:
+        return JsonResponse({'error': 'Missing URL parameter'}, status=400)
+    
+    data = OFDClient.get_filament_data(url)
+    if not data:
+        return JsonResponse({'error': 'Failed to fetch filament data'}, status=500)
+        
+    return JsonResponse(data)

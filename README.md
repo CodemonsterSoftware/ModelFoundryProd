@@ -193,3 +193,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - SplideJS & GLightbox for Media
 - Font Awesome for icons
 - THREE.js / STL library for 3D file handling
+- OpenFilamentCollective for the OpenFilamentDatabase
+- django-imagekit for responsive image processing

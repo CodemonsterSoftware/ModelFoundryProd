@@ -104,15 +104,38 @@ class Group(models.Model):
 class Material(models.Model):
     MATERIAL_TYPES = [
         ('PLA', 'PLA'),
+        ('PLA+', 'PLA+'),
+        ('PLA-CF', 'PLA Carbon Fiber'),
+        ('PLA-GF', 'PLA Glass Fiber'),
+        ('PLA-Silk', 'PLA Silk'),
         ('ABS', 'ABS'),
+        ('ABS-GF', 'ABS Glass Fiber'),
+        ('ABS-CF', 'ABS Carbon Fiber'),
         ('PETG', 'PETG'),
+        ('PETG-CF', 'PETG Carbon Fiber'),
+        ('PETG-GF', 'PETG Glass Fiber'),
+        ('PCTG', 'PCTG'),
         ('TPU', 'TPU'),
-        ('Nylon', 'Nylon'),
-        ('PC', 'Polycarbonate'),
+        ('TPE', 'TPE'),
+        ('Nylon', 'Nylon (PA)'),
+        ('PA-CF', 'PA Carbon Fiber'),
+        ('PA-GF', 'PA Glass Fiber'),
+        ('PC', 'Polycarbonate (PC)'),
+        ('PC-CF', 'PC Carbon Fiber'),
         ('ASA', 'ASA'),
         ('HIPS', 'HIPS'),
         ('PVA', 'PVA'),
-        ('Resin', 'Resin'),
+        ('BVOH', 'BVOH'),
+        ('PP', 'Polypropylene (PP)'),
+        ('PEEK', 'PEEK'),
+        ('PEKK', 'PEKK'),
+        ('PEI', 'PEI (Ultem)'),
+        ('POM', 'POM (Delrin)'),
+        ('Resin', 'Standard Resin'),
+        ('Resin-Tough', 'Tough Resin'),
+        ('Resin-Flex', 'Flexible Resin'),
+        ('Resin-Cast', 'Castable Resin'),
+        ('Resin-Water', 'Water Washable Resin'),
         ('Other', 'Other'),
     ]
     
@@ -124,8 +147,8 @@ class Material(models.Model):
     is_active = models.BooleanField(default=True)
     brand = models.CharField(max_length=100, blank=True, help_text='Manufacturer or brand name')
     link = models.URLField(max_length=200, blank=True, help_text='Link to purchase or product page')
-    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Total cost of the material')
-    weight = models.DecimalField(max_digits=10, decimal_places=2, help_text='Total weight in grams')
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Total cost of the material', default=25.00)
+    weight = models.DecimalField(max_digits=10, decimal_places=2, help_text='Total weight in grams', default=1000.00)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
