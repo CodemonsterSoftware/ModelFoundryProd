@@ -172,13 +172,13 @@
 /* Hero Section Styling */
 .premium-hero {
     position: relative;
-    margin-top: 2rem;
-    padding: 3rem 2rem;
-    margin-bottom: 2.5rem;
-    border-radius: 20px;
+    margin-top: 1rem;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    border-radius: 16px;
     background: linear-gradient(135deg, color-mix(in srgb, var(--bg-darker) 60%, transparent) 0%, color-mix(in srgb, var(--bg-grey) 80%, transparent) 100%);
     border: 1px solid var(--border-dark);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     overflow: hidden;
 }
 

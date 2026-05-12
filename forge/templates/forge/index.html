@@ -72,14 +72,16 @@
     <!-- Hero Section -->
     <div class="premium-hero animate-enter" style="animation-delay: 0ms;">
         <div class="row align-items-center position-relative" style="z-index: 1;">
-            <div class="col-12">
-                <h1 class="display-5 hero-title mb-2 fw-bold">Forge Modules</h1>
-                <p class="lead text-muted mb-3">Parametric tools, generators, and advanced mesh processors designed for your workflow.</p>
-                <div class="d-flex align-items-center gap-2 mt-2">
-                    <button class="btn btn-outline-secondary" id="editModulesBtn" onclick="toggleEditMode()" style="border-radius: 10px;">
+            <div class="col-md-5">
+                <h1 class="fs-2 hero-title mb-1 fw-bold">Forge Modules</h1>
+                <p class="text-muted mb-0 small">Parametric tools, generators, and advanced mesh processors designed for your workflow.</p>
+            </div>
+            <div class="col-md-7 mt-3 mt-md-0 d-flex flex-column flex-md-row align-items-md-center justify-content-md-end gap-3">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary text-nowrap" id="editModulesBtn" onclick="toggleEditMode()" style="border-radius: 10px;">
                         <i class="fas fa-edit me-1"></i> Edit
                     </button>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#installModuleModal" style="border-radius: 10px;">
+                    <button class="btn btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#installModuleModal" style="border-radius: 10px;">
                         <i class="fas fa-plus-circle me-1"></i> Install Module
                     </button>
                 </div>

@@ -9,12 +9,14 @@
     <!-- Hero Section -->
     <div class="premium-hero animate-enter" style="animation-delay: 0ms;">
         <div class="row align-items-center position-relative" style="z-index: 1;">
-            <div class="col-12">
-                <h1 class="display-5 hero-title mb-2 fw-bold">Materials</h1>
-                <p class="lead text-muted mb-3">Manage your printing materials, track usage, and monitor inventory levels.</p>
-                <div class="d-flex align-items-center gap-2 mt-2">
-                    <a href="{% url 'projects:material_create' %}" class="btn btn-primary" style="border-radius: 10px;">
-                        <i class="fas fa-plus me-2"></i>Add Material
+            <div class="col-md-5">
+                <h1 class="fs-2 hero-title mb-1 fw-bold">Materials</h1>
+                <p class="text-muted mb-0 small">Manage your printing materials, track usage, and monitor inventory levels.</p>
+            </div>
+            <div class="col-md-7 mt-3 mt-md-0 d-flex flex-column flex-md-row align-items-md-center justify-content-md-end gap-3">
+                <div class="d-flex gap-2">
+                    <a href="{% url 'projects:material_create' %}" class="btn btn-primary text-nowrap" style="border-radius: 10px;">
+                        <i class="fas fa-plus me-1"></i>Add Material
                     </a>
                 </div>
             </div>
