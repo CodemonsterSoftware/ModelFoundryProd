@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from stl import mesh
 import os
 import numpy as np
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.conf import settings
 
 class Designer(models.Model):
@@ -64,23 +64,27 @@ class Project(models.Model):
         return counts
 
     @property
+    def printed_parts_cost(self):
+        total = Decimal('0')
+        for part in self.parts.all():
+            if part.material_cost:
+                total += Decimal(str(part.material_cost)) * part.quantity
+        return float(total)
+
+    @property
+    def purchased_parts_cost(self):
+        total = Decimal('0')
+        for purchased_part in self.purchased_parts.all():
+            total += purchased_part.price * purchased_part.quantity
+        return float(total)
+
+    @property
     def total_cost(self):
         """
         Calculate the total cost of the project including both printed and purchased parts.
         Returns the total cost as a float.
         """
-        total = Decimal('0')
-        
-        # Add costs of printed parts
-        for part in self.parts.all():
-            if part.material_cost:
-                total += Decimal(str(part.material_cost)) * part.quantity
-        
-        # Add costs of purchased parts
-        for purchased_part in self.purchased_parts.all():
-            total += purchased_part.price * purchased_part.quantity
-            
-        return float(total)
+        return self.printed_parts_cost + self.purchased_parts_cost
 
     def __str__(self):
         return self.name

@@ -303,16 +303,23 @@
 
         .form-select,
         .form-control {
-            background-color: var(--bg-grey);
+            background-color: var(--bg-dark);
             border-color: var(--border-dark);
-            color: var(--text-light);
+            color: var(--text-light) !important;
         }
 
         .form-select:focus,
         .form-control:focus {
-            background-color: var(--bg-grey);
-            border-color: var(--border-dark);
-            color: var(--text-light);
+            background-color: var(--bg-dark);
+            border-color: var(--primary-color);
+            color: var(--text-light) !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .form-control::placeholder,
+        .form-select::placeholder {
+            color: var(--text-muted);
+            opacity: 0.7;
         }
 
         .input-group-text {
@@ -444,20 +451,62 @@
             color: var(--text-light);
         }
 
-        /* Form styles */
-        .form-control {
-            background-color: var(--bg-dark);
+        /* Alert styling for contrast */
+        .alert {
+            background-color: var(--bg-grey);
             border-color: var(--border-dark);
             color: var(--text-light);
         }
-
-        .form-control:focus {
-            background-color: var(--bg-dark);
-            border-color: var(--primary-color);
-            color: var(--text-light);
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        
+        .alert-danger {
+            background-color: rgba(220, 53, 69, 0.15);
+            border-color: rgba(220, 53, 69, 0.3);
+            color: #ff8a96;
+        }
+        
+        .alert-warning {
+            background-color: rgba(255, 193, 7, 0.15);
+            border-color: rgba(255, 193, 7, 0.3);
+            color: #ffda6a;
+        }
+        
+        .alert-success {
+            background-color: rgba(25, 135, 84, 0.15);
+            border-color: rgba(25, 135, 84, 0.3);
+            color: #75b798;
+        }
+        
+        .alert-info {
+            background-color: rgba(13, 202, 240, 0.15);
+            border-color: rgba(13, 202, 240, 0.3);
+            color: #6edff6;
+        }
+        
+        :root.light-theme .alert-danger {
+            background-color: #f8d7da;
+            border-color: #f5c2c7;
+            color: #842029;
+        }
+        
+        :root.light-theme .alert-warning {
+            background-color: #fff3cd;
+            border-color: #ffecb5;
+            color: #664d03;
+        }
+        
+        :root.light-theme .alert-success {
+            background-color: #d1e7dd;
+            border-color: #badbcc;
+            color: #0f5132;
+        }
+        
+        :root.light-theme .alert-info {
+            background-color: #cff4fc;
+            border-color: #b6effb;
+            color: #055160;
         }
 
+        /* Form styles */
         .form-label {
             color: var(--text-light);
         }
@@ -549,6 +598,21 @@
 </head>
 
 <body>
+    {% if DEMO_BANNER_TEXT %}
+    <div class="collapse show" id="demoBanner">
+        <div class="bg-primary text-white text-center py-2 px-3 position-relative" style="background: linear-gradient(90deg, var(--bg-dark) 0%, rgba(59, 130, 246, 0.2) 50%, var(--bg-dark) 100%); border-bottom: 1px solid var(--border-dark);">
+            <div class="container d-flex justify-content-between align-items-center">
+                <div class="flex-grow-1">
+                    <i class="fas fa-info-circle me-2 text-info"></i> {{ DEMO_BANNER_TEXT|safe }}
+                </div>
+                <button class="btn btn-sm btn-link text-white-50 p-0 ms-3" type="button" data-bs-toggle="collapse" data-bs-target="#demoBanner" aria-expanded="true" aria-controls="demoBanner">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Toast Container -->
     <div class="toast-container">
         {% if messages %}

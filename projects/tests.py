@@ -78,9 +78,8 @@ class ViewTests(TestCase):
 
     def test_index_view(self):
         response = self.client.get(reverse('projects:index'))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'projects/index.html')
-        self.assertIn('recent_projects', response.context)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('projects:project_list'))
 
     def test_project_list_view(self):
         response = self.client.get(reverse('projects:project_list'))
@@ -581,9 +580,12 @@ class ModelTests(TestCase):
             cost=Decimal('30.00')
         )
         materials = list(Material.objects.all())
-        # Check that materials are ordered by name
-        self.assertEqual(materials[0].name, 'Another Material')  # 'A' comes before 'T'
-        self.assertEqual(materials[1].name, 'Test Material')
+        # Check that materials are ordered by name. Because of migration data, ABS might be present.
+        names = [m.name for m in materials]
+        self.assertTrue('Another Material' in names)
+        self.assertTrue('Test Material' in names)
+        # Verify ordering is alphabetical
+        self.assertEqual(names, sorted(names))
 
     def test_instructions_ordering(self):
         # Test Instructions Meta ordering

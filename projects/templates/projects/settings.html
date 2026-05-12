@@ -122,6 +122,15 @@
                             <div class="form-text">Select the default material to use when creating new parts.</div>
                         </div>
                         
+                        <div class="mb-3">
+                            <label for="unitSystem" class="form-label">Measurement Units</label>
+                            <select class="form-select" id="unitSystem" name="unit_system">
+                                <option value="imperial" {% if general_settings.unit_system == 'imperial' or not general_settings.unit_system %}selected{% endif %}>Imperial (in³)</option>
+                                <option value="metric" {% if general_settings.unit_system == 'metric' %}selected{% endif %}>Metric (cm³)</option>
+                            </select>
+                            <div class="form-text">Select your preferred system of measurement for volumes and weights.</div>
+                        </div>
+                        
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-2"></i>Save General Settings

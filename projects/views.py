@@ -384,8 +384,25 @@ def update_part_group(request, part_id):
 
 def part_details(request, part_id):
     part = get_object_or_404(Part, id=part_id)
-    # Convert volume from mm³ to in³ (1 in³ = 16387.064 mm³)
-    volume_in3 = part.volume / 16387.064 if part.volume else None
+    unit_system = 'imperial'
+    if request.user.is_authenticated:
+        try:
+            general_settings = request.user.usersettings_set.get(settings_type='general')
+            settings_data = json.loads(general_settings.settings_data)
+            unit_system = settings_data.get('unit_system', 'imperial')
+        except Exception:
+            pass
+
+    if part.volume:
+        if unit_system == 'metric':
+            # Convert mm³ to cm³
+            volume_val = float(part.volume) / 1000.0
+        else:
+            # Convert mm³ to in³
+            volume_val = float(part.volume) / 16387.064
+    else:
+        volume_val = None
+
     data = {
         'name': part.name,
         'quantity': part.quantity,
@@ -393,7 +410,8 @@ def part_details(request, part_id):
         'color': part.color,
         'group_id': part.group.id if part.group else None,
         'completed': part.completed,
-        'volume': volume_in3,
+        'volume': volume_val,
+        'unit_system': unit_system,
         'material_cost': float(part.material_cost) if part.material_cost else None,
     }
     
@@ -973,6 +991,16 @@ def export_project(request, project_id):
             os.makedirs(directory, exist_ok=True)
         
         # Prepare project data for manifest
+        designer_info = None
+        if project.designer:
+            designer_info = {
+                'name': project.designer.name,
+                'mmf_url': project.designer.mmf_url,
+                'patreon_url': project.designer.patreon_url,
+                'cults3d_url': project.designer.cults3d_url,
+                'website_url': project.designer.website_url,
+            }
+
         project_data = {
             'metadata': {
                 'name': project.name,
@@ -980,8 +1008,10 @@ def export_project(request, project_id):
                 'created_at': project.created_at.isoformat(),
                 'updated_at': project.updated_at.isoformat(),
                 'designer': project.designer.name if project.designer else None,
+                'designer_info': designer_info,
                 # Keep designer_id for backward compatibility but it won't be used for imports
-                'designer_id': project.designer.id if project.designer else None
+                'designer_id': project.designer.id if project.designer else None,
+                'tags': [tag.name for tag in project.tags.all()]
             },
             'materials': [],
             'groups': [],
@@ -1196,7 +1226,15 @@ def import_project(request):
                     if designer:
                         logger.info(f"Found designer: {designer.name} (ID: {designer.id})")
                     else:
-                        logger.info(f"Designer '{designer_name}' not found in database")
+                        logger.info(f"Designer '{designer_name}' not found in database, creating a new one.")
+                        designer_info = project_data['metadata'].get('designer_info', {})
+                        designer = Designer.objects.create(
+                            name=designer_name,
+                            mmf_url=designer_info.get('mmf_url', ''),
+                            patreon_url=designer_info.get('patreon_url', ''),
+                            cults3d_url=designer_info.get('cults3d_url', ''),
+                            website_url=designer_info.get('website_url', '')
+                        )
 
                 # Create the project
                 project = Project.objects.create(
@@ -1205,6 +1243,11 @@ def import_project(request):
                     user=request.user,
                     designer=designer  # Use the designer object or None
                 )
+                
+                # Import tags
+                for tag_name in project_data['metadata'].get('tags', []):
+                    tag, _ = Tag.objects.get_or_create(name=tag_name)
+                    project.tags.add(tag)
                 logger.info(f"Created project: {project.name} (ID: {project.id})")
 
                 # Create or get materials
@@ -1474,6 +1517,7 @@ def settings(request):
 
             if settings_type_submitted == 'general':
                 current_data['default_material'] = request.POST.get('default_material')
+                current_data['unit_system'] = request.POST.get('unit_system', 'imperial')
 
             elif settings_type_submitted == 'appearance':
                 theme_preference = request.POST.get('theme_preference')

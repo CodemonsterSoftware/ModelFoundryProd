@@ -1,7 +1,4 @@
-- Add purchased parts to required Materials in project details and maintain a running total
-- Test all Forge Modules 
-- Update Purchased parts with the same sytling as Parts table
-- Check input text colors for different themes to ensure they are readable (i.e not dark on dark or light on light)
-- Check warning boxes to ensure the text is readable (i.e not dark on dark or light on light)
-- Add setting to pick metric or imperal for all measurements in the app
-- Rework hero cards to be a bit more compact to save space
+- [x] export data needs to export Designer info as well
+- [x] Export also needs to export tags
+- [x] Import needs to be able to import tags
+- [x] Import also needs to be able to import designer info
