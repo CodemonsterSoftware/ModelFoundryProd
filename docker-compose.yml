@@ -54,6 +54,17 @@ services:
       - "8081:8081"
     networks:
       - app_network
+      
+  mqtt_listener:
+    build: .
+    command: python manage.py run_mqtt_listener
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
+    networks:
+      - app_network
 
 networks:
   app_network:

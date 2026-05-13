@@ -3,35 +3,49 @@ import json
 import ssl
 import paho.mqtt.client as mqtt
 from django.core.management.base import BaseCommand
-from projects.models import Machine, Part
+from django.utils import timezone
+from projects.models import Machine, Part, UserSettings
 import re
 
 class Command(BaseCommand):
     help = 'Runs the MQTT listener for 3D printer status updates'
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS('Starting MQTT listener...'))
+        self.stdout.write(self.style.SUCCESS('Starting dynamic MQTT listener...'))
         
-        machines = Machine.objects.exclude(ip_address__isnull=True).exclude(ip_address__exact='')
-        
-        if not machines.exists():
-            self.stdout.write(self.style.WARNING('No machines with IP addresses configured. Exiting.'))
-            return
-            
-        clients = []
-        
-        for machine in machines:
-            if machine.ip_address and machine.mqtt_access_code:
-                client = self.setup_mqtt_client(machine)
-                if client:
-                    clients.append(client)
+        clients = {} # Map of machine_id -> client
         
         try:
             while True:
-                time.sleep(1)
+                # Fetch all valid machines
+                valid_machines = Machine.objects.exclude(ip_address__isnull=True).exclude(ip_address__exact='')
+                current_machine_ids = set()
+                
+                for machine in valid_machines:
+                    if machine.ip_address and machine.mqtt_access_code:
+                        current_machine_ids.add(machine.id)
+                        
+                        # Connect if not already connected
+                        if machine.id not in clients:
+                            client = self.setup_mqtt_client(machine)
+                            if client:
+                                clients[machine.id] = client
+                                
+                # Disconnect any clients that are no longer valid machines
+                client_ids = list(clients.keys())
+                for cid in client_ids:
+                    if cid not in current_machine_ids:
+                        self.stdout.write(self.style.WARNING(f"Disconnecting machine ID {cid} (no longer configured)"))
+                        clients[cid].loop_stop()
+                        clients[cid].disconnect()
+                        del clients[cid]
+                        
+                # Sleep before checking again
+                time.sleep(10)
+                
         except KeyboardInterrupt:
             self.stdout.write('Stopping MQTT listener...')
-            for client in clients:
+            for cid, client in clients.items():
                 client.loop_stop()
                 client.disconnect()
 
@@ -71,6 +85,14 @@ class Command(BaseCommand):
 
     def on_message(self, client, userdata, msg):
         try:
+            # Throttle last_seen database updates to max once per minute
+            now = timezone.now()
+            machine = Machine.objects.filter(id=client.machine_id).first()
+            if machine:
+                if not machine.last_seen or (now - machine.last_seen).total_seconds() > 60:
+                    machine.last_seen = now
+                    machine.save(update_fields=['last_seen'])
+                    
             payload = json.loads(msg.payload.decode('utf-8'))
             
             # Bambu print structure
@@ -93,8 +115,21 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"Error processing message: {e}"))
             
     def process_print_status(self, machine_id, subtask_name, state):
-        # Very basic fuzzy matching to find the part
+        # Check if auto_complete is globally enabled by ANY user (in a multi-tenant setup we would check the machine's user)
+        # For simplicity, if any user has auto_complete_prints enabled, we allow it.
+        auto_complete = False
+        try:
+            for us in UserSettings.objects.filter(settings_type='api'):
+                settings_data = json.loads(us.settings_data) if us.settings_data else {}
+                if settings_data.get('auto_complete_prints'):
+                    auto_complete = True
+                    break
+        except Exception:
+            pass
+
         def clean_name(name):
+            if not name:
+                return ""
             name = re.sub(r'\.(gcode|3mf|stl|obj)$', '', name, flags=re.IGNORECASE)
             name = re.sub(r'[^a-zA-Z0-9]', '', name).lower()
             return name
@@ -103,14 +138,25 @@ class Command(BaseCommand):
         
         # Find matching part
         for part in Part.objects.all():
-            if clean_name(part.name) == clean_subtask:
+            # First try matching exact slice filename
+            is_match = False
+            if part.assigned_slice_filename and clean_name(part.assigned_slice_filename) == clean_subtask:
+                is_match = True
+            elif clean_name(part.name) == clean_subtask:
+                # Fallback to fuzzy part name matching
+                is_match = True
+
+            if is_match:
                 if state == "RUNNING" and part.print_status != 'printing':
                     part.print_status = 'printing'
                     part.save()
                     self.stdout.write(self.style.SUCCESS(f"Updated {part.name} status to Printing"))
                 elif state == "FINISH" and part.print_status != 'completed':
                     part.print_status = 'completed'
-                    part.completed += 1
+                    if auto_complete:
+                        part.completed += 1
+                        self.stdout.write(self.style.SUCCESS(f"Updated {part.name} status to Completed. Count: {part.completed}"))
+                    else:
+                        self.stdout.write(self.style.SUCCESS(f"Updated {part.name} status to Completed. (Auto-increment disabled)"))
                     part.save()
-                    self.stdout.write(self.style.SUCCESS(f"Updated {part.name} status to Completed. Count: {part.completed}"))
                 break

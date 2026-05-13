@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/ofd/inventory/', views.api_ofd_inventory, name='api_ofd_inventory'),
     path('api/ofd/filament/', views.api_ofd_filament, name='api_ofd_filament'),
     path('api/slicer/sync/', views.api_slicer_sync, name='api_slicer_sync'),
+    path('api/machines/test_mqtt/', views.test_mqtt_connection, name='test_mqtt_connection'),
     path('api/slicer/inbox_count/', views.api_slicer_inbox_count, name='api_slicer_inbox_count'),
     path('slicer/inbox/', views.slicer_inbox, name='slicer_inbox'),
     path('slicer/inbox/<int:slice_id>/assign/', views.assign_slice, name='assign_slice'),

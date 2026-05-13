@@ -1535,6 +1535,7 @@ def settings(request):
                 current_data['require_auth'] = request.POST.get('require_auth') == 'on'
                 current_data['is_global'] = request.POST.get('is_global') == 'on'
                 current_data['enable_slicer_inbox'] = request.POST.get('enable_slicer_inbox') == 'on'
+                current_data['auto_complete_prints'] = request.POST.get('auto_complete_prints') == 'on'
                 current_data['api_key'] = request.POST.get('api_key', '')
 
             instance.settings_data = json.dumps(current_data)
@@ -1809,6 +1810,38 @@ def api_slicer_inbox_count(request):
     return JsonResponse({'count': count})
 
 @login_required
+@require_POST
+def test_mqtt_connection(request):
+    import paho.mqtt.client as mqtt
+    import ssl
+    import json
+    
+    try:
+        data = json.loads(request.body)
+        ip_address = data.get('ip_address')
+        mqtt_access_code = data.get('mqtt_access_code')
+        
+        if not ip_address or not mqtt_access_code:
+            return JsonResponse({'status': 'error', 'message': 'IP Address and Access Code are required'})
+            
+        # Set up synchronous client
+        client = mqtt.Client(protocol=mqtt.MQTTv311)
+        client.tls_set(cert_reqs=ssl.CERT_NONE)
+        client.tls_insecure_set(True)
+        client.username_pw_set("bblp", mqtt_access_code)
+        
+        # Connect and immediately disconnect
+        try:
+            client.connect(ip_address, 8883, keepalive=5)
+            client.disconnect()
+            return JsonResponse({'status': 'success', 'message': 'Successfully connected to printer!'})
+        except Exception as conn_e:
+            return JsonResponse({'status': 'error', 'message': f'Connection failed: {str(conn_e)}'})
+            
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f'Server error: {str(e)}'})
+
+@login_required
 def slicer_inbox(request):
     global_users = []
     for us in UserSettings.objects.filter(settings_type='api'):
@@ -1963,6 +1996,7 @@ def assign_slice(request, slice_id):
             if request.POST.get('mark_complete') == 'on':
                 part.completed = part.quantity
 
+            part.assigned_slice_filename = unclaimed_slice.filename
             part.save()
             unclaimed_slice.status = 'claimed'
             unclaimed_slice.save()

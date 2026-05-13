@@ -409,6 +409,15 @@ class Machine(models.Model):
     # MQTT Sync Fields
     ip_address = models.CharField(max_length=45, blank=True, null=True, help_text="IP address of the printer on the local network")
     mqtt_access_code = models.CharField(max_length=100, blank=True, null=True, help_text="Access code for MQTT authentication")
+    last_seen = models.DateTimeField(null=True, blank=True, help_text="Last time this machine was seen online")
+    
+    @property
+    def is_online(self):
+        from django.utils import timezone
+        import datetime
+        if not self.last_seen:
+            return False
+        return timezone.now() - self.last_seen < datetime.timedelta(minutes=5)
     
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
