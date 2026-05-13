@@ -198,6 +198,8 @@ class MachineForm(forms.ModelForm):
             'print_volume_x',
             'print_volume_y',
             'print_volume_z',
+            'ip_address',
+            'mqtt_access_code',
             'notes'
         ]
         widgets = {
@@ -209,9 +211,13 @@ class MachineForm(forms.ModelForm):
             'print_volume_x': forms.NumberInput(attrs={'class': 'form-control'}),
             'print_volume_y': forms.NumberInput(attrs={'class': 'form-control'}),
             'print_volume_z': forms.NumberInput(attrs={'class': 'form-control'}),
+            'ip_address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 192.168.1.100'}),
+            'mqtt_access_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Printer access code'}),
         }
         labels = {
             'print_volume_x': 'Print Volume X (mm)',
             'print_volume_y': 'Print Volume Y (mm)',
             'print_volume_z': 'Print Volume Z (mm)',
+            'ip_address': 'Printer IP Address',
+            'mqtt_access_code': 'MQTT Access Code',
         } 

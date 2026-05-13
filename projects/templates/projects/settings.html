@@ -100,6 +100,11 @@
                         <i class="fas fa-print me-2"></i>Machines
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="api-tab" data-bs-toggle="tab" data-bs-target="#api" type="button" role="tab" aria-controls="api" aria-selected="false">
+                        <i class="fas fa-key me-2"></i>API Security
+                    </button>
+                </li>
             </ul>
             
             <div class="tab-content" id="settingsTabsContent">
@@ -170,6 +175,51 @@
                                 <i class="fas fa-save me-2"></i>Save Appearance Settings
                             </button>
                         </div>
+                </div>
+                
+                <!-- API Security Tab -->
+                <div class="tab-pane fade" id="api" role="tabpanel" aria-labelledby="api-tab">
+                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="settings_type" value="api">
+                        
+                        <div class="mb-4">
+                            <h5 class="mb-3">API Authentication</h5>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="requireAuth" name="require_auth" {% if api_settings.require_auth %}checked{% endif %}>
+                                <label class="form-check-label" for="requireAuth">Require API Authentication</label>
+                                <div class="form-text text-muted">When enabled, the Desktop Agent and other external tools must provide an API key.</div>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="isGlobal" name="is_global" {% if api_settings.is_global %}checked{% endif %}>
+                                <label class="form-check-label" for="isGlobal">Global Slicer Inbox</label>
+                                <div class="form-text text-muted">When enabled, any slices sent by an agent using your API key will be visible to ALL users on this server.</div>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="enableSlicerInbox" name="enable_slicer_inbox" {% if api_settings.enable_slicer_inbox != False %}checked{% endif %}>
+                                <label class="form-check-label" for="enableSlicerInbox">Enable Slicer Inbox</label>
+                                <div class="form-text text-muted">When enabled, the Slicer Inbox icon and notifications will appear in the navigation bar.</div>
+                            </div>
+                            
+                            <div class="mb-3" id="apiKeySection" {% if not api_settings.require_auth %}style="display: none;"{% endif %}>
+                                <label for="apiKey" class="form-label">Global API Key</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control font-monospace" id="apiKey" name="api_key" value="{{ api_settings.api_key|default:'' }}" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" id="generateApiKey">
+                                        <i class="fas fa-sync-alt me-1"></i> Generate New Key
+                                    </button>
+                                </div>
+                                <div class="form-text text-muted">Use this key in the Desktop Agent configuration.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save API Settings
+                            </button>
+                        </div>
                     </form>
                 </div>
                 
@@ -222,6 +272,18 @@
                                 <label for="id_print_volume_z" class="form-label">{{ machine_form.print_volume_z.label }}</label>
                                 {{ machine_form.print_volume_z }}
                                 {% if machine_form.print_volume_z.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_z.errors }}</div>{% endif %}
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_ip_address" class="form-label">{{ machine_form.ip_address.label }}</label>
+                                {{ machine_form.ip_address }}
+                                {% if machine_form.ip_address.errors %}<div class="invalid-feedback d-block">{{ machine_form.ip_address.errors }}</div>{% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_mqtt_access_code" class="form-label">{{ machine_form.mqtt_access_code.label }}</label>
+                                {{ machine_form.mqtt_access_code }}
+                                {% if machine_form.mqtt_access_code.errors %}<div class="invalid-feedback d-block">{{ machine_form.mqtt_access_code.errors }}</div>{% endif %}
                             </div>
                         </div>
                         <div class="row">
@@ -333,6 +395,32 @@
                     break;
                 }
             }
+        }
+        // Handle API Security toggle
+        const requireAuth = document.getElementById('requireAuth');
+        const apiKeySection = document.getElementById('apiKeySection');
+        const apiKeyInput = document.getElementById('apiKey');
+        const generateApiKeyBtn = document.getElementById('generateApiKey');
+        
+        if (requireAuth) {
+            requireAuth.addEventListener('change', function() {
+                apiKeySection.style.display = this.checked ? 'block' : 'none';
+                if (this.checked && !apiKeyInput.value) {
+                    generateKey();
+                }
+            });
+        }
+        
+        if (generateApiKeyBtn) {
+            generateApiKeyBtn.addEventListener('click', generateKey);
+        }
+        
+        function generateKey() {
+            // Generate a random 32 character hex string
+            const array = new Uint8Array(16);
+            window.crypto.getRandomValues(array);
+            const key = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+            apiKeyInput.value = 'mf_' + key;
         }
     });
 </script>

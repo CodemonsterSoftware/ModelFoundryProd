@@ -8,15 +8,18 @@ from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
-from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings, Machine
+from django.views.decorators.csrf import csrf_exempt
+import re
+from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings, Machine, UnclaimedSlice
 from .forms import (
     ProjectForm, PartForm, GroupForm, PurchasedPartForm,
     ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm,
     MachineForm
 )
 from forge.services.ofd_client import OFDClient
+from .color_utils import get_closest_color_name
 from forge.module_registry import registry
-from django.db.models import Count, Sum, Max
+from django.db.models import Count, Sum, Max, Q
 from django.contrib.auth.decorators import login_required
 import tempfile
 from django.core.files import File
@@ -1482,7 +1485,7 @@ def set_project_thumbnail(request, image_id):
 @login_required
 def settings(request):
     user = request.user
-    settings_types = ['general', 'appearance']
+    settings_types = ['general', 'appearance', 'api']
     user_settings_instances = {}
     forms = {}
 
@@ -1528,11 +1531,18 @@ def settings(request):
                     response = redirect('projects:settings')
                     response.set_cookie('theme_preference', theme_preference, max_age=365 * 24 * 60 * 60) # 1 year
                     instance.settings_data = json.dumps(current_data)
-                    instance.save()
-                    return response
+            elif settings_type_submitted == 'api':
+                current_data['require_auth'] = request.POST.get('require_auth') == 'on'
+                current_data['is_global'] = request.POST.get('is_global') == 'on'
+                current_data['enable_slicer_inbox'] = request.POST.get('enable_slicer_inbox') == 'on'
+                current_data['api_key'] = request.POST.get('api_key', '')
 
             instance.settings_data = json.dumps(current_data)
             instance.save()
+            
+            if settings_type_submitted == 'appearance':
+                return response
+            
             messages.success(request, f'{settings_type_submitted.capitalize()} settings saved successfully.')
             return redirect('projects:settings')
         
@@ -1566,6 +1576,7 @@ def settings(request):
 
     return render(request, 'projects/settings.html', {
         'forms': forms,
+        'api_settings': forms.get('api', {}),
         'machines': machines,
         'machine_form': machine_form,
         'machine_to_edit': machine_to_edit,
@@ -1687,3 +1698,296 @@ def api_ofd_filament(request):
         return JsonResponse({'error': 'Failed to fetch filament data'}, status=500)
         
     return JsonResponse(data)
+
+@csrf_exempt
+def api_slicer_sync(request):
+    if request.method == 'POST':
+        from django.contrib.auth.models import User
+        
+        provided_key = request.headers.get('X-API-Key')
+        user = None
+        
+        # Try to find user by API key if provided
+        if provided_key:
+            for us in UserSettings.objects.filter(settings_type='api'):
+                try:
+                    data = json.loads(us.settings_data)
+                    if data.get('api_key') == provided_key:
+                        user = us.user
+                        break
+                except (TypeError, json.JSONDecodeError):
+                    continue
+        
+        # If no user found by key, fallback to first user
+        if not user:
+            user = User.objects.first()
+            
+        if not user:
+            return JsonResponse({'status': 'error', 'message': 'System not configured with a user'}, status=500)
+            
+        # Check API Authentication for the resolved user
+        api_settings_obj, _ = UserSettings.objects.get_or_create(
+            user=user, settings_type='api', defaults={'settings_data': '{}'}
+        )
+        api_settings = json.loads(api_settings_obj.settings_data) if api_settings_obj.settings_data else {}
+        
+        if api_settings.get('require_auth'):
+            if not provided_key or provided_key != api_settings.get('api_key'):
+                return JsonResponse({'status': 'error', 'message': 'Unauthorized. Invalid or missing API key.'}, status=401)
+                
+        try:
+            data = json.loads(request.body)
+            
+            # Handle connection test ping from desktop agent
+            if data.get('test') is True:
+                return JsonResponse({'status': 'success', 'message': 'API Connection Successful'})
+                
+            filename = data.get('filename')
+            print_time_seconds = data.get('print_time_seconds')
+            filament_weight_g = data.get('filament_weight_g')
+            filament_type = data.get('filament_type') or ''
+
+            if not filename:
+                logger.error(f"Slicer Sync: Filename missing in payload: {data}")
+                return JsonResponse({'status': 'error', 'message': 'Filename is required'}, status=400)
+
+            # Clean filename to bare slug for fuzzy matching
+            def clean_name(name):
+                # Remove extensions
+                name = re.sub(r'\.(gcode|3mf|stl|obj)$', '', name, flags=re.IGNORECASE)
+                # Remove non-alphanumeric
+                name = re.sub(r'[^a-zA-Z0-9]', '', name).lower()
+                return name
+
+            slicer_clean = clean_name(filename)
+
+            matched_part = None
+            for part in Part.objects.all():
+                if clean_name(part.name) == slicer_clean:
+                    matched_part = part
+                    break
+            
+            if matched_part:
+                matched_part.print_time_seconds = print_time_seconds
+                matched_part.filament_weight_g = filament_weight_g
+                # Optionally try to match material in the future
+                matched_part.save()
+                return JsonResponse({'status': 'success', 'message': f'Auto-linked to {matched_part.name}', 'part_id': matched_part.id})
+            
+            # If no match, save to UnclaimedSlice
+            # Assign to the first user for now in this single-user assumption
+            # All other keys in data will be saved as metadata
+            metadata = {k: v for k, v in data.items() if k not in ['filename', 'print_time_seconds', 'filament_weight_g', 'filament_type', 'test']}
+
+            UnclaimedSlice.objects.create(
+                user=user,
+                filename=filename,
+                print_time_seconds=print_time_seconds,
+                filament_weight_g=filament_weight_g,
+                filament_type=filament_type,
+                metadata=metadata
+            )
+            return JsonResponse({'status': 'success', 'message': 'Saved to Slicer Inbox', 'inbox': True})
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Only POST allowed'}, status=405)
+
+@login_required
+def api_slicer_inbox_count(request):
+    global_users = []
+    for us in UserSettings.objects.filter(settings_type='api'):
+        try:
+            if json.loads(us.settings_data).get('is_global'):
+                global_users.append(us.user)
+        except (TypeError, json.JSONDecodeError):
+            pass
+            
+    count = UnclaimedSlice.objects.filter(
+        Q(user=request.user) | Q(user__in=global_users),
+        status='pending'
+    ).distinct().count()
+    return JsonResponse({'count': count})
+
+@login_required
+def slicer_inbox(request):
+    global_users = []
+    for us in UserSettings.objects.filter(settings_type='api'):
+        try:
+            if json.loads(us.settings_data).get('is_global'):
+                global_users.append(us.user)
+        except (TypeError, json.JSONDecodeError):
+            continue
+
+    unclaimed_slices = UnclaimedSlice.objects.filter(
+        Q(user=request.user) | Q(user__in=global_users),
+        status='pending'
+    ).distinct()
+    
+    projects = Project.objects.filter(user=request.user).prefetch_related('parts')
+    materials = Material.objects.filter(is_active=True).order_by('name')
+    
+    # Perform intelligent matching for each slice
+    for slice_obj in unclaimed_slices:
+        metadata = slice_obj.metadata or {}
+        vendor = metadata.get('filament_vendor', '').strip().replace('"', '').replace("'", '')
+        raw_color = metadata.get('filament_colour', '').strip().replace('"', '').replace("'", '')
+        color = get_closest_color_name(raw_color) if raw_color else ""
+        f_type = slice_obj.filament_type.strip() if slice_obj.filament_type else metadata.get('filament_type', '').strip()
+        density = metadata.get('filament_density')
+        cost = metadata.get('filament_cost')
+
+        matched_material = None
+        
+        # Try to find an exact match first
+        if f_type:
+            candidates = materials.filter(type__iexact=f_type)
+            if vendor:
+                candidates = candidates.filter(brand__icontains=vendor)
+            if color:
+                candidates = candidates.filter(color__iexact=color)
+            
+            matched_material = candidates.first()
+            
+        if matched_material:
+            slice_obj.matched_material = matched_material
+            
+        # Always prepare a suggestion in case they want to create a new one anyway
+        suggested_name = f"{vendor} {f_type} {color}".strip()
+        if not suggested_name:
+            suggested_name = f"Unknown {f_type}"
+        
+        slice_obj.suggested_material = {
+            'name': suggested_name,
+            'brand': vendor,
+            'type': f_type,
+            'color': color,
+            'density': density,
+            'cost': cost
+        }
+            
+    return render(request, 'projects/slicer_inbox.html', {
+        'unclaimed_slices': unclaimed_slices,
+        'projects': projects,
+        'materials': materials,
+    })
+
+@login_required
+def assign_slice(request, slice_id):
+    if request.method == 'POST':
+        unclaimed_slice = get_object_or_404(UnclaimedSlice, id=slice_id)
+        
+        # Check permissions
+        is_global = False
+        api_setting = UserSettings.objects.filter(user=unclaimed_slice.user, settings_type='api').first()
+        if api_setting:
+            try:
+                is_global = json.loads(api_setting.settings_data).get('is_global', False)
+            except (TypeError, json.JSONDecodeError):
+                pass
+                
+        if unclaimed_slice.user != request.user and not is_global:
+            return HttpResponseForbidden("You do not have permission to modify this slice.")
+
+        part_id = request.POST.get('part_id')
+        material_id = request.POST.get('material_id')
+        
+        if part_id:
+            part = get_object_or_404(Part, id=part_id, project__user=request.user)
+            part.print_time_seconds = unclaimed_slice.print_time_seconds
+            part.filament_weight_g = unclaimed_slice.filament_weight_g
+            
+            # Handle material assignment and creation
+            metadata = unclaimed_slice.metadata or {}
+            
+            if material_id == 'create_new':
+                # Dynamically create new material
+                vendor = metadata.get('filament_vendor', '').strip().replace('"', '').replace("'", "")
+                raw_color = metadata.get('filament_colour', '').strip().replace('"', '').replace("'", "")
+                color = get_closest_color_name(raw_color) if raw_color else ""
+                f_type = unclaimed_slice.filament_type or metadata.get('filament_type', 'PLA')
+                
+                suggested_name = f"{vendor} {f_type} {color}".strip()
+                if not suggested_name:
+                    suggested_name = f"Unknown {f_type}"
+                    
+                # Ensure unique name
+                base_name = suggested_name
+                counter = 1
+                while Material.objects.filter(name=suggested_name).exists():
+                    suggested_name = f"{base_name} ({counter})"
+                    counter += 1
+                    
+                new_material = Material.objects.create(
+                    name=suggested_name,
+                    brand=vendor,
+                    type=f_type,
+                    color=color,
+                    density=metadata.get('filament_density') or None,
+                    cost=metadata.get('filament_cost') or 25.00
+                )
+                
+                # Assign the newly created material
+                if not part.material:
+                    part.material = new_material
+                    
+            elif material_id:
+                # Existing material selected
+                try:
+                    selected_material = Material.objects.get(id=material_id)
+                    
+                    # Adopt empty values from slice metadata if the material is missing them
+                    updated = False
+                    if not selected_material.density and metadata.get('filament_density'):
+                        selected_material.density = metadata.get('filament_density')
+                        updated = True
+                    if not selected_material.cost and metadata.get('filament_cost'):
+                        selected_material.cost = metadata.get('filament_cost')
+                        updated = True
+                    if not selected_material.color and metadata.get('filament_colour'):
+                        selected_material.color = metadata.get('filament_colour')
+                        updated = True
+                    if not selected_material.brand and metadata.get('filament_vendor'):
+                        selected_material.brand = metadata.get('filament_vendor')
+                        updated = True
+                        
+                    if updated:
+                        selected_material.save()
+                        
+                    # Assign to part if part doesn't have a material
+                    if not part.material:
+                        part.material = selected_material
+                        
+                except Material.DoesNotExist:
+                    pass
+
+            if request.POST.get('mark_complete') == 'on':
+                part.completed = part.quantity
+
+            part.save()
+            unclaimed_slice.status = 'claimed'
+            unclaimed_slice.save()
+            messages.success(request, f"Slice data assigned to {part.name}.")
+        else:
+            messages.error(request, "Please select a part to assign.")
+    return redirect('projects:slicer_inbox')
+
+@login_required
+def dismiss_slice(request, slice_id):
+    unclaimed_slice = get_object_or_404(UnclaimedSlice, id=slice_id)
+    
+    # Check permissions
+    is_global = False
+    api_setting = UserSettings.objects.filter(user=unclaimed_slice.user, settings_type='api').first()
+    if api_setting:
+        try:
+            is_global = json.loads(api_setting.settings_data).get('is_global', False)
+        except (TypeError, json.JSONDecodeError):
+            pass
+            
+    if unclaimed_slice.user != request.user and not is_global:
+        return HttpResponseForbidden("You do not have permission to modify this slice.")
+
+    unclaimed_slice.status = 'dismissed'
+    unclaimed_slice.save()
+    messages.info(request, "Slice dismissed.")
+    return redirect('projects:slicer_inbox')

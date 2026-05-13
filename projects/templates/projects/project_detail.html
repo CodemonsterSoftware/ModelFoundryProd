@@ -824,6 +824,29 @@
                                         <button type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light" id="copyMirrorPart" title="Copy & Mirror">
                                             <i class="fas fa-copy"></i> <span class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
                                         </button>
+                                        <div class="btn-group" role="group">
+                                            <button id="sendToSlicerBtn" type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Send to Slicer">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-secondary bg-dark" aria-labelledby="sendToSlicerBtn" style="font-size: 0.875rem;">
+                                                <li><h6 class="dropdown-header text-muted border-bottom border-secondary mb-1 pb-1">Send to Slicer</h6></li>
+                                                <li>
+                                                    <a class="dropdown-item text-light py-1 d-flex align-items-center ps-4" id="sendToBambuStudio" href="#">
+                                                        <i class="fas fa-cube me-2 text-success"></i> Bambu Studio
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item text-light py-1 d-flex align-items-center ps-4" id="sendToOrcaSlicer" href="#">
+                                                        <i class="fas fa-cube me-2 text-info"></i> Orca Slicer
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item text-light py-1 d-flex align-items-center ps-4" id="sendToPrusaSlicer" href="#">
+                                                        <i class="fas fa-cube me-2 text-warning"></i> PrusaSlicer
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
                                         {% if forge_modules %}
                                         <div class="btn-group" role="group">
                                             <button id="forgeActionsBtn" type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Forge Actions">
@@ -1676,8 +1699,10 @@
                 $('#calculatedCost').text(data.material_cost ? `$${data.material_cost.toFixed(2)}` : '-');
 
                 if (data.stl_url) {
+                    $('#partDetailsModal').data('stl-url', data.stl_url);
                     loadModel(data.stl_url, data.color);
                 } else {
+                    $('#partDetailsModal').data('stl-url', null);
                     $('#viewerLoading').hide();
                     $('#viewerError').html(`
                         <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
@@ -1765,6 +1790,39 @@
     $('#downloadSTL').click(function () {
         const partId = $('#partDetailsModal').data('part-id');
         window.location.href = `/part/${partId}/download/`;
+    });
+
+    $('#sendToBambuStudio').click(function(e) {
+        e.preventDefault();
+        const stlUrl = $('#partDetailsModal').data('stl-url');
+        if (stlUrl) {
+            const fileUrl = window.location.origin + stlUrl;
+            window.location.href = `bambustudio://open?file=${encodeURIComponent(fileUrl)}`;
+        } else {
+            alert('No STL file is available for this part.');
+        }
+    });
+
+    $('#sendToOrcaSlicer').click(function(e) {
+        e.preventDefault();
+        const stlUrl = $('#partDetailsModal').data('stl-url');
+        if (stlUrl) {
+            const fileUrl = window.location.origin + stlUrl;
+            window.location.href = `orcaslicer://open?file=${encodeURIComponent(fileUrl)}`;
+        } else {
+            alert('No STL file is available for this part.');
+        }
+    });
+
+    $('#sendToPrusaSlicer').click(function(e) {
+        e.preventDefault();
+        const stlUrl = $('#partDetailsModal').data('stl-url');
+        if (stlUrl) {
+            const fileUrl = window.location.origin + stlUrl;
+            window.location.href = `prusaslicer://open?file=${encodeURIComponent(fileUrl)}`;
+        } else {
+            alert('No STL file is available for this part.');
+        }
     });
 
     window.launchForgeModule = function(moduleId, actionId) {

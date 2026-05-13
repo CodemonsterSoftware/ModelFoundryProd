@@ -1,0 +1,129 @@
+{% extends 'projects/base.html' %}
+
+{% block title %}Slicer Inbox - Model Foundry{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 text-light fw-bold mb-1"><i class="fas fa-inbox text-primary me-2"></i>Slicer Inbox</h1>
+            <p class="text-muted mb-0">Unclaimed slicer files detected by the desktop agent</p>
+        </div>
+    </div>
+
+    {% if unclaimed_slices %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        {% for slice in unclaimed_slices %}
+        <div class="col">
+            <div class="card premium-card h-100 border-0" style="background: var(--bg-dark); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title text-light fw-bold mb-0 text-truncate" title="{{ slice.filename }}">
+                            <i class="fas fa-cube text-secondary me-2"></i>{{ slice.filename }}
+                        </h5>
+                        <span class="badge bg-secondary rounded-pill">{{ slice.created_at|timesince }} ago</span>
+                    </div>
+                    
+                    <div class="mb-3 p-3 rounded" style="background: rgba(0,0,0,0.2); border: 1px solid var(--border-dark);">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Est. Time</small>
+                                <div class="text-light fw-medium">
+                                    {% if slice.formatted_print_time %}
+                                        {{ slice.formatted_print_time }}
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Weight</small>
+                                <div class="text-light fw-medium">
+                                    {% if slice.filament_weight_g %}
+                                        {{ slice.filament_weight_g }}g
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Material</small>
+                                <div class="text-light fw-medium">{{ slice.filament_type|default:"Unknown" }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form action="{% url 'projects:assign_slice' slice.id %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Assign to Part</label>
+                            <select name="part_id" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                <option value="">Select a part...</option>
+                                {% for project in projects %}
+                                    <optgroup label="{{ project.name }}">
+                                        {% for part in project.parts.all %}
+                                            <option value="{{ part.id }}">{{ part.name }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Detected Material</label>
+                            <select name="material_id" class="form-select form-select-sm bg-dark text-light border-secondary">
+                                {% if slice.matched_material %}
+                                    <optgroup label="Matched Material">
+                                        <option value="{{ slice.matched_material.id }}" selected>{{ slice.matched_material.name }}</option>
+                                    </optgroup>
+                                {% endif %}
+                                
+                                {% if slice.suggested_material %}
+                                    <optgroup label="Suggested New Material">
+                                        <option value="create_new" {% if not slice.matched_material %}selected{% endif %}>Add New: {{ slice.suggested_material.name }}</option>
+                                    </optgroup>
+                                {% endif %}
+                                
+                                <optgroup label="Your Material Library">
+                                    <option value="" {% if not slice.matched_material and not slice.suggested_material %}selected{% endif %}>Do not assign material</option>
+                                    {% for mat in materials %}
+                                        {% if not slice.matched_material or mat.id != slice.matched_material.id %}
+                                            <option value="{{ mat.id }}">{{ mat.name }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input bg-dark border-secondary" type="checkbox" name="mark_complete" id="markComplete{{ slice.id }}">
+                            <label class="form-check-label small text-muted" for="markComplete{{ slice.id }}">
+                                Mark part as fully complete
+                            </label>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-sm btn-primary flex-grow-1" style="border-radius: 8px;">
+                                <i class="fas fa-check me-1"></i> Assign
+                            </button>
+                            <a href="{% url 'projects:dismiss_slice' slice.id %}" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;" title="Dismiss">
+                                <i class="fas fa-times"></i>
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="fas fa-inbox fa-4x text-muted opacity-50"></i>
+        </div>
+        <h4 class="text-light fw-bold">Inbox Empty</h4>
+        <p class="text-muted">No new slicer files have been detected.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -684,6 +684,18 @@
                             </button>
                         </form>
                     </li>
+                    {% if enable_slicer_inbox %}
+                    <li class="nav-item">
+                        <a id="slicer-inbox-link" class="nav-link position-relative" href="{% url 'projects:slicer_inbox' %}" title="Slicer Inbox">
+                            <i class="fas fa-inbox"></i>
+                            {% if unclaimed_slices_count %}
+                            <span id="slicer-inbox-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                                {{ unclaimed_slices_count }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'projects:settings' %}" title="Settings">
                             <i class="fas fa-cog"></i>
@@ -752,8 +764,36 @@
             return null;
         }
 
-        // Initialize all toasts
-        document.addEventListener('DOMContentLoaded', function () {
+        // Initialize theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = getCookie('theme_preference') || 'dark';
+            applyTheme(savedTheme);
+            
+            // Slicer Inbox Polling
+            const inboxLink = document.getElementById('slicer-inbox-link');
+            if (inboxLink) {
+                setInterval(function() {
+                    fetch('/api/slicer/inbox_count/')
+                        .then(response => response.json())
+                        .then(data => {
+                            let badge = document.getElementById('slicer-inbox-badge');
+                            if (data.count > 0) {
+                                if (!badge) {
+                                    badge = document.createElement('span');
+                                    badge.id = 'slicer-inbox-badge';
+                                    badge.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger';
+                                    badge.style.fontSize = '0.65rem';
+                                    inboxLink.appendChild(badge);
+                                }
+                                badge.textContent = data.count;
+                            } else if (badge) {
+                                badge.remove();
+                            }
+                        })
+                        .catch(err => console.error('Error fetching inbox count:', err));
+                }, 15000); // 15 seconds
+            }
+
             var toastElList = [].slice.call(document.querySelectorAll('.toast'));
             var toastList = toastElList.map(function (toastEl) {
                 var toast = new bootstrap.Toast(toastEl, {

@@ -90,6 +90,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'projects.context_processors.demo_banner',
+                'projects.context_processors.slicer_inbox_count',
             ],
         },
     },

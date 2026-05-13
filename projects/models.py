@@ -204,6 +204,18 @@ class Part(models.Model):
                                       format='JPEG',
                                       options={'quality': 85})
     volume = models.FloatField(null=True, blank=True, help_text="Volume in cubic millimeters")
+    
+    # Slicer Integration Fields
+    print_time_seconds = models.IntegerField(null=True, blank=True, help_text="Total print time for one copy in seconds")
+    filament_weight_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Filament weight for one copy in grams")
+    assigned_slice_filename = models.CharField(max_length=255, blank=True, help_text="Filename of the assigned slice for exact MQTT tracking")
+    
+    PRINT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('printing', 'Printing'),
+        ('completed', 'Completed'),
+    ]
+    print_status = models.CharField(max_length=20, choices=PRINT_STATUS_CHOICES, default='pending')
 
     def __str__(self):
         return self.name
@@ -362,6 +374,7 @@ class UserSettings(models.Model):
     settings_type = models.CharField(max_length=50, choices=[
         ('general', 'General Settings'),
         ('appearance', 'Appearance Settings'),
+        ('api', 'API Security Settings'),
         ('machines', 'Machine Settings')
     ])
     settings_data = models.TextField(blank=True, null=True)  # Store JSON data
@@ -392,6 +405,11 @@ class Machine(models.Model):
     print_volume_x = models.PositiveIntegerField(help_text="Print volume X in mm")
     print_volume_y = models.PositiveIntegerField(help_text="Print volume Y in mm")
     print_volume_z = models.PositiveIntegerField(help_text="Print volume Z in mm")
+    
+    # MQTT Sync Fields
+    ip_address = models.CharField(max_length=45, blank=True, null=True, help_text="IP address of the printer on the local network")
+    mqtt_access_code = models.CharField(max_length=100, blank=True, null=True, help_text="Access code for MQTT authentication")
+    
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -401,3 +419,38 @@ class Machine(models.Model):
 
     class Meta:
         ordering = ['name']
+
+class UnclaimedSlice(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('claimed', 'Claimed'),
+        ('dismissed', 'Dismissed'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='unclaimed_slices')
+    filename = models.CharField(max_length=255)
+    print_time_seconds = models.IntegerField(null=True, blank=True)
+    filament_weight_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    filament_type = models.CharField(max_length=100, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def formatted_print_time(self):
+        if not self.print_time_seconds:
+            return None
+        hours = self.print_time_seconds // 3600
+        minutes = (self.print_time_seconds % 3600) // 60
+        seconds = self.print_time_seconds % 60
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes:02d}:{seconds:02d}"
+
+    def __str__(self):
+        return f"{self.filename} ({self.get_status_display()})"
+
+    class Meta:
+        ordering = ['-created_at']
