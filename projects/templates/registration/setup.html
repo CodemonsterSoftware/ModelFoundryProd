@@ -1,0 +1,60 @@
+{% extends 'projects/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Welcome - First Setup{% endblock %}
+
+{% block navbar %}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .setup-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .glass-card {
+        background: rgba(33, 37, 41, 0.85);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .welcome-icon {
+        font-size: 3rem;
+        color: #0d6efd;
+        margin-bottom: 1rem;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 setup-container">
+    <div class="glass-card p-5">
+        <div class="text-center mb-4">
+            <i class="fas fa-rocket welcome-icon"></i>
+            <h2 class="fw-bold mb-2 text-white">Welcome to ModelFoundry!</h2>
+            <p class="text-muted">Let's get started by creating your primary administrator account.</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary btn-lg fw-bold">
+                    <i class="fas fa-check-circle me-2"></i>Create Admin Account
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

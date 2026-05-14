@@ -4,7 +4,7 @@
     "version": "1.0.0",
     "author": "ModelFoundry",
     "description": "Slice models into printable parts with joinery.",
-    "icon": "bi-scissors",
+    "icon": "fa-border-all",
     "backend": "python",
     "template": "grid_slicer/ui.html",
     "main": "main.py",

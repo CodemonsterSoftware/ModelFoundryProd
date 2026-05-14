@@ -42,6 +42,7 @@ urlpatterns = [
     path('materials/add/', views.material_create, name='material_create'),
     path('materials/<int:material_id>/edit/', views.material_edit, name='material_edit'),
     path('materials/<int:material_id>/delete/', views.material_delete, name='material_delete'),
+    path('api/materials/create/', views.api_material_create, name='api_material_create'),
     path('api/ofd/inventory/', views.api_ofd_inventory, name='api_ofd_inventory'),
     path('api/ofd/filament/', views.api_ofd_filament, name='api_ofd_filament'),
     path('api/slicer/sync/', views.api_slicer_sync, name='api_slicer_sync'),
@@ -58,4 +59,7 @@ urlpatterns = [
     path('project/<int:image_id>/delete-image/', views.delete_project_image, name='delete_project_image'),
     path('project/<int:image_id>/set-thumbnail/', views.set_project_thumbnail, name='set_project_thumbnail'),
     path('settings/', login_required(views.settings), name='settings'),
+    path('api/logs/system/', login_required(views.api_system_logs), name='api_system_logs'),
+    path('api/logs/machine/<int:machine_id>/', login_required(views.api_machine_logs), name='api_machine_logs'),
+    path('insights/', login_required(views.insights), name='insights'),
 ] 

@@ -1,6 +1,6 @@
 /* Taggle.js custom styling */
 .tags-input {
-    padding: 0.375rem 0.75rem;
+    padding: 0;
     border: 1px solid var(--border-dark);
     border-radius: 0.25rem;
     background-color: var(--bg-darker);
@@ -18,7 +18,6 @@
     border: none !important;
     background: none !important;
     box-shadow: none !important;
-    outline: none !important;
 }
 
 /* Override any potential bootstrap form styling */
@@ -30,7 +29,7 @@
 }
 
 .taggle_list {
-    padding: 0;
+    padding: 0.375rem 0.75rem;
     margin: 0;
     display: flex;
     flex-wrap: wrap;
@@ -77,10 +76,11 @@
     border: 1px solid var(--border-dark);
     color: var(--text-light);
     margin: 2px;
-    padding: 5px 25px 5px 10px;
+    padding: 5px 30px 5px 10px;
     border-radius: 3px;
     position: relative;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
@@ -88,34 +88,43 @@
 }
 
 .taggle .taggle_text {
-    margin-right: 0;
+    margin-right: 8px;
     display: inline-block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    padding-right: 5px;
 }
 
-.taggle .taggle_close {
+.taggle .close {
     position: absolute;
-    right: 5px;
-    top: 5px;
-    color: var(--text-light);
-    opacity: 0.5;
-    padding: 0 5px;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #fff;
+    opacity: 0.7;
+    padding: 2px;
     cursor: pointer;
-    font-size: 14px;
-    height: 100%;
+    font-size: 16px;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
 }
 
-.taggle .taggle_close:after {
-    content: "×";
-    font-weight: bold;
-}
-
-.taggle .taggle_close:hover {
+.taggle .close:hover {
     opacity: 1;
+    background: transparent !important;
 }
 
 /* Bootstrap form control overrides for taggle */
@@ -152,4 +161,152 @@
     --border-dark: #404040;
     --primary-color: #0d6efd;
     --border-color: var(--border-dark);
-} 
+}
+
+/* Premium Index Styling */
+.premium-index-wrapper {
+    font-family: 'Inter', sans-serif;
+    padding-top: 1.5rem;
+}
+
+/* Hero Section Styling */
+.premium-hero {
+    position: relative;
+    margin-top: 1rem;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--bg-darker) 60%, transparent) 0%, color-mix(in srgb, var(--bg-grey) 80%, transparent) 100%);
+    border: 1px solid var(--border-dark);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.premium-hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, var(--primary-color) 0%, transparent 40%);
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+.hero-title {
+    font-weight: 700;
+    background: linear-gradient(90deg, #fff, var(--text-muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.5px;
+    margin-bottom: 1rem !important;
+}
+
+/* Card Redesign */
+.premium-card {
+    background-color: var(--bg-darker);
+    border: 1px solid var(--border-dark);
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.premium-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-color);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 2;
+}
+
+.premium-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.premium-card:hover::before {
+    opacity: 1;
+}
+
+/* Badges */
+.premium-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.4em 0.8em;
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
+    color: var(--text-light);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-right: 0.25rem;
+    margin-bottom: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.premium-badge i {
+    color: var(--primary-color);
+}
+
+/* Icon Wrappers */
+.module-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* Staggered Entrance Animation */
+.animate-enter {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeUpEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes fadeUpEnter {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Empty State */
+.empty-state-dashed {
+    border: 2px dashed var(--border-dark);
+    border-radius: 20px;
+    padding: 4rem 2rem;
+    text-align: center;
+    background: color-mix(in srgb, var(--bg-darker) 30%, transparent);
+    transition: all 0.3s ease;
+}
+
+.empty-state-dashed:hover {
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--bg-darker) 50%, transparent);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    color: var(--border-dark);
+    margin-bottom: 1.5rem;
+    transition: color 0.3s ease;
+}
+
+.empty-state-dashed:hover .empty-icon {
+    color: var(--primary-color);
+}

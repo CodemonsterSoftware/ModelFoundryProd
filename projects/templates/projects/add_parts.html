@@ -43,21 +43,19 @@
     border: none;
     background: transparent;
 }
-.table-hover tbody tr:hover {
-    background-color: var(--bg-grey) !important;
-}
 .sticky-header {
     position: sticky;
     top: 0;
-    background: white;
+    background: rgba(30, 30, 30, 0.8);
+    backdrop-filter: blur(10px);
     z-index: 1;
 }
 .upload-area {
-    border: 2px dashed #404040;
-    border-radius: 5px;
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
     padding: 20px;
     text-align: center;
-    background: #2d2d2d;
+    background: rgba(255, 255, 255, 0.02);
     cursor: pointer;
     transition: all 0.3s ease;
     margin-top: 15px;
@@ -68,61 +66,30 @@
     justify-content: center;
 }
 .upload-area:hover {
-    border-color: #0d6efd;
-    background: #333333;
+    border-color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.05);
 }
 .upload-area.dragover {
-    border-color: #0d6efd;
-    background: #333333;
-    box-shadow: 0 0 10px rgba(13, 110, 253, 0.3);
-}
-.form-label {
-    color: #e0e0e0 !important;
-}
-.form-control {
-    background-color: #2d2d2d !important;
-    border-color: #404040 !important;
-    color: #e0e0e0 !important;
-}
-.form-control:focus {
-    background-color: #2d2d2d !important;
-    border-color: #404040 !important;
-    color: #e0e0e0 !important;
-}
-.form-select {
-    background-color: #2d2d2d !important;
-    border-color: #404040 !important;
-    color: #e0e0e0 !important;
-}
-.form-select:focus {
-    background-color: #2d2d2d !important;
-    border-color: #404040 !important;
-    color: #e0e0e0 !important;
-}
-.card {
-    background-color: #2d2d2d !important;
-    border-color: #404040 !important;
-}
-.card-header {
-    background-color: #333333 !important;
-    border-bottom-color: #404040 !important;
-    color: #e0e0e0 !important;
+    border-color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 15px rgba(13, 110, 253, 0.2);
 }
 .table {
     color: var(--text-light) !important;
 }
 .table th {
-    background-color: var(--bg-grey) !important;
-    border-color: var(--border-dark) !important;
+    background: rgba(30, 30, 30, 0.8) !important;
+    backdrop-filter: blur(10px);
+    border-color: var(--border-color) !important;
     color: var(--text-light) !important;
 }
 .table td {
-    background-color: var(--bg-darker) !important;
-    border-color: var(--border-dark) !important;
+    background-color: transparent !important;
+    border-color: var(--border-color) !important;
     color: var(--text-light) !important;
 }
 .table-hover tbody tr:hover {
-    background-color: var(--bg-grey) !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
 }
 .upload-progress-modal {
     z-index: 1060;
@@ -159,11 +126,22 @@
 .upload-stats span {
     color: var(--text-light);
 }
+.no-hover {
+    transition: box-shadow 0.3s ease !important;
+    overflow: visible !important;
+}
+.no-hover:hover {
+    transform: none !important;
+}
+.no-hover::before {
+    display: none !important;
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
+    {% include 'projects/includes/wizard_stepper.html' with current_step=2 %}
     {% csrf_token %}
     <div class="row mb-4">
         <div class="col">
@@ -184,64 +162,73 @@
             {
                 id: "{{ material.id }}",
                 name: "{{ material.name }}",
+                brand: "{{ material.brand|default:'' }}",
+                type_display: "{{ material.get_type_display }}",
                 color: "{{ material.color|default:'#000000' }}"
             }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ];
+        
+        function getMaterialDisplay(m) {
+            let brandStr = m.brand ? m.brand + ' - ' : '';
+            return brandStr + m.name + ' (' + m.type_display + ')';
+        }
     </script>
 
-    <div class="card mb-4">
+    <div class="card premium-card border-0 mb-4 shadow-sm no-hover" style="border-radius: 12px;">
         <div class="card-body">
             <div class="upload-area" id="uploadArea">
                 <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
-                <h5>Drag and drop STL files here</h5>
+                <h5>Drag and drop 3D files here</h5>
                 <p class="text-muted">or click to browse</p>
-                <input type="file" id="fileInput" multiple accept=".stl" style="display: none;">
+                <input type="file" id="fileInput" multiple accept=".stl,.obj,.3mf" style="display: none;">
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header bg-light">
+    <div class="card premium-card border-0 shadow-lg no-hover" style="border-radius: 12px;">
+        <div class="card-header border-bottom border-secondary bg-transparent p-3">
             <div class="row align-items-center">
                 <div class="col-auto">
-                    <button type="button" class="btn btn-success" id="saveAll">
-                        <i class="fas fa-save"></i> Save All
+                    <button type="button" class="btn text-white rounded-3 shadow-sm me-2" id="saveAll" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; padding: 8px 20px;">
+                        <i class="fas fa-save me-2"></i>Save & Continue
+                    </button>
+                    <button type="button" class="btn text-light rounded-3 shadow-sm" id="saveAndSkip" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 8px 20px;">
+                        Save & Skip <i class="fas fa-forward ms-1"></i>
                     </button>
                 </div>
                 <div class="col-auto">
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-secondary" id="copyDown">
-                            <i class="fas fa-arrow-down"></i> Copy Down
+                    <div class="btn-group shadow-sm rounded-3">
+                        <button type="button" class="btn text-white" id="copyDown" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);">
+                            <i class="fas fa-arrow-down me-2"></i>Copy Down
                         </button>
-                        <button type="button" class="btn btn-outline-danger" id="deleteSelected">
-                            <i class="fas fa-trash"></i> Delete Selected
+                        <button type="button" class="btn text-danger" id="deleteSelected" style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); backdrop-filter: blur(10px);">
+                            <i class="fas fa-trash me-2"></i>Delete Selected
                         </button>
                     </div>
                 </div>
                 <div class="col-auto">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="selectAll">
-                        <label class="form-check-label" for="selectAll">Select All</label>
+                    <div class="form-check pt-1">
+                        <input class="form-check-input" type="checkbox" id="selectAll" style="background-color: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2);">
+                        <label class="form-check-label text-light" for="selectAll">Select All</label>
                     </div>
                 </div>
                 <div class="col-auto ms-auto">
-                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newGroupModal">
-                        <i class="fas fa-plus"></i> New Group
+                    <button type="button" class="btn text-primary rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#newGroupModal" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); backdrop-filter: blur(10px);">
+                        <i class="fas fa-plus me-2"></i>New Group
                     </button>
                 </div>
             </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div class="table-responsive" style="min-height: 300px;">
                 <table class="table table-hover table-fixed mb-0" id="partsTable">
                     <thead class="sticky-header">
                         <tr>
                             <th style="width: 40px;"><i class="fas fa-check"></i></th>
                             <th style="width: 250px;">Name</th>
                             <th style="width: 100px;">Quantity</th>
-                            <th style="width: 150px;">Material</th>
-                            <th style="width: 100px;">Color</th>
+                            <th style="width: 250px;">Material</th>
                             <th style="width: 150px;">Group</th>
                         </tr>
                     </thead>
@@ -256,10 +243,10 @@
 <!-- Upload Progress Modal -->
 <div class="modal fade upload-progress-modal" id="uploadProgressModal" tabindex="-1" aria-labelledby="uploadProgressModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadProgressModalLabel">
-                    <i class="fas fa-upload me-2"></i>Uploading Parts
+        <div class="modal-content premium-card border-0" style="background: var(--bg-dark); border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);">
+            <div class="modal-header border-bottom border-dark">
+                <h5 class="modal-title fw-bold" id="uploadProgressModalLabel">
+                    <i class="fas fa-upload me-2 text-primary"></i>Uploading Parts
                 </h5>
             </div>
             <div class="modal-body">
@@ -291,10 +278,10 @@
 <!-- New Group Modal -->
 <div class="modal fade" id="newGroupModal" tabindex="-1" aria-labelledby="newGroupModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="newGroupModalLabel">Create New Group</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content premium-card border-0" style="background: var(--bg-dark); border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);">
+            <div class="modal-header border-bottom border-dark">
+                <h5 class="modal-title fw-bold" id="newGroupModalLabel">Create New Group</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="newGroupForm">
@@ -304,9 +291,52 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer border-top border-dark">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="createGroup">Create Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Material Modal -->
+<div class="modal fade" id="newMaterialModal" tabindex="-1" aria-labelledby="newMaterialModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content premium-card border-0" style="background: var(--bg-dark); border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);">
+            <div class="modal-header border-bottom border-dark">
+                <h5 class="modal-title fw-bold" id="newMaterialModalLabel">Create New Material</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newMaterialForm">
+                    <input type="hidden" id="materialTargetRowId">
+                    <div class="mb-3">
+                        <label for="materialName" class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="materialName" placeholder="e.g. PolyLite PLA Black" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="materialBrand" class="form-label">Brand</label>
+                            <input type="text" class="form-control" id="materialBrand" placeholder="e.g. Polymaker">
+                        </div>
+                        <div class="col-6">
+                            <label for="materialType" class="form-label">Type</label>
+                            <select class="form-select" id="materialType">
+                                {% for val, label in material_types %}
+                                    <option value="{{ val }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialColor" class="form-label">Color Swatch</label>
+                        <input type="color" class="form-control form-control-color w-100" id="materialColor" value="#000000" title="Choose material color">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-top border-dark">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveNewMaterial">Save Material</button>
             </div>
         </div>
     </div>
@@ -323,8 +353,10 @@ $(document).ready(function() {
     
     // Handle click on upload area
     $uploadArea.on('click', function(e) {
-        e.preventDefault();
-        $fileInput.trigger('click');
+        if (e.target !== $fileInput[0]) {
+            e.preventDefault();
+            $fileInput[0].click();
+        }
     });
     
     // Handle file selection
@@ -352,7 +384,8 @@ $(document).ready(function() {
     // Function to handle uploaded files
     function handleFiles(files) {
         Array.from(files).forEach(file => {
-            if (file.name.toLowerCase().endsWith('.stl')) {
+            const ext = file.name.toLowerCase().split('.').pop();
+            if (['stl', 'obj', '3mf'].includes(ext)) {
                 addRowFromFile(file);
             }
         });
@@ -372,18 +405,31 @@ $(document).ready(function() {
             <td class="editable-cell">
                 <input type="number" class="editable-input" name="quantity" value="1" min="1">
             </td>
-            <td class="editable-cell">
-                <select class="editable-select" name="material">
-                    <option value="">Select Material</option>
-                    ${materialsData.map(material => `
-                        <option value="${material.id}" data-color="${material.color}">
-                            ${material.name}
-                        </option>
-                    `).join('')}
-                </select>
-            </td>
-            <td class="editable-cell">
-                <input type="color" class="color-input" name="color" value="#000000">
+            <td class="editable-cell" style="position: relative;">
+                <div class="dropdown w-100 h-100">
+                    <button class="editable-select w-100 h-100 text-start d-flex align-items-center justify-content-between" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border: none; background: transparent; padding: 8px;">
+                        <div class="d-flex align-items-center overflow-hidden">
+                            <div class="color-swatch-indicator rounded-circle border border-secondary d-none me-2" style="width: 14px; height: 14px; flex-shrink: 0;"></div>
+                            <span class="selected-material-text text-truncate">Select Material</span>
+                        </div>
+                    </button>
+                    <ul class="dropdown-menu w-100 bg-dark border-secondary custom-material-dropdown shadow-lg" style="max-height: 300px; overflow-y: auto;">
+                        <li><a class="dropdown-item material-option" href="#" data-value="">Select Material</a></li>
+                        <li><hr class="dropdown-divider border-secondary"></li>
+                        <li><a class="dropdown-item material-option fw-bold text-primary" href="#" data-value="create_new"><i class="fas fa-plus me-2"></i>Create New Material</a></li>
+                        <li><hr class="dropdown-divider border-secondary"></li>
+                        ${materialsData.map(material => `
+                            <li>
+                                <a class="dropdown-item material-option d-flex align-items-center" href="#" data-value="${material.id}" data-color="${material.color}">
+                                    <div class="color-swatch me-2 rounded-circle border border-secondary" style="background-color: ${material.color}; width: 14px; height: 14px; flex-shrink: 0;"></div>
+                                    <span class="text-truncate">${getMaterialDisplay(material)}</span>
+                                </a>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                <input type="hidden" name="material" class="material-hidden-input" value="">
+                <input type="hidden" name="color" value="#000000">
             </td>
             <td class="editable-cell">
                 <select class="editable-select" name="group">
@@ -396,7 +442,7 @@ $(document).ready(function() {
         `);
         
         // Set the filename as the part name (without extension)
-        const fileName = file.name.replace(/\.stl$/i, '');
+        const fileName = file.name.replace(/\.(stl|obj|3mf)$/i, '');
         $newRow.find('[name="name"]').val(fileName);
         
         // Add file data attribute
@@ -404,16 +450,48 @@ $(document).ready(function() {
         
         $table.find('tbody').append($newRow);
         rowCount++;
-
-        // Add event listener for material selection
-        $newRow.find('[name="material"]').change(function() {
-            const selectedOption = $(this).find('option:selected');
-            const color = selectedOption.data('color');
-            if (color) {
-                $newRow.find('[name="color"]').val(color);
-            }
-        });
     }
+
+    // Helper to update material dropdown UI
+    function updateMaterialDropdownUI($row, value, color, text) {
+        $row.find('.material-hidden-input').val(value);
+        if (color) {
+            $row.find('[name="color"]').val(color);
+            $row.find('.color-swatch-indicator').css('background-color', color).removeClass('d-none');
+            $row.find('.selected-material-text').text(text);
+        } else {
+            $row.find('.color-swatch-indicator').addClass('d-none');
+            $row.find('.selected-material-text').text('Select Material');
+            $row.find('[name="color"]').val('#000000');
+        }
+    }
+
+    // Handle material selection via delegated event
+    $table.on('click', '.material-option', function(e) {
+        e.preventDefault();
+        const $row = $(this).closest('tr');
+        const value = $(this).data('value');
+        
+        if (value === 'create_new') {
+            $('#materialTargetRowId').val($row.attr('data-id'));
+            const modal = new bootstrap.Modal(document.getElementById('newMaterialModal'));
+            modal.show();
+            return;
+        }
+
+        const color = $(this).data('color');
+        const text = $(this).text().trim();
+        updateMaterialDropdownUI($row, value, color, text);
+    });
+
+    // Fix for dropdown clipping in table-responsive
+    $table.on('show.bs.dropdown', function () {
+        $('.table-responsive').css("overflow", "inherit");
+    });
+
+    $table.on('hide.bs.dropdown', function () {
+        $('.table-responsive').css("overflow", "auto");
+    });
 
     // Select all rows
     $('#selectAll').change(function() {
@@ -428,14 +506,17 @@ $(document).ready(function() {
 
         const $firstRow = $selectedRows.first();
         const values = {
-            material: $firstRow.find('[name="material"]').val(),
-            color: $firstRow.find('[name="color"]').val(),
+            material: $firstRow.find('.material-hidden-input').val(),
             group: $firstRow.find('[name="group"]').val()
         };
 
         $selectedRows.each(function() {
-            $(this).find('[name="material"]').val(values.material);
-            $(this).find('[name="color"]').val(values.color);
+            const $option = $(this).find(`.material-option[data-value="${values.material}"]`);
+            if ($option.length) {
+                const color = $option.data('color');
+                const text = $option.text().trim();
+                updateMaterialDropdownUI($(this), values.material, color, text);
+            }
             $(this).find('[name="group"]').val(values.group);
         });
     });
@@ -472,7 +553,8 @@ $(document).ready(function() {
     }
 
     // Save all parts
-    $('#saveAll').click(function() {
+    $('#saveAll, #saveAndSkip').click(function() {
+        const skipInstructions = $(this).attr('id') === 'saveAndSkip';
         const formData = new FormData();
         const parts = [];
         let totalSize = 0;
@@ -659,7 +741,7 @@ $(document).ready(function() {
                             $('#uploadStatus').text('Upload complete! Redirecting...');
                             $('#timeRemaining').text('0s');
                             setTimeout(function() {
-                                window.location.href = '{% url "projects:project_detail" project.pk %}';
+                                window.location.href = skipInstructions ? '{% url "projects:project_detail" project.pk %}' : '{% url "projects:upload_instructions" project.pk %}';
                             }, 500);
                         }
                     }, 100);
@@ -673,7 +755,7 @@ $(document).ready(function() {
                             $('#uploadStatus').text('Upload complete! Redirecting...');
                             $('#timeRemaining').text('0s');
                             setTimeout(function() {
-                                window.location.href = '{% url "projects:project_detail" project.pk %}';
+                                window.location.href = skipInstructions ? '{% url "projects:project_detail" project.pk %}' : '{% url "projects:upload_instructions" project.pk %}';
                             }, 500);
                         }
                     }, (actualProcessingTime * 1000) + 2000); // Add 2 second buffer
@@ -773,6 +855,90 @@ $(document).ready(function() {
     // Reset form when modal is closed
     $('#newGroupModal').on('hidden.bs.modal', function() {
         $('#newGroupForm')[0].reset();
+    });
+
+    // Handle new material creation
+    $('#saveNewMaterial').click(function() {
+        const materialName = $('#materialName').val().trim();
+        const materialBrand = $('#materialBrand').val().trim();
+        const materialType = $('#materialType').val();
+        const materialColor = $('#materialColor').val();
+        const targetRowId = $('#materialTargetRowId').val();
+
+        if (!materialName) {
+            alert('Please enter a material name');
+            return;
+        }
+
+        const $btn = $(this);
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i> Saving...').prop('disabled', true);
+
+        $.ajax({
+            url: '{% url "projects:api_material_create" %}',
+            type: 'POST',
+            data: {
+                name: materialName,
+                brand: materialBrand,
+                type: materialType,
+                color: materialColor,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    const material = response.material;
+                    // Add the new material to the global array
+                    materialsData.push(material);
+                    
+                    // Create the new option element
+                    const liHtml = `
+                        <li>
+                            <a class="dropdown-item material-option d-flex align-items-center" href="#" data-value="${material.id}" data-color="${material.color}">
+                                <div class="color-swatch me-2 rounded-circle border border-secondary" style="background-color: ${material.color}; width: 14px; height: 14px; flex-shrink: 0;"></div>
+                                <span class="text-truncate">${getMaterialDisplay(material)}</span>
+                            </a>
+                        </li>`;
+                    
+                    // Add the new option to all material selectors
+                    $('.custom-material-dropdown').each(function() {
+                        $(this).append(liHtml);
+                    });
+
+                    // Auto-select it in the target row
+                    if (targetRowId) {
+                        const $targetRow = $(`tr[data-id="${targetRowId}"]`);
+                        if ($targetRow.length) {
+                            updateMaterialDropdownUI($targetRow, material.id, material.color, getMaterialDisplay(material));
+                        }
+                    }
+
+                    // Close the modal and reset the form
+                    $('#newMaterialModal').modal('hide');
+                    $('#newMaterialForm')[0].reset();
+                } else {
+                    alert('Error: ' + (response.message || 'Failed to create material'));
+                }
+            },
+            error: function(xhr) {
+                let errorMsg = 'Error creating material. Please try again.';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.message) {
+                        errorMsg = response.message;
+                    }
+                } catch (e) {}
+                alert(errorMsg);
+            },
+            complete: function() {
+                $btn.html(originalHtml).prop('disabled', false);
+            }
+        });
+    });
+
+    // Reset material form when modal is closed
+    $('#newMaterialModal').on('hidden.bs.modal', function() {
+        $('#newMaterialForm')[0].reset();
+        $('#materialTargetRowId').val('');
     });
 });
 </script>

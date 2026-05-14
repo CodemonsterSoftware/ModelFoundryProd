@@ -25,7 +25,7 @@
     .premium-card::before {
         display: none !important;
     }
-    
+
     /* Standardize card header heights so those without buttons match those with buttons */
     .premium-card .card-header {
         min-height: 56px;
@@ -185,19 +185,22 @@
     .part-thumbnail-wrapper {
         position: relative;
         display: inline-block;
-        z-index: 1; /* Keep above status strip but below hover preview */
+        z-index: 1;
     }
     
-    .part-hover-preview {
-        position: absolute;
-        left: 100%;
-        top: 50%;
+    /* Hide the inline preview, we will use the global one */
+    .part-thumbnail-wrapper .part-hover-preview {
+        display: none !important;
+    }
+    
+    #global-hover-preview {
+        position: fixed;
         transform: translateY(-50%) scale(0.8);
         margin-left: 12px;
         opacity: 0;
         visibility: hidden;
         transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        z-index: 1050;
+        z-index: 999999;
         pointer-events: none;
         background: var(--bg-dark);
         padding: 4px;
@@ -206,18 +209,14 @@
         box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
     
-    .part-hover-preview img {
+    #global-hover-preview img {
         width: 350px;
         height: 350px;
         object-fit: cover;
         border-radius: 8px;
     }
     
-    .part-thumbnail-wrapper:hover {
-        z-index: 1050;
-    }
-    
-    .part-thumbnail-wrapper:hover .part-hover-preview {
+    #global-hover-preview.show-preview {
         opacity: 1;
         visibility: visible;
         transform: translateY(-50%) scale(1);
@@ -457,7 +456,7 @@
             {% if project.tags.all %}
             <div class="d-flex flex-wrap gap-2 mb-4">
                 {% for tag in project.tags.all %}
-                <span class="badge bg-secondary bg-opacity-25 text-light text-uppercase border border-secondary border-opacity-50" style="font-size: 0.75rem;">
+                <span class="badge bg-secondary bg-opacity-25  text-uppercase border border-secondary border-opacity-50" style="font-size: 0.75rem;">
                     <i class="fas fa-tag"></i> {{ tag.name }}
                 </span>
                 {% endfor %}
@@ -495,7 +494,7 @@
                         <div class="stat-label">DESIGNER</div>
                         <div class="stat-value text-truncate" style="max-width: 100px;">
                             {% if project.designer %}
-                            <a href="{% url 'projects:designer_detail' project.designer.id %}" class="text-decoration-none text-light">{{ project.designer.name }}</a>
+                            <a href="{% url 'projects:designer_detail' project.designer.id %}" class="text-decoration-none ">{{ project.designer.name }}</a>
                             {% else %}None{% endif %}
                         </div>
                     </div>
@@ -507,7 +506,7 @@
                 <a href="{% url 'projects:export_project' project.id %}" class="btn btn-primary" style="border-radius: 8px; padding: 0.5rem 1.5rem; font-weight: 600;">
                     <i class="fas fa-file-export me-1"></i> Export
                 </a>
-                <a href="{% url 'projects:project_update' project.id %}" class="btn btn-secondary text-light" style="border-radius: 8px; padding: 0.5rem 1.5rem; font-weight: 600;">
+                <a href="{% url 'projects:project_update' project.id %}" class="btn btn-secondary " style="border-radius: 8px; padding: 0.5rem 1.5rem; font-weight: 600;">
                     <i class="fas fa-edit me-1"></i> Edit
                 </a>
             </div>
@@ -558,7 +557,7 @@
             </div>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div>
                 <table class="table table-hover border-top-0 mb-0">
                     <thead style="background-color: rgba(0,0,0,0.2);">
                         <tr>
@@ -576,12 +575,13 @@
                         {% for group in grouped_parts %}
                         {% if group.grouper %}
                         <tr style="background-color: rgba(255,255,255,0.02);">
-                            <td colspan="5" class="py-3 text-center"><span class="fs-5 fw-bold text-light">{{ group.grouper.name }}</span></td>
+                            <td colspan="5" class="py-3 text-center"><span class="fs-5 fw-bold ">{{ group.grouper.name }}</span></td>
                         </tr>
                         {% endif %}
                         {% for part in group.list %}
+                        {% if not part.parent %}
                         <tr data-completed="{{ part.completed }}" data-quantity="{{ part.quantity }}" data-part-id="{{ part.id }}"
-                            class="part-row view-part {% if part.completed == part.quantity %}completed-row{% endif %}" style="transition: all 0.2s ease;">
+                            class="part-row {% if part.sub_parts.all %}toggle-parent{% else %}view-part{% endif %} {% if part.completed == part.quantity %}completed-row{% endif %}" style="transition: all 0.2s ease;">
                             <td class="align-middle text-center bulk-edit-col" style="display: none;" onclick="event.stopPropagation();">
                                 <input class="form-check-input part-checkbox" type="checkbox" value="{{ part.id }}">
                             </td>
@@ -603,7 +603,12 @@
                                     </div>
                                     {% endif %}
                                     <div>
-                                        <div class="fw-bold text-light" style="font-size: 1.05rem;">{{ part.name }}</div>
+                                        <div class="fw-bold " style="font-size: 1.05rem;">
+                                            {% if part.sub_parts.all %}
+                                            <i class="fas fa-chevron-down text-primary me-2 toggle-icon" style="transition: transform 0.2s;" title="Toggle Parts"></i>
+                                            {% endif %}
+                                            {{ part.name }}
+                                        </div>
                                         <div class="d-flex align-items-center mt-1">
                                             {% if part.color %}
                                             <span class="badge shadow-sm me-2" style="background-color: {{ part.color }}; width: 10px; height: 10px; padding: 0; border-radius: 50%; display: inline-block; border: 1px solid var(--border-dark);" title="{{ part.color|color_name }}"></span>
@@ -621,14 +626,81 @@
                                 {% endif %}
                             </td>
                             <td class="align-middle text-center part-stepper" onclick="event.stopPropagation();">
+                                {% if not part.sub_parts.all %}
                                 <div class="d-inline-flex align-items-center bg-dark shadow-sm" style="border-radius: 20px; border: 1px solid var(--border-dark);">
                                     <button class="btn btn-sm btn-link text-muted text-decoration-none px-2 py-1 decrease-progress" data-part-id="{{ part.id }}" title="Decrease"><i class="fas fa-minus" style="font-size: 0.75rem;"></i></button>
                                     
-                                    <div class="progress-badge px-2 py-1 fw-bold {% if part.completed == part.quantity %}text-success{% else %}text-light{% endif %}" style="min-width: 50px; text-align: center; font-size: 0.9rem;">
-                                        <span class="completed-val">{{ part.completed }}</span><span class="text-muted mx-1">/</span><span class="quantity-val text-light">{{ part.quantity }}</span>
+                                    <div class="progress-badge px-2 py-1 fw-bold {% if part.completed == part.quantity %}text-success{% else %}{% endif %}" style="min-width: 50px; text-align: center; font-size: 0.9rem;">
+                                        <span class="completed-val">{{ part.completed }}</span><span class="text-muted mx-1">/</span><span class="quantity-val ">{{ part.quantity }}</span>
                                     </div>
                                     
                                     <button class="btn btn-sm btn-link text-muted text-decoration-none px-2 py-1 increase-progress" data-part-id="{{ part.id }}" title="Increase"><i class="fas fa-plus" style="font-size: 0.75rem;"></i></button>
+                                </div>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-25 border border-secondary border-opacity-50 text-muted">{{ part.sub_parts.count }} parts</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle text-center pe-4">
+                                <button class="btn btn-sm btn-outline-primary view-btn" style="border-radius: 6px;" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        
+                        <!-- Child Parts -->
+                        {% for child in part.sub_parts.all %}
+                        <tr data-completed="{{ child.completed }}" data-quantity="{{ child.quantity }}" data-part-id="{{ child.id }}"
+                            class="part-row view-part child-row child-of-{{ part.id }} {% if child.completed == child.quantity %}completed-row{% endif %}" style="transition: all 0.2s ease; background: rgba(0,0,0,0.1);">
+                            <td class="align-middle text-center bulk-edit-col" style="display: none;" onclick="event.stopPropagation();">
+                                <input class="form-check-input part-checkbox" type="checkbox" value="{{ child.id }}">
+                            </td>
+                            <td class="align-middle position-relative text-start">
+                                <!-- Status Strip -->
+                                <div class="status-strip {% if child.completed == child.quantity %}bg-success{% elif child.completed > 0 %}bg-primary{% else %}bg-secondary opacity-50{% endif %}" style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px;"></div>
+                                
+                                <div class="d-flex align-items-center ps-5"> <!-- ps-5 for indent -->
+                                    {% if child.thumbnail %}
+                                    <div class="part-thumbnail-wrapper me-3">
+                                        <img src="{{ child.thumbnail_small.url }}" width="28" height="28" class="rounded shadow-sm">
+                                        <div class="part-hover-preview">
+                                            <img src="{{ child.thumbnail_medium.url }}">
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    <div class="me-3 rounded bg-dark d-flex align-items-center justify-content-center shadow-sm" style="width: 28px; height: 28px; border: 1px solid var(--border-dark);">
+                                        <i class="fas fa-cube text-muted" style="font-size: 0.75rem;"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-bold" style="font-size: 0.95rem;">
+                                            <i class="fas fa-level-up-alt fa-rotate-90 text-muted me-1 small"></i>
+                                            {{ child.name }}
+                                        </div>
+                                        <div class="d-flex align-items-center mt-1">
+                                            {% if child.color %}
+                                            <span class="badge shadow-sm me-2" style="background-color: {{ child.color }}; width: 8px; height: 8px; padding: 0; border-radius: 50%; display: inline-block; border: 1px solid var(--border-dark);" title="{{ child.color|color_name }}"></span>
+                                            {% endif %}
+                                            <small class="text-muted" style="font-size: 0.7rem;">{{ child.material|default:"No Material" }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="align-middle text-end">
+                                {% if child.material_cost %}
+                                <span class="fw-medium text-muted">${{ child.material_cost|floatformat:2 }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle text-center part-stepper" onclick="event.stopPropagation();">
+                                <div class="d-inline-flex align-items-center bg-dark shadow-sm" style="border-radius: 20px; border: 1px solid var(--border-dark);">
+                                    <button class="btn btn-sm btn-link text-muted text-decoration-none px-2 py-1 decrease-progress" data-part-id="{{ child.id }}" title="Decrease"><i class="fas fa-minus" style="font-size: 0.75rem;"></i></button>
+                                    
+                                    <div class="progress-badge px-2 py-1 fw-bold {% if child.completed == child.quantity %}text-success{% else %}{% endif %}" style="min-width: 50px; text-align: center; font-size: 0.9rem;">
+                                        <span class="completed-val">{{ child.completed }}</span><span class="text-muted mx-1">/</span><span class="quantity-val ">{{ child.quantity }}</span>
+                                    </div>
+                                    
+                                    <button class="btn btn-sm btn-link text-muted text-decoration-none px-2 py-1 increase-progress" data-part-id="{{ child.id }}" title="Increase"><i class="fas fa-plus" style="font-size: 0.75rem;"></i></button>
                                 </div>
                             </td>
                             <td class="align-middle text-center pe-4">
@@ -637,6 +709,9 @@
                                 </button>
                             </td>
                         </tr>
+                        {% endfor %}
+                        
+                        {% endif %}
                         {% endfor %}
                         {% empty %}
                         <tr>
@@ -649,9 +724,9 @@
                     <tfoot style="background-color: rgba(0,0,0,0.3); border-top: 2px solid var(--border-dark);">
                         <tr>
                             <td class="bulk-edit-col" style="display: none;"></td>
-                            <td class="py-3 text-start fw-bold text-light"><span class="ps-4 ms-3">Printed Parts Total</span></td>
+                            <td class="py-3 text-start fw-bold "><span class="ps-4 ms-3">Printed Parts Total</span></td>
                             <td class="py-3 text-end fw-bold text-success">${{ project.printed_parts_cost|floatformat:2 }}</td>
-                            <td class="py-3 text-center fw-bold text-light">{{ project.total_parts }} Parts</td>
+                            <td class="py-3 text-center fw-bold ">{{ project.total_parts }} Parts</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -669,7 +744,7 @@
             </a>
         </div>
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div>
                 <table class="table table-hover border-top-0 mb-0">
                     <thead style="background-color: rgba(0,0,0,0.2);">
                         <tr>
@@ -693,12 +768,12 @@
                                         <i class="fas fa-shopping-bag text-muted"></i>
                                     </div>
                                     <div>
-                                        <div class="fw-bold text-light" style="font-size: 1.05rem;">{{ part.name }}</div>
+                                        <div class="fw-bold " style="font-size: 1.05rem;">{{ part.name }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td class="align-middle text-muted">${{ part.price|floatformat:2 }}</td>
-                            <td class="align-middle text-center"><span class="badge bg-dark border border-secondary text-light">{{ part.quantity }}</span></td>
+                            <td class="align-middle text-center"><span class="badge bg-secondary bg-opacity-25 border border-secondary border-opacity-25 ">{{ part.quantity }}</span></td>
                             <td class="align-middle text-end fw-medium text-success">${{ part.price|multiply:part.quantity|floatformat:2 }}</td>
                             <td class="align-middle text-center">
                                 {% if part.link %}
@@ -710,7 +785,7 @@
                                 {% endif %}
                             </td>
                             <td class="align-middle text-center" style="width: 150px;">
-                                <select class="form-select form-select-sm status-select" data-part-id="{{ part.id }}" style="border-radius: 6px; background-color: var(--bg-darker); border-color: var(--border-dark); color: var(--text-light);">
+                                <select class="form-select form-select-sm status-select" data-part-id="{{ part.id }}" style="border-radius: 6px; background-color: var(--bg-darker); border-color: var(--border-dark); color: var(--);">
                                     {% for value, label in PurchasedPart.STATUS_CHOICES %}
                                     <option value="{{ value }}" {% if part.status == value %}selected{% endif %}>
                                         {{ label }}
@@ -736,7 +811,7 @@
                     </tbody>
                     <tfoot style="background-color: rgba(0,0,0,0.3); border-top: 2px solid var(--border-dark);">
                         <tr>
-                            <td class="py-3 text-start fw-bold text-light"><span class="ps-4 ms-3">Purchased Parts Total</span></td>
+                            <td class="py-3 text-start fw-bold "><span class="ps-4 ms-3">Purchased Parts Total</span></td>
                             <td colspan="2"></td>
                             <td class="py-3 text-end fw-bold text-success">${{ project.purchased_parts_cost|floatformat:2 }}</td>
                             <td colspan="3"></td>
@@ -818,30 +893,30 @@
                                 <!-- Floating Action Toolbar (Top Right) -->
                                 <div class="position-absolute top-0 end-0 p-2 z-index-1" style="z-index: 10;">
                                     <div class="btn-group shadow-sm" role="group">
-                                        <button type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light" id="downloadSTL" title="Download STL">
+                                        <button type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary " id="downloadSTL" title="Download 3D File">
                                             <i class="fas fa-download"></i>
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light" id="copyMirrorPart" title="Copy & Mirror">
+                                        <button type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary " id="copyMirrorPart" title="Copy & Mirror">
                                             <i class="fas fa-copy"></i> <span class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
                                         </button>
                                         <div class="btn-group" role="group">
-                                            <button id="sendToSlicerBtn" type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Send to Slicer">
+                                            <button id="sendToSlicerBtn" type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary  dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Send to Slicer">
                                                 <i class="fas fa-paper-plane"></i>
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-secondary bg-dark" aria-labelledby="sendToSlicerBtn" style="font-size: 0.875rem;">
                                                 <li><h6 class="dropdown-header text-muted border-bottom border-secondary mb-1 pb-1">Send to Slicer</h6></li>
                                                 <li>
-                                                    <a class="dropdown-item text-light py-1 d-flex align-items-center ps-4" id="sendToBambuStudio" href="#">
+                                                    <a class="dropdown-item  py-1 d-flex align-items-center ps-4" id="sendToBambuStudio" href="#">
                                                         <i class="fas fa-cube me-2 text-success"></i> Bambu Studio
                                                     </a>
                                                 </li>
                                                 <li>
-                                                    <a class="dropdown-item text-light py-1 d-flex align-items-center ps-4" id="sendToOrcaSlicer" href="#">
+                                                    <a class="dropdown-item  py-1 d-flex align-items-center ps-4" id="sendToOrcaSlicer" href="#">
                                                         <i class="fas fa-cube me-2 text-info"></i> Orca Slicer
                                                     </a>
                                                 </li>
                                                 <li>
-                                                    <a class="dropdown-item text-light py-1 d-flex align-items-center ps-4" id="sendToPrusaSlicer" href="#">
+                                                    <a class="dropdown-item  py-1 d-flex align-items-center ps-4" id="sendToPrusaSlicer" href="#">
                                                         <i class="fas fa-cube me-2 text-warning"></i> PrusaSlicer
                                                     </a>
                                                 </li>
@@ -849,7 +924,7 @@
                                         </div>
                                         {% if forge_modules %}
                                         <div class="btn-group" role="group">
-                                            <button id="forgeActionsBtn" type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Forge Actions">
+                                            <button id="forgeActionsBtn" type="button" class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary  dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Forge Actions">
                                                 <i class="fas fa-hammer"></i>
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-secondary bg-dark" aria-labelledby="forgeActionsBtn" style="font-size: 0.875rem;">
@@ -859,14 +934,14 @@
                                                         {% for action in module.quick_actions %}
                                                             {% if action.sub_actions %}
                                                                 <li class="dropdown-submenu">
-                                                                    <button class="dropdown-item text-light py-1 d-flex align-items-center ps-4 justify-content-between" type="button">
+                                                                    <button class="dropdown-item  py-1 d-flex align-items-center ps-4 justify-content-between" type="button">
                                                                         <span><i class="{{ action.icon|default:module.icon|default:'fas fa-puzzle-piece' }} me-2 text-primary"></i> {{ action.name }}</span>
                                                                         <i class="fas fa-chevron-right ms-2 small text-muted"></i>
                                                                     </button>
                                                                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-secondary bg-dark" style="font-size: 0.875rem;">
                                                                         {% for sub in action.sub_actions %}
                                                                         <li>
-                                                                            <button class="dropdown-item text-light py-1 d-flex align-items-center" onclick="launchForgeModule('{{ module.id }}', '{{ sub.id }}')">
+                                                                            <button class="dropdown-item  py-1 d-flex align-items-center" onclick="launchForgeModule('{{ module.id }}', '{{ sub.id }}')">
                                                                                 <i class="{{ sub.icon|default:'fas fa-play' }} me-2 text-secondary"></i> {{ sub.name }}
                                                                             </button>
                                                                         </li>
@@ -875,7 +950,7 @@
                                                                 </li>
                                                             {% else %}
                                                                 <li>
-                                                                    <button class="dropdown-item text-light py-1 d-flex align-items-center ps-4" onclick="launchForgeModule('{{ module.id }}', '{{ action.id }}')">
+                                                                    <button class="dropdown-item  py-1 d-flex align-items-center ps-4" onclick="launchForgeModule('{{ module.id }}', '{{ action.id }}')">
                                                                         <i class="{{ action.icon|default:module.icon|default:'fas fa-puzzle-piece' }} me-2 text-primary"></i> {{ action.name }}
                                                                     </button>
                                                                 </li>
@@ -892,31 +967,31 @@
                                 <!-- Floating View Controls (Bottom Right) -->
                                 <div class="position-absolute bottom-0 end-0 p-2 d-flex gap-2" style="z-index: 10;">
                                     <div class="dropdown dropup">
-                                        <button class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light shadow-sm dropdown-toggle" type="button" id="viewPresetBtn" data-bs-toggle="dropdown" aria-expanded="false" title="View Angles" disabled>
+                                        <button class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary  shadow-sm dropdown-toggle" type="button" id="viewPresetBtn" data-bs-toggle="dropdown" aria-expanded="false" title="View Angles" disabled>
                                             <i class="fas fa-cube"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow border-secondary bg-dark" aria-labelledby="viewPresetBtn" style="font-size: 0.875rem;">
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="default">Default View</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="default">Default View</a></li>
                                             <li><hr class="dropdown-divider border-secondary opacity-50"></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="wireframe">Wireframe</a></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="flat">Flat Shading</a></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="smooth">Smooth Shading</a></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="xray">X-Ray</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="wireframe">Wireframe</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="flat">Flat Shading</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="smooth">Smooth Shading</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="xray">X-Ray</a></li>
                                             <li><hr class="dropdown-divider border-secondary opacity-50"></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="top">Top View</a></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="front">Front View</a></li>
-                                            <li><a class="dropdown-item text-light view-preset-item" href="#" data-value="side">Side View</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="top">Top View</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="front">Front View</a></li>
+                                            <li><a class="dropdown-item  view-preset-item" href="#" data-value="side">Side View</a></li>
                                         </ul>
                                     </div>
                                     <div class="dropdown dropup">
-                                        <button class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary text-light shadow-sm dropdown-toggle" type="button" id="zoomPresetBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Zoom" disabled>
+                                        <button class="btn btn-sm btn-dark bg-dark bg-opacity-75 border-secondary  shadow-sm dropdown-toggle" type="button" id="zoomPresetBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Zoom" disabled>
                                             <i class="fas fa-search-plus"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end shadow border-secondary bg-dark" aria-labelledby="zoomPresetBtn" style="font-size: 0.875rem;">
-                                            <li><a class="dropdown-item text-light zoom-preset-item" href="#" data-value="25">25%</a></li>
-                                            <li><a class="dropdown-item text-light zoom-preset-item" href="#" data-value="50">50%</a></li>
-                                            <li><a class="dropdown-item text-light zoom-preset-item active" href="#" data-value="75">75%</a></li>
-                                            <li><a class="dropdown-item text-light zoom-preset-item" href="#" data-value="100">100%</a></li>
+                                            <li><a class="dropdown-item  zoom-preset-item" href="#" data-value="25">25%</a></li>
+                                            <li><a class="dropdown-item  zoom-preset-item" href="#" data-value="50">50%</a></li>
+                                            <li><a class="dropdown-item  zoom-preset-item active" href="#" data-value="75">75%</a></li>
+                                            <li><a class="dropdown-item  zoom-preset-item" href="#" data-value="100">100%</a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -958,7 +1033,7 @@
                                 <div class="d-flex gap-4 mt-2 px-3 py-2" style="border-left: 3px solid var(--primary-color); background: rgba(0,0,0,0.1); border-radius: 0 8px 8px 0;">
                                     <div>
                                         <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Volume</small>
-                                        <div class="fw-bold text-light" id="calculatedVolume" style="font-size: 1.1rem;">-</div>
+                                        <div class="fw-bold " id="calculatedVolume" style="font-size: 1.1rem;">-</div>
                                     </div>
                                     <div>
                                         <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 0.5px;">Material Cost</small>
@@ -981,10 +1056,10 @@
                                                     <span id="selectedMaterial">Select Material</span>
                                                 </button>
                                                 <ul class="dropdown-menu w-100 bg-dark border-secondary" aria-labelledby="materialDropdown">
-                                                    <li><a class="dropdown-item text-light" href="#" data-value="">Select Material</a></li>
+                                                    <li><a class="dropdown-item " href="#" data-value="">Select Material</a></li>
                                                     {% for material in materials %}
                                                     <li>
-                                                        <a class="dropdown-item text-light d-flex align-items-center" href="#"
+                                                        <a class="dropdown-item  d-flex align-items-center" href="#"
                                                             data-value="{{ material.id }}"
                                                             data-color="{{ material.color|default:'#000000' }}">
                                                             <div class="color-swatch me-2"
@@ -1113,9 +1188,9 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-2">
-                                    <label class="form-label small">STL File</label>
+                                    <label class="form-label small">3D File</label>
                                     <input type="file" class="form-control form-control-sm" id="partStlFile"
-                                        accept=".stl">
+                                        accept=".stl,.obj,.3mf">
                                 </div>
                             </div>
                         </div>
@@ -1182,7 +1257,7 @@
 
     <!-- Floating Bulk Action Bar -->
     <div class="bulk-action-bar" id="bulkActionBar">
-        <span class="text-light fw-bold"><span id="bulkSelectedCount">0</span> Selected</span>
+        <span class=" fw-bold"><span id="bulkSelectedCount">0</span> Selected</span>
         <div class="vr bg-secondary opacity-50 mx-1"></div>
         <button class="btn btn-sm btn-outline-primary" id="btnBulkEditModal">
             <i class="fas fa-edit"></i> Edit
@@ -1258,7 +1333,7 @@
                             {% endif %}
                             <div class="instruction-description mt-4 text-center">
                                 <h6 class="fw-bold text-warning mb-2">Step {{ instruction.order }}</h6>
-                                <p class="text-light mb-0">{{ instruction.description }}</p>
+                                <p class=" mb-0">{{ instruction.description }}</p>
                             </div>
                         </li>
                         {% endfor %}
@@ -1283,11 +1358,11 @@
                 <div class="d-flex align-items-center text-end">
                     <div class="me-4 pe-4 border-end border-secondary border-opacity-25">
                         <div class="text-muted small text-uppercase fw-bold tracking-tight mb-1">Printed Parts</div>
-                        <div class="fs-5 fw-medium text-light">${{ project.printed_parts_cost|floatformat:2 }}</div>
+                        <div class="fs-5 fw-medium ">${{ project.printed_parts_cost|floatformat:2 }}</div>
                     </div>
                     <div class="me-4 pe-4 border-end border-secondary border-opacity-25">
                         <div class="text-muted small text-uppercase fw-bold tracking-tight mb-1">Purchased Parts</div>
-                        <div class="fs-5 fw-medium text-light">${{ project.purchased_parts_cost|floatformat:2 }}</div>
+                        <div class="fs-5 fw-medium ">${{ project.purchased_parts_cost|floatformat:2 }}</div>
                     </div>
                     <div>
                         <div class="text-muted small text-uppercase fw-bold tracking-tight mb-1">Grand Total</div>
@@ -1298,7 +1373,7 @@
         </div>
         <div class="card-body p-0">
             {% if material_info %}
-            <div class="table-responsive">
+            <div class="table-responsive" style="overflow-y: hidden;">
                 <table class="table table-hover border-top-0 mb-0">
                     <thead style="background-color: rgba(0,0,0,0.2);">
                         <tr>
@@ -1338,12 +1413,44 @@
         </div>
     </div>
 
+    <!-- Global Hover Preview for Part Thumbnails to avoid clipping and z-index issues -->
+    <div id="global-hover-preview">
+        <img src="" alt="Part Preview">
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const globalPreview = document.getElementById('global-hover-preview');
+    const globalImg = globalPreview.querySelector('img');
+    
+    document.querySelectorAll('.part-thumbnail-wrapper').forEach(wrapper => {
+        wrapper.addEventListener('mouseenter', () => {
+            const previewImg = wrapper.querySelector('.part-hover-preview img');
+            if (previewImg) {
+                globalImg.src = previewImg.src;
+                const rect = wrapper.getBoundingClientRect();
+                
+                // Position fixed relative to viewport
+                globalPreview.style.top = (rect.top + rect.height / 2) + 'px';
+                globalPreview.style.left = rect.right + 'px';
+                globalPreview.classList.add('show-preview');
+            }
+        });
+        
+        wrapper.addEventListener('mouseleave', () => {
+            globalPreview.classList.remove('show-preview');
+        });
+    });
+});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/3MFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/mcstudios/glightbox/dist/js/glightbox.min.js"></script>
@@ -1416,50 +1523,65 @@
                 $('.view-preset-item').removeClass('active');
                 $(this).addClass('active');
                 
+                let currentColor = 0xcccccc;
+                model.traverse(function(child) {
+                    if (child.isMesh && child.material && child.material.color) {
+                        currentColor = child.material.color;
+                    }
+                });
+                
+                const applyMaterial = function(mat) {
+                    model.traverse(function(child) {
+                        if (child.isMesh) {
+                            child.material = mat;
+                        }
+                    });
+                };
+
                 switch (preset) {
                     case 'default':
                         // Reset to default settings
-                        model.material = new THREE.MeshPhongMaterial({
-                            color: model.material.color,
+                        applyMaterial(new THREE.MeshPhongMaterial({
+                            color: currentColor,
                             specular: 0x111111,
                             shininess: 200
-                        });
+                        }));
                         camera.position.set(0, 0, 5);
                         controls.reset();
                         break;
 
                     case 'wireframe':
-                        model.material = new THREE.MeshBasicMaterial({
-                            color: model.material.color,
+                        applyMaterial(new THREE.MeshBasicMaterial({
+                            color: currentColor,
                             wireframe: true
-                        });
+                        }));
                         break;
 
                     case 'flat':
-                        model.material = new THREE.MeshPhongMaterial({
-                            color: model.material.color,
+                        applyMaterial(new THREE.MeshPhongMaterial({
+                            color: currentColor,
                             flatShading: true,
                             specular: 0x111111,
                             shininess: 200
-                        });
+                        }));
                         break;
 
                     case 'smooth':
-                        model.material = new THREE.MeshPhongMaterial({
-                            color: model.material.color,
+                        applyMaterial(new THREE.MeshPhongMaterial({
+                            color: currentColor,
                             flatShading: false,
                             specular: 0x111111,
                             shininess: 200
-                        });
+                        }));
                         break;
 
                     case 'xray':
-                        model.material = new THREE.MeshPhongMaterial({
-                            color: model.material.color,
+                        applyMaterial(new THREE.MeshPhongMaterial({
+                            color: currentColor,
                             transparent: true,
                             opacity: 0.5,
                             side: THREE.DoubleSide
-                        });
+                        }));
                         break;
 
                     case 'top':
@@ -1551,91 +1673,155 @@
         // Convert color string to hex
         const hexColor = color.startsWith('#') ? color : '#' + color;
 
-        // Load STL file
-        const loader = new THREE.STLLoader();
-        loader.load(
-            url,
-            function (geometry) {
-                console.log('STL file loaded successfully');
+        // Load file based on extension
+        const urlLower = url.toLowerCase();
+        let loader;
+        
+        const onLoad = function (object) {
+            console.log('Model loaded successfully');
 
-                try {
-                    // Create material with the part's color
-                    const material = new THREE.MeshPhongMaterial({
-                        color: hexColor,
-                        specular: 0x111111,
-                        shininess: 200
+            try {
+                // Create material with the part's color
+                const material = new THREE.MeshPhongMaterial({
+                    color: hexColor,
+                    specular: 0x111111,
+                    shininess: 200
+                });
+
+                if (object.isBufferGeometry) {
+                    model = new THREE.Mesh(object, material);
+                } else {
+                    // Group or Scene
+                    model = object;
+                    model.traverse(function (child) {
+                        if (child.isMesh) {
+                            child.material = material;
+                        }
                     });
-
-                    // Create mesh
-                    model = new THREE.Mesh(geometry, material);
-
-                    // Center and normalize model
-                    geometry.computeBoundingBox();
-                    const box = geometry.boundingBox;
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-
-                    // Calculate the maximum dimension of the model
-                    const maxDim = Math.max(size.x, size.y, size.z);
-
-                    // Calculate the viewport size
-                    const viewportWidth = container.clientWidth;
-                    const viewportHeight = container.clientHeight;
-                    const viewportSize = Math.min(viewportWidth, viewportHeight);
-
-                    // Calculate scale to make model take up 75% of the viewport
-                    const scale = (viewportSize * 0.75) / maxDim;
-
-                    // Apply transformations
-                    model.scale.set(scale, scale, scale);
-                    model.position.sub(center.multiplyScalar(scale));
-
-                    // Add to scene
-                    scene.add(model);
-
-                    // Update camera to fit model
-                    const distance = maxDim * 3.5;
-                    camera.position.set(distance, distance, distance);
-                    camera.lookAt(0, 0, 0);
-                    controls.target.set(0, 0, 0);
-
-                    // Hide loading indicator and enable controls
-                    $('#viewerLoading').hide();
-                    $('#viewPresetBtn').prop('disabled', false);
-                    $('#zoomPresetBtn').prop('disabled', false);
-                    $('.view-preset-item').removeClass('active');
-                    $('.view-preset-item[data-value="default"]').addClass('active');
-                    $('.zoom-preset-item').removeClass('active');
-                    $('.zoom-preset-item[data-value="75"]').addClass('active');
-                } catch (error) {
-                    console.error('Error processing STL model:', error);
-                    $('#viewerLoading').hide();
-                    $('#viewerError').html(`
-                        <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
-                        <p class="mt-2">Failed to process 3D model</p>
-                        <p class="small text-muted">${error.message}</p>
-                    `).show();
                 }
-            },
-            function (xhr) {
-                const percent = (xhr.loaded / xhr.total * 100).toFixed(2);
-                console.log(`Loading STL file: ${percent}%`);
-            },
-            function (error) {
-                console.error('Error loading STL file:', error);
+
+                // Center and normalize model
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+
+                // Calculate the maximum dimension of the model
+                const maxDim = Math.max(size.x, size.y, size.z);
+
+                // Calculate the viewport size
+                const viewportWidth = container.clientWidth;
+                const viewportHeight = container.clientHeight;
+                const viewportSize = Math.min(viewportWidth, viewportHeight);
+
+                // Calculate scale to make model take up 75% of the viewport
+                const scale = (viewportSize * 0.75) / maxDim;
+
+                // Apply transformations
+                model.scale.set(scale, scale, scale);
+                
+                // Recalculate bounding box after scale
+                const scaledBox = new THREE.Box3().setFromObject(model);
+                const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+                model.position.sub(scaledCenter);
+
+                // Add to scene
+                scene.add(model);
+
+                // Update camera to fit model
+                const distance = (maxDim * scale) * 2.5;
+                camera.position.set(distance, distance, distance);
+                camera.lookAt(0, 0, 0);
+                controls.target.set(0, 0, 0);
+
+                // Hide loading indicator and enable controls
+                $('#viewerLoading').hide();
+                $('#viewPresetBtn').prop('disabled', false);
+                $('#zoomPresetBtn').prop('disabled', false);
+                $('.view-preset-item').removeClass('active');
+                $('.view-preset-item[data-value="default"]').addClass('active');
+                $('.zoom-preset-item').removeClass('active');
+                $('.zoom-preset-item[data-value="75"]').addClass('active');
+            } catch (error) {
+                console.error('Error processing model:', error);
                 $('#viewerLoading').hide();
                 $('#viewerError').html(`
                     <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
-                    <p class="mt-2">Failed to load 3D model</p>
-                    <p class="small text-muted">${error.message || 'Unknown error'}</p>
+                    <p class="mt-2">Failed to process 3D model</p>
+                    <p class="small text-muted">${error.message}</p>
                 `).show();
             }
-        );
+        };
+        
+        const onProgress = function (xhr) {
+            const percent = (xhr.loaded / xhr.total * 100).toFixed(2);
+            console.log(`Loading file: ${percent}%`);
+        };
+        
+        const onError = function (error) {
+            console.error('Error loading file:', error);
+            $('#viewerLoading').hide();
+            $('#viewerError').html(`
+                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                <p class="mt-2">Failed to load 3D model</p>
+                <p class="small text-muted">${error.message || 'Unknown error'}</p>
+            `).show();
+        };
+
+        if (urlLower.endsWith('.obj')) {
+            loader = new THREE.OBJLoader();
+            loader.load(url, onLoad, onProgress, onError);
+        } else if (urlLower.endsWith('.3mf')) {
+            loader = new THREE.ThreeMFLoader();
+            loader.load(url, onLoad, onProgress, onError);
+        } else {
+            // Default to STL
+            loader = new THREE.STLLoader();
+            loader.load(url, onLoad, onProgress, onError);
+        }
     }
 
     // Part details modal
-    $('.view-part').click(function () {
+    // Toggle parent parts with children
+    $('.toggle-parent').click(function(e) {
+        if ($(e.target).closest('.bulk-edit-col, .part-stepper, .view-btn').length) {
+            return;
+        }
+        
         const partId = $(this).data('part-id');
+        const children = $(`.child-of-${partId}`);
+        const icon = $(this).find('.toggle-icon');
+        
+        if (children.is(':visible')) {
+            // Slide up child rows
+            children.find('td').wrapInner('<div class="slide-wrapper" style="overflow: hidden;"></div>');
+            children.find('.slide-wrapper').slideUp(250, function() {
+                $(this).closest('tr').hide();
+                $(this).replaceWith($(this).contents());
+            });
+            icon.css('transform', 'rotate(-90deg)');
+        } else {
+            // Slide down child rows
+            children.show();
+            children.find('td').wrapInner('<div class="slide-wrapper" style="display: none; overflow: hidden;"></div>');
+            children.find('.slide-wrapper').slideDown(250, function() {
+                $(this).replaceWith($(this).contents());
+            });
+            icon.css('transform', 'rotate(0deg)');
+        }
+    });
+
+    $('.view-part, .view-btn').not('.view-purchased-part').click(function (e) {
+        if ($(e.target).closest('.toggle-parent').length && !$(this).hasClass('view-btn')) {
+            return; // Click handled by toggle-parent
+        }
+        
+        if ($(this).hasClass('view-btn')) {
+            e.stopPropagation();
+        }
+
+        if (bulkEditMode) return; // Disable viewing details in bulk mode
+        
+        const partId = $(this).closest('tr').data('part-id') || $(this).data('part-id');
         $.get(`/part/${partId}/details/`, function (data) {
             console.log('Part details loaded:', data);
 
@@ -1774,13 +1960,26 @@
     $('#partColor').on('input', function () {
         if (model) {
             const newColor = new THREE.Color($(this).val());
-            model.material.color = newColor;
+            let isWireframe = false;
+            
+            model.traverse(function(child) {
+                if (child.isMesh && child.material) {
+                    child.material.color = newColor;
+                    if (child.material.wireframe) {
+                        isWireframe = true;
+                    }
+                }
+            });
 
             // If in wireframe mode, update wireframe color too
-            if (model.material.wireframe) {
-                model.material = new THREE.MeshBasicMaterial({
-                    color: newColor,
-                    wireframe: true
+            if (isWireframe) {
+                model.traverse(function(child) {
+                    if (child.isMesh) {
+                        child.material = new THREE.MeshBasicMaterial({
+                            color: newColor,
+                            wireframe: true
+                        });
+                    }
                 });
             }
         }
@@ -1799,7 +1998,7 @@
             const fileUrl = window.location.origin + stlUrl;
             window.location.href = `bambustudio://open?file=${encodeURIComponent(fileUrl)}`;
         } else {
-            alert('No STL file is available for this part.');
+            alert('No 3D file is available for this part.');
         }
     });
 
@@ -1810,7 +2009,7 @@
             const fileUrl = window.location.origin + stlUrl;
             window.location.href = `orcaslicer://open?file=${encodeURIComponent(fileUrl)}`;
         } else {
-            alert('No STL file is available for this part.');
+            alert('No 3D file is available for this part.');
         }
     });
 
@@ -1821,7 +2020,7 @@
             const fileUrl = window.location.origin + stlUrl;
             window.location.href = `prusaslicer://open?file=${encodeURIComponent(fileUrl)}`;
         } else {
-            alert('No STL file is available for this part.');
+            alert('No 3D file is available for this part.');
         }
     });
 
@@ -1941,10 +2140,10 @@
         // Update badge text color
         const $badge = $row.find('.progress-badge');
         if (newCompleted === max) {
-            $badge.removeClass('text-light').addClass('text-success');
+            $badge.removeClass('').addClass('text-success');
             $row.addClass('completed-row');
         } else {
-            $badge.removeClass('text-success').addClass('text-light');
+            $badge.removeClass('text-success').addClass('');
             $row.removeClass('completed-row');
         }
 
@@ -2227,7 +2426,7 @@
     });
 
     // --- Bulk Edit Logic ---
-    let bulkEditMode = false;
+    var bulkEditMode = false;
 
     $('#toggleBulkEditBtn').click(function() {
         bulkEditMode = !bulkEditMode;

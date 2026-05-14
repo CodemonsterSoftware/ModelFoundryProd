@@ -142,14 +142,25 @@
         background: var(--bs-dark);
         color: var(--bs-light);
     }
+    .no-hover {
+        transition: box-shadow 0.3s ease !important;
+        overflow: visible !important;
+    }
+    .no-hover:hover {
+        transform: none !important;
+    }
+    .no-hover::before {
+        display: none !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">{% if project %}Edit{% else %}New{% endif %} Project</h5>
+    {% include 'projects/includes/wizard_stepper.html' with current_step=1 %}
+    <div class="card premium-card border-0 shadow-lg no-hover" style="border-radius: 12px; overflow: hidden;">
+        <div class="card-header border-bottom border-secondary bg-transparent p-3">
+            <h5 class="mb-0 fw-bold">{% if project %}Edit{% else %}New{% endif %} Project</h5>
         </div>
         <div class="card-body">
             <form method="post" enctype="multipart/form-data" id="projectForm">
@@ -181,18 +192,18 @@
                     <input type="hidden" name="image_order" id="image-order" value="">
                 </div>
                 
-                <div class="d-flex justify-content-between">
-                    <a href="{% if project %}{% url 'projects:project_detail' project.id %}{% else %}{% url 'projects:project_list' %}{% endif %}" class="btn btn-secondary">
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% if project %}{% url 'projects:project_detail' project.id %}{% else %}{% url 'projects:project_list' %}{% endif %}" class="btn btn-outline-secondary rounded-3">
                         <i class="fas fa-times me-2"></i>Cancel
                     </a>
                     <div>
                         {% if project %}
-                        <a href="{% url 'projects:project_delete' project.id %}" class="btn btn-danger me-2">
+                        <a href="{% url 'projects:project_delete' project.id %}" class="btn text-danger rounded-3 me-2" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);">
                             <i class="fas fa-trash me-2"></i>Delete
                         </a>
                         {% endif %}
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>Save
+                        <button type="submit" class="btn text-white rounded-3 shadow-sm" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; padding: 8px 24px;">
+                            <i class="fas fa-save me-2"></i>Save & Continue
                         </button>
                     </div>
                 </div>

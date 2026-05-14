@@ -10,7 +10,7 @@ from django.urls import reverse_lazy, reverse
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 import re
-from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings, Machine, UnclaimedSlice
+from .models import Project, Part, Group, PurchasedPart, ProjectImage, Designer, Material, Instructions, UserSettings, Machine, UnclaimedSlice, Tag
 from .forms import (
     ProjectForm, PartForm, GroupForm, PurchasedPartForm,
     ProjectImageForm, BulkUploadForm, DesignerForm, MaterialForm,
@@ -124,11 +124,11 @@ class ProjectCreateView(CreateView):
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'status': 'success',
-                'redirect_url': reverse('projects:project_detail', args=[self.object.id])
+                'redirect_url': reverse('projects:add_multiple_parts', args=[self.object.id])
             })
         else:
             messages.success(self.request, 'Project created successfully!')
-            return redirect('projects:project_detail', self.object.id)
+            return redirect('projects:add_multiple_parts', self.object.id)
 
     def form_invalid(self, form):
         if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -250,6 +250,46 @@ def add_part(request, project_id):
             part = form.save(commit=False)
             part.project = project
             part.save()
+            
+            # 3MF Explosion Logic
+            if part.stl_file and part.stl_file.name.lower().endswith('.3mf'):
+                try:
+                    import trimesh
+                    import tempfile
+                    from django.core.files import File
+                    
+                    scene = trimesh.load(part.stl_file.path, force='scene')
+                    
+                    if isinstance(scene, trimesh.Scene) and hasattr(scene, 'graph'):
+                        count = 1
+                        for node_name in scene.graph.nodes_geometry:
+                            geometry_id = scene.graph[node_name][1]
+                            mesh = scene.geometry[geometry_id]
+                            
+                            child_filename = f"{part.name}_{count}.obj"
+                            
+                            with tempfile.NamedTemporaryFile(suffix='.obj', delete=False) as temp_obj:
+                                mesh.export(temp_obj.name)
+                                
+                                with open(temp_obj.name, 'rb') as f:
+                                    child_part = Part.objects.create(
+                                        project=project,
+                                        name=f"{part.name} - Part {count}",
+                                        quantity=part.quantity,
+                                        material=part.material,
+                                        color=part.color,
+                                        group=part.group,
+                                        parent=part
+                                    )
+                                    child_part.stl_file.save(child_filename, File(f), save=True)
+                                    
+                            os.unlink(temp_obj.name)
+                            count += 1
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error extracting 3MF parts for {part.name}: {e}")
+            
             return redirect('projects:project_detail', pk=project.id)
     else:
         form = PartForm(project=project)
@@ -540,6 +580,45 @@ def add_multiple_parts(request, project_id):
                     # Save the file to the part (this triggers volume calculation)
                     file_start_time = time.time()
                     part.stl_file.save(file.name, file, save=True)
+                    
+                    # 3MF Explosion Logic
+                    if file.name.lower().endswith('.3mf'):
+                        try:
+                            import trimesh
+                            import tempfile
+                            from django.core.files import File
+                            
+                            scene = trimesh.load(part.stl_file.path, force='scene')
+                            
+                            if isinstance(scene, trimesh.Scene) and hasattr(scene, 'graph'):
+                                count = 1
+                                for node_name in scene.graph.nodes_geometry:
+                                    geometry_id = scene.graph[node_name][1]
+                                    mesh = scene.geometry[geometry_id]
+                                    
+                                    child_filename = f"{part.name}_{count}.obj"
+                                    
+                                    with tempfile.NamedTemporaryFile(suffix='.obj', delete=False) as temp_obj:
+                                        mesh.export(temp_obj.name)
+                                        
+                                        with open(temp_obj.name, 'rb') as f:
+                                            child_part = Part.objects.create(
+                                                project=project,
+                                                name=f"{part.name} - Part {count}",
+                                                quantity=part.quantity,
+                                                material_id=part.material_id,
+                                                color=part.color,
+                                                group=part.group,
+                                                parent=part
+                                            )
+                                            child_part.stl_file.save(child_filename, File(f), save=True)
+                                            processed_files += 1
+                                            
+                                    os.unlink(temp_obj.name)
+                                    count += 1
+                        except Exception as e:
+                            logger.error(f"Error extracting 3MF parts for {part.name}: {e}")
+                            
                     file_process_time = time.time() - file_start_time
                     processed_files += 1
                     
@@ -561,10 +640,12 @@ def add_multiple_parts(request, project_id):
     # For GET requests, render the template
     groups = project.groups.all()
     materials = Material.objects.filter(is_active=True).order_by('name')
+    material_types = Material.MATERIAL_TYPES
     return render(request, 'projects/add_parts.html', {
         'project': project,
         'groups': groups,
-        'materials': materials
+        'materials': materials,
+        'material_types': material_types
     })
 
 
@@ -731,6 +812,47 @@ def material_create(request):
         'form': form,
         'title': 'Add Material',
     })
+
+@login_required
+@require_POST
+def api_material_create(request):
+    """Create a new material via AJAX."""
+    try:
+        # Extract data from POST
+        name = request.POST.get('name')
+        brand = request.POST.get('brand', '')
+        type_val = request.POST.get('type', 'PLA')
+        color = request.POST.get('color', '#000000')
+        
+        if not name:
+            return JsonResponse({'status': 'error', 'message': 'Material name is required.'}, status=400)
+            
+        # Check if material with same name already exists
+        if Material.objects.filter(name=name).exists():
+            return JsonResponse({'status': 'error', 'message': 'A material with this name already exists.'}, status=400)
+            
+        material = Material.objects.create(
+            name=name,
+            brand=brand,
+            type=type_val,
+            color=color,
+            is_active=True
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'material': {
+                'id': material.id,
+                'name': material.name,
+                'brand': material.brand,
+                'type_display': material.get_type_display(),
+                'color': material.color
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error creating material: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
 
 @login_required
 def material_edit(request, material_id):
@@ -1485,7 +1607,7 @@ def set_project_thumbnail(request, image_id):
 @login_required
 def settings(request):
     user = request.user
-    settings_types = ['general', 'appearance', 'api']
+    settings_types = ['general', 'appearance', 'api', 'system']
     user_settings_instances = {}
     forms = {}
 
@@ -1527,8 +1649,12 @@ def settings(request):
                 theme_preference = request.POST.get('theme_preference')
                 current_data['theme_preference'] = theme_preference
                 if theme_preference:
-                    messages.success(request, f'Theme preference "{theme_preference.capitalize()}" saved.')
-                    response = redirect('projects:settings')
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        response = JsonResponse({'status': 'success', 'message': f'Theme preference "{theme_preference.capitalize()}" saved.'})
+                    else:
+                        messages.success(request, f'Theme preference "{theme_preference.capitalize()}" saved.')
+                        response = redirect('projects:settings')
+                    
                     response.set_cookie('theme_preference', theme_preference, max_age=365 * 24 * 60 * 60) # 1 year
                     instance.settings_data = json.dumps(current_data)
             elif settings_type_submitted == 'api':
@@ -1537,12 +1663,22 @@ def settings(request):
                 current_data['enable_slicer_inbox'] = request.POST.get('enable_slicer_inbox') == 'on'
                 current_data['auto_complete_prints'] = request.POST.get('auto_complete_prints') == 'on'
                 current_data['api_key'] = request.POST.get('api_key', '')
+                
+            elif settings_type_submitted == 'system':
+                log_level = request.POST.get('log_level', 'INFO')
+                current_data['log_level'] = log_level
+                # Apply immediately
+                from projects.logging_utils import apply_system_log_level
+                apply_system_log_level(log_level)
 
             instance.settings_data = json.dumps(current_data)
             instance.save()
             
             if settings_type_submitted == 'appearance':
                 return response
+                
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'success', 'message': f'{settings_type_submitted.capitalize()} settings saved successfully.'})
             
             messages.success(request, f'{settings_type_submitted.capitalize()} settings saved successfully.')
             return redirect('projects:settings')
@@ -1577,12 +1713,63 @@ def settings(request):
 
     return render(request, 'projects/settings.html', {
         'forms': forms,
+        'appearance_settings': forms.get('appearance', {}),
         'api_settings': forms.get('api', {}),
+        'system_settings': forms.get('system', {}),
         'machines': machines,
         'machine_form': machine_form,
         'machine_to_edit': machine_to_edit,
         'materials': materials,
     })
+
+@login_required
+def api_system_logs(request):
+    import os
+    from django.conf import settings as django_settings
+    
+    log_path = os.path.join(django_settings.BASE_DIR, 'logs', 'modelfoundry.log')
+    try:
+        if not os.path.exists(log_path):
+            return JsonResponse({'status': 'success', 'logs': 'No logs found. File does not exist yet.'})
+            
+        with open(log_path, 'r', encoding='utf-8') as f:
+            # Read last 500 lines to avoid sending too much data
+            lines = f.readlines()
+            logs = "".join(lines[-500:])
+            
+        return JsonResponse({'status': 'success', 'logs': logs})
+    except Exception as e:
+        logger.error(f"Error reading system logs: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def api_machine_logs(request, machine_id):
+    import os
+    from django.conf import settings as django_settings
+    
+    # Verify user has access to this machine
+    machine = get_object_or_404(Machine, pk=machine_id, user=request.user)
+    
+    log_path = os.path.join(django_settings.BASE_DIR, 'logs', 'modelfoundry.log')
+    try:
+        if not os.path.exists(log_path):
+            return JsonResponse({'status': 'success', 'logs': 'No logs found. File does not exist yet.'})
+            
+        machine_identifier = f"[Machine {machine.id}]"
+        matched_lines = []
+        
+        with open(log_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if machine_identifier in line:
+                    matched_lines.append(line)
+            
+            # Read last 300 lines of matching logs
+            logs = "".join(matched_lines[-300:])
+            
+        return JsonResponse({'status': 'success', 'logs': logs})
+    except Exception as e:
+        logger.error(f"Error reading machine logs: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 def manage_tags(request, project_id):
@@ -2025,3 +2212,441 @@ def dismiss_slice(request, slice_id):
     unclaimed_slice.save()
     messages.info(request, "Slice dismissed.")
     return redirect('projects:slicer_inbox')
+
+@login_required
+def insights(request):
+    from django.core.cache import cache
+    
+    def compute_insights_data():
+        from django.db.models import Sum, Count, F, ExpressionWrapper, DecimalField
+        from django.db.models.functions import TruncDate
+        from django.utils import timezone
+        from datetime import timedelta
+        from decimal import Decimal
+        from .models import PrintHistory, Project, Part, Material, Machine, Designer, Tag
+
+        # Global Metrics
+        total_projects = Project.objects.count()
+        total_parts = Part.objects.count()
+        total_materials = Material.objects.count()
+        total_machines = Machine.objects.count()
+
+        # 1. Backlog & Completion
+        part_agg = Part.objects.aggregate(
+            total_qty=Sum('quantity'),
+            total_comp=Sum('completed')
+        )
+        total_parts_required = part_agg['total_qty'] or 0
+        total_parts_completed = part_agg['total_comp'] or 0
+        total_unprinted = total_parts_required - total_parts_completed
+        completion_rate = (total_parts_completed / total_parts_required * 100) if total_parts_required > 0 else 0
+        
+        projects_query = Project.objects.annotate(
+            req=Sum('parts__quantity'),
+            comp=Sum('parts__completed')
+        )
+        unstarted_count = sum(1 for p in projects_query if p.req and p.comp == 0)
+        completed_count = sum(1 for p in projects_query if p.req and p.comp == p.req)
+        in_progress_count = sum(1 for p in projects_query if p.req and p.comp > 0 and p.comp < p.req)
+
+        status_labels = ['Unstarted', 'In Progress', 'Completed']
+        status_data = [unstarted_count, in_progress_count, completed_count]
+
+        # 2. Financials
+        total_printed_cost = Decimal('0')
+        total_purchased_cost = Decimal('0')
+        all_projects = Project.objects.prefetch_related('parts__material', 'purchased_parts')
+        for proj in all_projects:
+            total_printed_cost += Decimal(str(proj.printed_parts_cost))
+            total_purchased_cost += Decimal(str(proj.purchased_parts_cost))
+            
+        total_library_value = total_printed_cost + total_purchased_cost
+        avg_project_cost = total_library_value / total_projects if total_projects > 0 else 0
+
+        # 3. Print Time
+        time_agg = Part.objects.filter(print_time_seconds__isnull=False).annotate(
+            part_time=ExpressionWrapper(F('print_time_seconds') * F('quantity'), output_field=DecimalField())
+        ).aggregate(total_time=Sum('part_time'))
+        
+        total_seconds = int(time_agg['total_time'] or 0)
+        total_print_days = total_seconds // 86400
+        total_print_hours = (total_seconds % 86400) // 3600
+        total_print_time_str = f"{total_print_days}d {total_print_hours}h"
+        
+        longest_part = Part.objects.filter(print_time_seconds__isnull=False).order_by('-print_time_seconds').first()
+        longest_part_time_str = f"{int(longest_part.print_time_seconds // 3600)}h {int((longest_part.print_time_seconds % 3600) // 60)}m" if longest_part and longest_part.print_time_seconds else "N/A"
+        
+        avg_part_time = Part.objects.filter(print_time_seconds__isnull=False).aggregate(avg=Sum('print_time_seconds'))['avg']
+        count_parts_with_time = Part.objects.filter(print_time_seconds__isnull=False).count()
+        avg_part_time_seconds = (avg_part_time / count_parts_with_time) if count_parts_with_time and avg_part_time else 0
+        avg_part_time_str = f"{int(avg_part_time_seconds // 3600)}h {int((avg_part_time_seconds % 3600) // 60)}m"
+
+        # 4. Tags
+        top_tags = Tag.objects.annotate(project_count=Count('projects')).filter(project_count__gt=0).order_by('-project_count')
+        tag_labels = [t.name for t in top_tags[:15]]
+        tag_data = [t.project_count for t in top_tags[:15]]
+        top_tag = top_tags.first()
+        tag_coverage = (top_tag.project_count / total_projects * 100) if top_tag and total_projects > 0 else 0
+
+        # Calculate Material Usage
+        materials = Material.objects.all()
+        filament_by_type = {}
+        filament_by_brand = {}
+        total_filament_used_g = Decimal('0')
+
+        for mat in materials:
+            used = mat.total_used
+            if used > 0:
+                total_filament_used_g += used
+                
+                # Group by type
+                m_type = mat.get_type_display()
+                filament_by_type[m_type] = float(filament_by_type.get(m_type, 0)) + float(used)
+                
+                # Group by brand
+                m_brand = mat.brand if mat.brand else 'Unknown'
+                filament_by_brand[m_brand] = float(filament_by_brand.get(m_brand, 0)) + float(used)
+
+        # Convert usage dicts to lists for Chart.js
+        type_labels = list(filament_by_type.keys())
+        type_data = list(filament_by_type.values())
+        
+        # Sub-stats for Types
+        most_used_type = max(filament_by_type.items(), key=lambda x: x[1]) if filament_by_type else ('None', 0)
+        least_used_type = min(filament_by_type.items(), key=lambda x: x[1]) if filament_by_type else ('None', 0)
+        total_types_used = len(filament_by_type)
+        avg_type_usage = (total_filament_used_g / total_types_used) if total_types_used > 0 else 0
+        
+        # Sort brands by usage and get top 5, plus 'Other'
+        sorted_brands = sorted(filament_by_brand.items(), key=lambda x: x[1], reverse=True)
+        brand_labels = [b[0] for b in sorted_brands[:5]]
+        brand_data = [b[1] for b in sorted_brands[:5]]
+        if len(sorted_brands) > 5:
+            brand_labels.append('Other')
+            brand_data.append(sum(b[1] for b in sorted_brands[5:]))
+
+        # Sub-stats for Brands
+        top_brand = sorted_brands[0] if sorted_brands else ('None', 0)
+        least_used_brand = sorted_brands[-1] if sorted_brands else ('None', 0)
+        total_brands_used = len(sorted_brands)
+        avg_brand_usage = (total_filament_used_g / total_brands_used) if total_brands_used > 0 else 0
+
+        # Creators / Designers
+        top_designers = Designer.objects.annotate(project_count=Count('projects')).filter(project_count__gt=0).order_by('-project_count')
+        
+        designer_labels = [d.name for d in top_designers[:15]]
+        designer_data = [d.project_count for d in top_designers[:15]]
+        
+        top_creator = top_designers.first()
+        total_creators = top_designers.count()
+        
+        if total_projects > 0:
+            top_5_count = sum(d.project_count for d in top_designers[:5])
+            top_5_coverage = (top_5_count / total_projects) * 100
+        else:
+            top_5_coverage = 0
+            
+        avg_projects_per_creator = (total_projects / total_creators) if total_creators > 0 else 0
+
+        # Biggest Projects
+        biggest_project_parts = Project.objects.annotate(part_count=Sum('parts__quantity')).order_by('-part_count').first() if Project.objects.exists() else None
+        
+        biggest_project_volume = max(Project.objects.all(), key=lambda p: sum((part.volume or 0) * part.quantity for part in p.parts.all()), default=None)
+        if biggest_project_volume:
+            biggest_project_volume.calculated_volume = sum((part.volume or 0) * part.quantity for part in biggest_project_volume.parts.all()) / 1000 # Convert to cm3
+            
+        biggest_project_cost = max(Project.objects.all(), key=lambda p: p.total_cost, default=None)
+
+        # 5. Printer Fleet (Workhorse Leaderboard & Success Rate)
+        total_history = PrintHistory.objects.count()
+        failed_history = PrintHistory.objects.filter(status__in=['failed', 'canceled']).count()
+        global_success_rate = ((total_history - failed_history) / total_history * 100) if total_history > 0 else 100.0
+
+        workhorse_data = PrintHistory.objects.filter(status='completed').values('machine__name').annotate(count=Count('id')).order_by('-count')
+        workhorse_labels = [w['machine__name'] or 'Unknown Printer' for w in workhorse_data[:5]]
+        workhorse_counts = [w['count'] for w in workhorse_data[:5]]
+
+        # Busiest Days & Times
+        from django.db.models.functions import ExtractWeekDay, ExtractHour
+        day_counts = PrintHistory.objects.annotate(weekday=ExtractWeekDay('timestamp')).values('weekday').annotate(count=Count('id')).order_by('-count')
+        hour_counts = PrintHistory.objects.annotate(hour=ExtractHour('timestamp')).values('hour').annotate(count=Count('id')).order_by('-count')
+        
+        # Django WeekDay: 1=Sunday, 2=Monday, ...
+        days_map = {1: 'Sunday', 2: 'Monday', 3: 'Tuesday', 4: 'Wednesday', 5: 'Thursday', 6: 'Friday', 7: 'Saturday'}
+        busiest_day = days_map.get(day_counts[0]['weekday'], 'Unknown') if day_counts else 'Unknown'
+        
+        def format_hour(h):
+            if h == 0: return "12 AM"
+            elif h < 12: return f"{h} AM"
+            elif h == 12: return "12 PM"
+            else: return f"{h-12} PM"
+        
+        busiest_time = format_hour(hour_counts[0]['hour']) if hour_counts else 'Unknown'
+
+        # 6. Pile of Shame
+        # Most Neglected: 0% completion, oldest
+        neglected_projects = [p for p in projects_query if p.req and p.comp == 0]
+        neglected_projects.sort(key=lambda x: x.created_at)
+        most_neglected = neglected_projects[:5]
+
+        # Fastest Completions: 100% completion, shortest duration between created and updated
+        completed_projects = [p for p in projects_query if p.req and p.comp == p.req]
+        completed_projects.sort(key=lambda x: (x.updated_at - x.created_at))
+        fastest_completions = completed_projects[:5]
+
+        # 7. Hardware Analysis
+        from .models import PurchasedPart
+        top_hardware = PurchasedPart.objects.values('name').annotate(total_qty=Sum('quantity')).order_by('-total_qty')[:5]
+        
+        outstanding_orders = PurchasedPart.objects.filter(status__in=['pending', 'ordered', 'shipped'])
+        outstanding_orders_count = outstanding_orders.aggregate(total=Sum('quantity'))['total'] or 0
+        outstanding_orders_value = outstanding_orders.aggregate(total=Sum(F('price') * F('quantity'), output_field=DecimalField()))['total'] or Decimal('0.00')
+
+        # Time-Series Analytics (Last 6 months by Month)
+        from django.db.models.functions import TruncMonth
+        import calendar
+
+        today = timezone.now()
+        start_month = today.month - 5
+        start_year = today.year
+        if start_month <= 0:
+            start_month += 12
+            start_year -= 1
+            
+        six_months_ago_month = today.replace(year=start_year, month=start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Library Growth
+        growth_data = Project.objects.filter(created_at__gte=six_months_ago_month) \
+            .annotate(month=TruncMonth('created_at')) \
+            .values('month') \
+            .annotate(count=Count('id')) \
+            .order_by('month')
+            
+        # Burn Rate By Material Type
+        burn_data = PrintHistory.objects.filter(status='completed', timestamp__gte=six_months_ago_month, part__filament_weight_g__isnull=False, part__material__isnull=False) \
+            .annotate(month=TruncMonth('timestamp')) \
+            .values('month', 'part__material__type') \
+            .annotate(total_weight=Sum('part__filament_weight_g')) \
+            .order_by('month')
+
+        growth_dict = {item['month']: item['count'] for item in growth_data if item['month']}
+        
+        # Build burn dict: { 'PLA': { date: weight, date: weight }, 'PETG': ... }
+        burn_dict_by_type = {}
+        unique_types = set()
+        for item in burn_data:
+            if item['month'] and item['part__material__type']:
+                m_type = item['part__material__type']
+                m_date = item['month']
+                unique_types.add(m_type)
+                if m_type not in burn_dict_by_type:
+                    burn_dict_by_type[m_type] = {}
+                burn_dict_by_type[m_type][m_date] = float(item['total_weight'])
+        
+        month_labels = []
+        library_growth_data = []
+        
+        # Prepare datasets array for Chart.js
+        # Assign distinct colors
+        colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b']
+        burn_rate_datasets = []
+        
+        for i, m_type in enumerate(sorted(unique_types)):
+            burn_rate_datasets.append({
+                'label': m_type,
+                'data': [],
+                'borderColor': colors[i % len(colors)],
+                'backgroundColor': colors[i % len(colors)] + '20', # 20% opacity
+                'borderWidth': 2,
+                'tension': 0.4,
+                'fill': True
+            })
+            
+        current_month = six_months_ago_month.date()
+        end_month = today.date().replace(day=1)
+        
+        while current_month <= end_month:
+            month_labels.append(current_month.strftime('%b %Y'))
+            # We must handle the fact that TruncMonth returns a date or datetime
+            c_val = growth_dict.get(current_month, growth_dict.get(six_months_ago_month.replace(year=current_month.year, month=current_month.month), 0))
+            library_growth_data.append(c_val)
+            
+            # Append data for each material type
+            for dataset in burn_rate_datasets:
+                m_type = dataset['label']
+                # Search for match
+                val = 0.0
+                if m_type in burn_dict_by_type:
+                    val = burn_dict_by_type[m_type].get(current_month, burn_dict_by_type[m_type].get(six_months_ago_month.replace(year=current_month.year, month=current_month.month), 0.0))
+                dataset['data'].append(val)
+                
+            next_month = current_month.month + 1
+            next_year = current_month.year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            current_month = current_month.replace(year=next_year, month=next_month)
+
+        # 8. Material Color Distribution & Cost
+        materials_with_cost = Material.objects.filter(cost__isnull=False, weight__isnull=False)
+        materials_by_cost = sorted(materials_with_cost, key=lambda m: m.cost_per_kg)
+        cheapest_material = materials_by_cost[0] if materials_by_cost else None
+        most_expensive_material = materials_by_cost[-1] if materials_by_cost else None
+
+        filament_by_color = {}
+        for mat in materials:
+            used = mat.total_used
+            if used > 0:
+                m_color = mat.color if mat.color else 'Unknown'
+                filament_by_color[m_color] = float(filament_by_color.get(m_color, 0)) + float(used)
+                
+        sorted_colors = sorted(filament_by_color.items(), key=lambda x: x[1], reverse=True)
+        color_labels = [c[0] for c in sorted_colors[:6]]
+        color_data = [c[1] for c in sorted_colors[:6]]
+
+        # Print History Timeline (Last 30 Days)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        history = PrintHistory.objects.filter(status='completed', timestamp__gte=thirty_days_ago)
+        prints_by_date = history.annotate(date=TruncDate('timestamp')).values('date').annotate(count=Count('id')).order_by('date')
+        
+        timeline_labels = []
+        timeline_data = []
+        
+        if prints_by_date:
+            date_dict = {p['date']: p['count'] for p in prints_by_date}
+            current_date = thirty_days_ago.date()
+            end_date = timezone.now().date()
+            while current_date <= end_date:
+                timeline_labels.append(current_date.strftime('%b %d'))
+                timeline_data.append(date_dict.get(current_date, 0))
+                current_date += timedelta(days=1)
+
+        # GitHub Style Heatmap Data (Last 6 months)
+        six_months_ago = timezone.now() - timedelta(days=180)
+        heatmap_history = PrintHistory.objects.filter(status='completed', timestamp__gte=six_months_ago)
+        heatmap_by_date = heatmap_history.annotate(date=TruncDate('timestamp')).values('date').annotate(count=Count('id')).order_by('date')
+        
+        heatmap_dict = {p['date'].strftime('%Y-%m-%d'): p['count'] for p in heatmap_by_date}
+        start_date = six_months_ago.date()
+        start_date = start_date - timedelta(days=start_date.weekday() + 1 if start_date.weekday() != 6 else 0)
+        
+        heatmap_grid = []
+        current = start_date
+        end_date = timezone.now().date()
+        
+        while current <= end_date:
+            week = []
+            for _ in range(7):
+                if current <= end_date:
+                    date_str = current.strftime('%Y-%m-%d')
+                    count = heatmap_dict.get(date_str, 0)
+                    level = 0
+                    if count > 0:
+                        if count <= 2: level = 1
+                        elif count <= 5: level = 2
+                        elif count <= 10: level = 3
+                        else: level = 4
+                    
+                    week.append({
+                        'date': date_str,
+                        'count': count,
+                        'level': level,
+                        'month': current.strftime('%b') if current.day <= 7 else ''
+                    })
+                else:
+                    week.append(None)
+                current += timedelta(days=1)
+            heatmap_grid.append(week)
+
+        import json
+        return {
+            'total_projects': total_projects,
+            'total_parts': total_parts,
+            'total_materials': total_materials,
+            'total_machines': total_machines,
+            'total_unprinted': total_unprinted,
+            'completion_rate': float(completion_rate),
+            'status_labels': json.dumps(status_labels),
+            'status_data': json.dumps(status_data),
+            'total_library_value': float(total_library_value),
+            'total_printed_cost': float(total_printed_cost),
+            'total_purchased_cost': float(total_purchased_cost),
+            'avg_project_cost': float(avg_project_cost),
+            'total_print_time_str': total_print_time_str,
+            'avg_part_time_str': avg_part_time_str,
+            'longest_part': longest_part,
+            'longest_part_time_str': longest_part_time_str,
+            'tag_labels': json.dumps(tag_labels),
+            'tag_data': json.dumps(tag_data),
+            'top_tag': top_tag,
+            'tag_coverage': float(tag_coverage),
+            'total_filament_used_g': float(total_filament_used_g),
+            'type_labels': json.dumps(type_labels),
+            'type_data': json.dumps(type_data),
+            'most_used_type': most_used_type,
+            'least_used_type': least_used_type,
+            'total_types_used': total_types_used,
+            'avg_type_usage': float(avg_type_usage),
+            'brand_labels': json.dumps(brand_labels),
+            'brand_data': json.dumps(brand_data),
+            'top_brand': top_brand,
+            'least_used_brand': least_used_brand,
+            'total_brands_used': total_brands_used,
+            'avg_brand_usage': float(avg_brand_usage),
+            'designer_labels': json.dumps(designer_labels),
+            'designer_data': json.dumps(designer_data),
+            'top_creator': top_creator,
+            'total_creators': total_creators,
+            'top_5_coverage': float(top_5_coverage),
+            'avg_projects_per_creator': float(avg_projects_per_creator),
+            'biggest_project_parts': biggest_project_parts,
+            'biggest_project_volume': biggest_project_volume,
+            'biggest_project_cost': biggest_project_cost,
+            'timeline_labels': json.dumps(timeline_labels),
+            'timeline_data': json.dumps(timeline_data),
+            'heatmap_grid': heatmap_grid,
+            'global_success_rate': float(global_success_rate),
+            'workhorse_labels': json.dumps(workhorse_labels),
+            'workhorse_counts': json.dumps(workhorse_counts),
+            'busiest_day': busiest_day,
+            'busiest_time': busiest_time,
+            'most_neglected': most_neglected,
+            'fastest_completions': fastest_completions,
+            'top_hardware': top_hardware,
+            'cheapest_material': cheapest_material,
+            'most_expensive_material': most_expensive_material,
+            'color_labels': json.dumps(color_labels),
+            'color_data': json.dumps(color_data),
+            'outstanding_orders_count': outstanding_orders_count,
+            'outstanding_orders_value': float(outstanding_orders_value),
+            'month_labels': json.dumps(month_labels),
+            'library_growth_data': json.dumps(library_growth_data),
+            'burn_rate_datasets': json.dumps(burn_rate_datasets),
+        }
+
+    # Cache for 15 minutes (900 seconds)
+    context = cache.get_or_set('insights_data', compute_insights_data, timeout=900)
+
+    return render(request, 'projects/insights.html', context)
+
+def first_setup(request):
+    """
+    Wizard view to create the first admin user.
+    Redirects to login if any users already exist.
+    """
+    if User.objects.exists():
+        return redirect('login')
+        
+    from .forms import FirstSetupForm
+    
+    if request.method == 'POST':
+        form = FirstSetupForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Welcome to ModelFoundry! Your admin account has been created.')
+            return redirect('projects:index')
+    else:
+        form = FirstSetupForm()
+        
+    return render(request, 'registration/setup.html', {'form': form})

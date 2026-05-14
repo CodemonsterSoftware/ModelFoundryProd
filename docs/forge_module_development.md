@@ -40,7 +40,7 @@ The `manifest.json` file is required for the `ModuleRegistry` to recognize and l
     "version": "1.0.0",
     "author": "Your Name",
     "description": "Short description of what this module does.",
-    "icon": "bi-tools",
+    "icon": "fa-tools",
     "backend": "python",
     "template": "forge/my_module.html",
     "main": "main.py",
@@ -61,7 +61,7 @@ The `manifest.json` file is required for the `ModuleRegistry` to recognize and l
 | `version` | No | — | Semantic version string for the module. |
 | `author` | No | — | Author attribution string. |
 | `description` | No | `""` | Short description shown on the Forge index. |
-| `icon` | No | `"bi-puzzle"` | Bootstrap Icon class displayed alongside module name. |
+| `icon` | No | `"fa-puzzle-piece"` | FontAwesome Icon class displayed alongside module name. |
 | `backend` | No | `"python"` | Execution engine: `"python"`, `"openscad"`, or `"blender"` (WIP). |
 | `template` | No | `"forge/module_generic.html"` | Django template path for the module's UI page. |
 | `main` | No | `"main.py"` | Entrypoint filename within the module directory. |

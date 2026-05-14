@@ -224,6 +224,8 @@
     opacity: 0;
     transition: opacity 0.3s ease;
     z-index: 2;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
 }
 
 .premium-card:hover {

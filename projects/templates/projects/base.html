@@ -36,6 +36,12 @@
             --text-muted: #a0a0a0;
             --border-dark: #404040;
             --primary-color: #0d6efd;
+            
+            /* Bootstrap Variable Mapping */
+            --bs-body-color: var(--text-light);
+            --bs-heading-color: var(--text-light);
+            --bs-table-color: var(--text-light);
+            --bs-card-color: var(--text-light);
         }
 
         /* Light Theme */
@@ -640,6 +646,7 @@
     </div>
 
     <!-- Navigation -->
+    {% block navbar %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary">
         <div class="container">
             <a class="navbar-brand" href="{% url 'projects:index' %}">
@@ -654,6 +661,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'projects:project_list' %}">
                             <i class="fas fa-cube"></i> Projects
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'projects:insights' %}">
+                            <i class="fas fa-chart-pie"></i> Insights
                         </a>
                     </li>
                     <li class="nav-item">
@@ -712,6 +724,7 @@
             </div>
         </div>
     </nav>
+    {% endblock %}
 
     <!-- Main Content -->
     <main>
@@ -719,12 +732,14 @@
     </main>
 
     <!-- Footer -->
+    {% block footer %}
     <footer class="py-4 mt-5">
         <div class="container text-center">
             <p class="text-muted mb-0">ModelFoundry - 3D Printing Project Management</p>
             <p class="text-muted mb-0">&copy; CodeMonster Software 2025</p>
         </div>
     </footer>
+    {% endblock %}
 
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

@@ -2,3 +2,8 @@
 - [x] Export also needs to export tags
 - [x] Import needs to be able to import tags
 - [x] Import also needs to be able to import designer info
+
+- Explore GPU accelration for part volume calculations to reduce part import time 
+- [x] Add a logs tab to the settings to debug issues 
+- [x] Update to add 3mf / stp / obj files as supported types
+- [x] Add Default Account or wizard to create account on first login to reduce friction for new users

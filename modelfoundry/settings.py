@@ -71,6 +71,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'projects.middleware.FirstSetupMiddleware',
 ]
 
 ROOT_URLCONF = 'modelfoundry.urls'
@@ -240,6 +241,11 @@ LOGGING = {
             'propagate': True,
         },
         'projects': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'mqtt_listener': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,

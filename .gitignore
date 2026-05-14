@@ -41,3 +41,8 @@ env/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Forge Modules
+/forge/modules/*
+!/forge/modules/__init__.py
+!/forge/modules/README.md

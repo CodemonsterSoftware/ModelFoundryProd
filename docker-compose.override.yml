@@ -12,3 +12,7 @@ services:
   blender:
     build:
       context: ./blender_service
+
+  mqtt_listener:
+    volumes:
+      - .:/app

@@ -2,9 +2,9 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Sum
 from django.contrib.auth.models import User
-from stl import mesh
 import os
 import numpy as np
+import trimesh
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from imagekit.models import ImageSpecField
@@ -50,20 +50,20 @@ class Project(models.Model):
 
     @property
     def total_parts(self):
-        return self.parts.aggregate(total=Sum('quantity'))['total'] or 0
+        return self.parts.filter(sub_parts__isnull=True).aggregate(total=Sum('quantity'))['total'] or 0
 
     @property
     def progress_percentage(self):
         total = self.total_parts
         if total == 0:
             return 0
-        completed = self.parts.aggregate(total_completed=Sum('completed'))['total_completed'] or 0
+        completed = self.parts.filter(sub_parts__isnull=True).aggregate(total_completed=Sum('completed'))['total_completed'] or 0
         return int((completed / total) * 100)
 
     @property
     def material_counts(self):
         counts = {}
-        for part in self.parts.all():
+        for part in self.parts.filter(sub_parts__isnull=True):
             if part.material:
                 counts[part.material] = counts.get(part.material, 0) + part.quantity
         return counts
@@ -71,7 +71,7 @@ class Project(models.Model):
     @property
     def printed_parts_cost(self):
         total = Decimal('0')
-        for part in self.parts.all():
+        for part in self.parts.filter(sub_parts__isnull=True):
             if part.material_cost:
                 total += Decimal(str(part.material_cost)) * part.quantity
         return float(total)
@@ -193,6 +193,7 @@ class Part(models.Model):
     color = models.CharField(max_length=50, blank=True)
     completed = models.IntegerField(default=0)
     group = models.ForeignKey(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='parts')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='sub_parts')
     stl_file = models.FileField(upload_to='stl_files/', blank=True)
     thumbnail = models.ImageField(upload_to='thumbnails/', blank=True)
     thumbnail_small = ImageSpecField(source='thumbnail',
@@ -255,33 +256,26 @@ class Part(models.Model):
             return None
 
     def calculate_volume(self):
-        """Calculate the volume of the STL file in cubic millimeters."""
+        """Calculate the volume of the 3D file in cubic millimeters."""
         if not self.stl_file:
-            print(f"No STL file for part {self.name}")
+            print(f"No 3D file for part {self.name}")
             return None
             
         try:
-            # Get the absolute path of the STL file
-            stl_path = self.stl_file.path
-            print(f"Calculating volume for {self.name} using file: {stl_path}")
+            # Get the absolute path of the file
+            file_path = self.stl_file.path
+            print(f"Calculating volume for {self.name} using file: {file_path}")
             
             # Check if file exists
-            if not os.path.exists(stl_path):
-                print(f"STL file not found at path: {stl_path}")
+            if not os.path.exists(file_path):
+                print(f"File not found at path: {file_path}")
                 return None
                 
-            # Read the STL file
-            mesh_data = mesh.Mesh.from_file(stl_path)
+            # Read the 3D file using trimesh
+            mesh_data = trimesh.load(file_path, force='mesh')
             
-            # Calculate volume using the mesh's vertices and faces
-            volume = 0
-            for triangle in mesh_data.vectors:
-                # Calculate the signed volume of the tetrahedron formed by the triangle and the origin
-                v1, v2, v3 = triangle
-                volume += np.dot(v1, np.cross(v2, v3)) / 6.0
-            
-            # Convert to cubic millimeters (assuming the STL is in millimeters)
-            volume_mm3 = abs(volume)  # Volume can be negative depending on face orientation
+            # Convert to cubic millimeters (assuming the mesh is in millimeters)
+            volume_mm3 = abs(mesh_data.volume)
             
             print(f"Volume calculated for {self.name}: {volume_mm3} mm³")
             return volume_mm3
@@ -322,7 +316,11 @@ class ProjectImage(models.Model):
                                      processors=[ResizeToFill(800, 600)],
                                      format='JPEG',
                                      options={'quality': 85})
+    order = models.IntegerField(default=0)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order']
 
     def __str__(self):
         return f"Image for {self.project.name}"
@@ -375,7 +373,8 @@ class UserSettings(models.Model):
         ('general', 'General Settings'),
         ('appearance', 'Appearance Settings'),
         ('api', 'API Security Settings'),
-        ('machines', 'Machine Settings')
+        ('machines', 'Machine Settings'),
+        ('system', 'System Settings')
     ])
     settings_data = models.TextField(blank=True, null=True)  # Store JSON data
     updated_at = models.DateTimeField(auto_now=True)
@@ -463,3 +462,18 @@ class UnclaimedSlice(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+class PrintHistory(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='print_history')
+    part = models.ForeignKey(Part, on_delete=models.SET_NULL, null=True, blank=True)
+    machine = models.ForeignKey(Machine, on_delete=models.SET_NULL, null=True, blank=True, related_name='print_history')
+    filename = models.CharField(max_length=255, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, default='completed')
+
+    def __str__(self):
+        return f"{self.filename or self.part.name if self.part else 'Unknown'} - {self.status}"
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name_plural = 'Print Histories'

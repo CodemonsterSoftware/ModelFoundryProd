@@ -6,34 +6,25 @@
 
 {% block extra_css %}
 <style>
-    .nav-tabs .nav-link {
-        color: var(--text-light);
-        border-color: var(--border-dark);
-        background-color: var(--bg-darker);
+    /* Premium List Group styling for sidebar */
+    .premium-list-group .list-group-item {
+        background-color: transparent;
+        transition: all 0.2s ease;
     }
     
-    .nav-tabs .nav-link.active {
-        color: var(--text-light);
-        border-color: var(--border-dark);
-        border-bottom-color: var(--bg-darker);
-        background-color: var(--bg-darker);
+    .premium-list-group .list-group-item:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+        color: #fff;
     }
     
-    .nav-tabs {
-        border-bottom-color: var(--border-dark);
+    .premium-list-group .list-group-item.active {
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+        color: var(--bs-primary);
+        border-left: 3px solid var(--bs-primary) !important;
     }
     
-    .tab-content {
-        background-color: var(--bg-darker);
-        border: 1px solid var(--border-dark);
-        border-top: none;
-        padding: 20px;
-    }
-    
-    .settings-header {
-        border-bottom: 1px solid var(--border-dark);
-        margin-bottom: 20px;
-        padding-bottom: 10px;
+    .premium-list-group .list-group-item.active i {
+        color: var(--bs-primary) !important;
     }
     
     /* Theme preview swatches */
@@ -42,33 +33,35 @@
         height: 20px;
         margin-bottom: 10px;
         border-radius: 4px;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
     }
-    .dark-swatch {
-        background: linear-gradient(to right, #1a1a1a 0%, #1a1a1a 40%, #121212 40%, #121212 80%, #2d2d2d 80%, #2d2d2d 100%);
+    .dark-swatch { background: linear-gradient(to right, #1a1a1a 0%, #1a1a1a 40%, #121212 40%, #121212 80%, #2d2d2d 80%, #2d2d2d 100%); }
+    .light-swatch { background: linear-gradient(to right, #f8f9fa 0%, #f8f9fa 40%, #ffffff 40%, #ffffff 80%, #e9ecef 80%, #e9ecef 100%); }
+    .midnight-swatch { background: linear-gradient(to right, #1a2647 0%, #1a2647 40%, #0f172a 40%, #0f172a 80%, #253352 80%, #253352 100%); }
+    .forest-swatch { background: linear-gradient(to right, #1e3a2b 0%, #1e3a2b 40%, #14261d 40%, #14261d 80%, #2a4d3a 80%, #2a4d3a 100%); }
+    .sunset-swatch { background: linear-gradient(to right, #2d1a12 0%, #2d1a12 40%, #1f110c 40%, #1f110c 80%, #3d2419 80%, #3d2419 100%); }
+    .purple-swatch { background: linear-gradient(to right, #2e1065 0%, #2e1065 40%, #1e084a 40%, #1e084a 80%, #3b1a79 80%, #3b1a79 100%); }
+    .teal-swatch { background: linear-gradient(to right, #0f3737 0%, #0f3737 40%, #092424 40%, #092424 80%, #164b4b 80%, #164b4b 100%); }
+    .modern-mocha-swatch { background: linear-gradient(to right, #2C3639 0%, #3F4E4F 40%, #A27B5B 70%, #DCD7C9 100%); }
+    .sunset-ember-swatch { background: linear-gradient(to right, #DC4B14 0%, #551009 20%, #060505 40%, #1B2021 60%, #3B3A37 80%, #AE8C6F 100%); }
+    
+    /* Settings Toast */
+    .settings-toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 250px;
+        border-radius: var(--radius-md);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.1);
+        backdrop-filter: blur(10px);
+        transform: translateY(150%);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .light-swatch {
-        background: linear-gradient(to right, #f8f9fa 0%, #f8f9fa 40%, #ffffff 40%, #ffffff 80%, #e9ecef 80%, #e9ecef 100%);
-    }
-    .midnight-swatch {
-        background: linear-gradient(to right, #1a2647 0%, #1a2647 40%, #0f172a 40%, #0f172a 80%, #253352 80%, #253352 100%);
-    }
-    .forest-swatch {
-        background: linear-gradient(to right, #1e3a2b 0%, #1e3a2b 40%, #14261d 40%, #14261d 80%, #2a4d3a 80%, #2a4d3a 100%);
-    }
-    .sunset-swatch {
-        background: linear-gradient(to right, #2d1a12 0%, #2d1a12 40%, #1f110c 40%, #1f110c 80%, #3d2419 80%, #3d2419 100%);
-    }
-    .purple-swatch {
-        background: linear-gradient(to right, #2e1065 0%, #2e1065 40%, #1e084a 40%, #1e084a 80%, #3b1a79 80%, #3b1a79 100%);
-    }
-    .teal-swatch {
-        background: linear-gradient(to right, #0f3737 0%, #0f3737 40%, #092424 40%, #092424 80%, #164b4b 80%, #164b4b 100%);
-    }
-    .modern-mocha-swatch {
-        background: linear-gradient(to right, #2C3639 0%, #3F4E4F 40%, #A27B5B 70%, #DCD7C9 100%);
-    }
-    .sunset-ember-swatch {
-        background: linear-gradient(to right, #DC4B14 0%, #551009 20%, #060505 40%, #1B2021 60%, #3B3A37 80%, #AE8C6F 100%);
+    
+    .settings-toast.show {
+        transform: translateY(0);
     }
 </style>
 {% endblock %}
@@ -77,360 +70,527 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col">
-            <h1 class="settings-header">Settings</h1>
+            <h2 class="mb-0  fw-bold">Settings</h2>
+            <p class="text-muted">Manage your workspace preferences, devices, and integrations.</p>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-12">
-            <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">
-                        <i class="fas fa-cog me-2"></i>General
-                    </button>
-                </li>
-
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="appearance-tab" data-bs-toggle="tab" data-bs-target="#appearance" type="button" role="tab" aria-controls="appearance" aria-selected="false">
-                        <i class="fas fa-palette me-2"></i>Appearance
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="machines-tab" data-bs-toggle="tab" data-bs-target="#machines" type="button" role="tab" aria-controls="machines" aria-selected="false">
-                        <i class="fas fa-print me-2"></i>Machines
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="api-tab" data-bs-toggle="tab" data-bs-target="#api" type="button" role="tab" aria-controls="api" aria-selected="false">
-                        <i class="fas fa-key me-2"></i>API Security
-                    </button>
-                </li>
-            </ul>
-            
-            <div class="tab-content" id="settingsTabsContent">
+        <!-- Vertical Sidebar Navigation -->
+        <div class="col-md-3 mb-4">
+            <div class="premium-card sticky-top" style="top: 2rem; z-index: 10;">
+                <div class="list-group list-group-flush premium-list-group" id="settings-list" role="tablist" style="border-radius: var(--radius-lg); overflow: hidden;">
+                    <a class="list-group-item list-group-item-action active border-0" id="list-general-list" data-bs-toggle="list" href="#list-general" role="tab" style="padding: 1rem 1.5rem;"><i class="fas fa-cog me-3 text-muted"></i>General</a>
+                    <a class="list-group-item list-group-item-action border-0" id="list-appearance-list" data-bs-toggle="list" href="#list-appearance" role="tab" style="padding: 1rem 1.5rem;"><i class="fas fa-palette me-3 text-muted"></i>Appearance</a>
+                    <a class="list-group-item list-group-item-action border-0" id="list-machines-list" data-bs-toggle="list" href="#list-machines" role="tab" style="padding: 1rem 1.5rem;"><i class="fas fa-print me-3 text-muted"></i>Machines</a>
+                    <a class="list-group-item list-group-item-action border-0" id="list-api-list" data-bs-toggle="list" href="#list-api" role="tab" style="padding: 1rem 1.5rem;"><i class="fas fa-shield-alt me-3 text-muted"></i>API Security</a>
+                    <a class="list-group-item list-group-item-action border-0" id="list-system-list" data-bs-toggle="list" href="#list-system" role="tab" style="padding: 1rem 1.5rem;"><i class="fas fa-terminal me-3 text-muted"></i>System Logs</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings Panels -->
+        <div class="col-md-9">
+            <div class="tab-content" id="nav-tabContent">
+                
                 <!-- General Settings Tab -->
-                <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
-                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
-                        {% csrf_token %}
-                        <input type="hidden" name="settings_type" value="general">
-                        
-                        <div class="mb-3">
-                            <label for="defaultMaterial" class="form-label">Default Material</label>
-                            <select class="form-select" id="defaultMaterial" name="default_material">
-                                <option value="">No default</option>
-                                {% for material in materials %}
-                                <option value="{{ material.id }}" {% if general_settings.default_material == material.id %}selected{% endif %}>
-                                    {{ material.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Select the default material to use when creating new parts.</div>
+                <div class="tab-pane fade show active" id="list-general" role="tabpanel" aria-labelledby="list-general-list">
+                    <div class="premium-card">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4">
+                            <h5 class="mb-0 "><i class="fas fa-cog me-2 text-primary"></i> General Preferences</h5>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="unitSystem" class="form-label">Measurement Units</label>
-                            <select class="form-select" id="unitSystem" name="unit_system">
-                                <option value="imperial" {% if general_settings.unit_system == 'imperial' or not general_settings.unit_system %}selected{% endif %}>Imperial (in³)</option>
-                                <option value="metric" {% if general_settings.unit_system == 'metric' %}selected{% endif %}>Metric (cm³)</option>
-                            </select>
-                            <div class="form-text">Select your preferred system of measurement for volumes and weights.</div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Save General Settings
-                            </button>
-                        </div>
-                    </form>
-                </div>
-                
-
-                <!-- Appearance Tab -->
-                <div class="tab-pane fade" id="appearance" role="tabpanel" aria-labelledby="appearance-tab">
-                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3" id="appearanceForm">
-                        {% csrf_token %}
-                        <input type="hidden" name="settings_type" value="appearance">
-                        
-                        <div class="mb-3">
-                            <label for="themePreference" class="form-label">Theme</label>
-                            <select class="form-select" id="themePreference" name="theme_preference">
-                                <option value="dark" data-swatch="dark-swatch" {% if appearance_settings.theme_preference == 'dark' %}selected{% endif %}>Dark</option>
-                                <option value="light" data-swatch="light-swatch" {% if appearance_settings.theme_preference == 'light' %}selected{% endif %}>Light</option>
-                                <option value="midnight" data-swatch="midnight-swatch" {% if appearance_settings.theme_preference == 'midnight' %}selected{% endif %}>Midnight Blue</option>
-                                <option value="forest" data-swatch="forest-swatch" {% if appearance_settings.theme_preference == 'forest' %}selected{% endif %}>Forest Green</option>
-                                <option value="sunset" data-swatch="sunset-swatch" {% if appearance_settings.theme_preference == 'sunset' %}selected{% endif %}>Sunset Orange</option>
-                                <option value="purple" data-swatch="purple-swatch" {% if appearance_settings.theme_preference == 'purple' %}selected{% endif %}>Deep Purple</option>
-                                <option value="teal" data-swatch="teal-swatch" {% if appearance_settings.theme_preference == 'teal' %}selected{% endif %}>Teal</option>
-                                <option value="modern-mocha" data-swatch="modern-mocha-swatch" {% if appearance_settings.theme_preference == 'modern-mocha' %}selected{% endif %}>Modern Mocha</option>
-                                <option value="sunset-ember" data-swatch="sunset-ember-swatch" {% if appearance_settings.theme_preference == 'sunset-ember' %}selected{% endif %}>Sunset Ember</option>
-                            </select>
-                            <div class="form-text">Choose your preferred theme for the application.</div>
-                            
-                            <!-- Theme preview -->
-                            <div class="theme-swatch dark-swatch mt-3" id="themeSwatch"></div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Save Appearance Settings
-                            </button>
-                        </div>
-                </div>
-                
-                <!-- API Security Tab -->
-                <div class="tab-pane fade" id="api" role="tabpanel" aria-labelledby="api-tab">
-                    <form method="post" action="{% url 'projects:settings' %}" class="mt-3">
-                        {% csrf_token %}
-                        <input type="hidden" name="settings_type" value="api">
-                        
-                        <div class="mb-4">
-                            <h5 class="mb-3">API Authentication</h5>
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" id="requireAuth" name="require_auth" {% if api_settings.require_auth %}checked{% endif %}>
-                                <label class="form-check-label" for="requireAuth">Require API Authentication</label>
-                                <div class="form-text text-muted">When enabled, the Desktop Agent and other external tools must provide an API key.</div>
-                            </div>
-                            
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" id="isGlobal" name="is_global" {% if api_settings.is_global %}checked{% endif %}>
-                                <label class="form-check-label" for="isGlobal">Global Slicer Inbox</label>
-                                <div class="form-text text-muted">When enabled, any slices sent by an agent using your API key will be visible to ALL users on this server.</div>
-                            </div>
-                            
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" id="enableSlicerInbox" name="enable_slicer_inbox" {% if api_settings.enable_slicer_inbox != False %}checked{% endif %}>
-                                <label class="form-check-label" for="enableSlicerInbox">Enable Slicer Inbox</label>
-                                <div class="form-text text-muted">When enabled, the Slicer Inbox icon and notifications will appear in the navigation bar.</div>
-                            </div>
-                            
-                            <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" id="autoCompletePrints" name="auto_complete_prints" {% if api_settings.auto_complete_prints %}checked{% endif %}>
-                                <label class="form-check-label" for="autoCompletePrints">Auto-Complete Prints via MQTT</label>
-                                <div class="form-text text-muted">When enabled, the background MQTT daemon will automatically increment a Part's completed count when your printer finishes a job that was assigned from the Slicer Inbox.</div>
-                            </div>
-                            
-                            <div class="mb-3" id="apiKeySection" {% if not api_settings.require_auth %}style="display: none;"{% endif %}>
-                                <label for="apiKey" class="form-label">Global API Key</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control font-monospace" id="apiKey" name="api_key" value="{{ api_settings.api_key|default:'' }}" readonly>
-                                    <button class="btn btn-outline-secondary" type="button" id="generateApiKey">
-                                        <i class="fas fa-sync-alt me-1"></i> Generate New Key
+                        <div class="card-body p-4">
+                            <form method="post" action="{% url 'projects:settings' %}" class="ajax-settings-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="settings_type" value="general">
+                                
+                                <div class="mb-4">
+                                    <label for="defaultMaterial" class="form-label  fw-bold">Default Material</label>
+                                    <select class="form-select " id="defaultMaterial" name="default_material">
+                                        <option value="">No default</option>
+                                        {% for material in materials %}
+                                        <option value="{{ material.id }}" {% if general_settings.default_material == material.id %}selected{% endif %}>
+                                            {{ material.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Select the default material to use when creating new parts.</div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="unitSystem" class="form-label  fw-bold">Measurement Units</label>
+                                    <select class="form-select " id="unitSystem" name="unit_system">
+                                        <option value="imperial" {% if general_settings.unit_system == 'imperial' or not general_settings.unit_system %}selected{% endif %}>Imperial (in³)</option>
+                                        <option value="metric" {% if general_settings.unit_system == 'metric' %}selected{% endif %}>Metric (cm³)</option>
+                                    </select>
+                                    <div class="form-text">Select your preferred system of measurement for volumes and weights.</div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <button type="submit" class="btn btn-primary px-4 shadow-sm" style="border-radius: var(--radius-md);">
+                                        <i class="fas fa-save me-2"></i>Save Changes
                                     </button>
                                 </div>
-                                <div class="form-text text-muted">Use this key in the Desktop Agent configuration.</div>
-                            </div>
+                            </form>
                         </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>Save API Settings
+                    </div>
+                </div>
+                
+                <!-- Appearance Tab -->
+                <div class="tab-pane fade" id="list-appearance" role="tabpanel" aria-labelledby="list-appearance-list">
+                    <div class="premium-card">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4">
+                            <h5 class="mb-0 "><i class="fas fa-palette me-2 text-primary"></i> Application Theme</h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <form method="post" action="{% url 'projects:settings' %}" id="appearanceForm" class="ajax-settings-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="settings_type" value="appearance">
+                                
+                                <div class="mb-4">
+                                    <label for="themePreference" class="form-label  fw-bold">Theme Interface</label>
+                                    <select class="form-select " id="themePreference" name="theme_preference">
+                                        <option value="dark" data-swatch="dark-swatch" {% if appearance_settings.theme_preference == 'dark' %}selected{% endif %}>Dark</option>
+                                        <option value="light" data-swatch="light-swatch" {% if appearance_settings.theme_preference == 'light' %}selected{% endif %}>Light</option>
+                                        <option value="midnight" data-swatch="midnight-swatch" {% if appearance_settings.theme_preference == 'midnight' %}selected{% endif %}>Midnight Blue</option>
+                                        <option value="forest" data-swatch="forest-swatch" {% if appearance_settings.theme_preference == 'forest' %}selected{% endif %}>Forest Green</option>
+                                        <option value="sunset" data-swatch="sunset-swatch" {% if appearance_settings.theme_preference == 'sunset' %}selected{% endif %}>Sunset Orange</option>
+                                        <option value="purple" data-swatch="purple-swatch" {% if appearance_settings.theme_preference == 'purple' %}selected{% endif %}>Deep Purple</option>
+                                        <option value="teal" data-swatch="teal-swatch" {% if appearance_settings.theme_preference == 'teal' %}selected{% endif %}>Teal</option>
+                                        <option value="modern-mocha" data-swatch="modern-mocha-swatch" {% if appearance_settings.theme_preference == 'modern-mocha' %}selected{% endif %}>Modern Mocha</option>
+                                        <option value="sunset-ember" data-swatch="sunset-ember-swatch" {% if appearance_settings.theme_preference == 'sunset-ember' %}selected{% endif %}>Sunset Ember</option>
+                                    </select>
+                                    <div class="form-text">Choose your preferred visual theme for the entire workspace.</div>
+                                    
+                                    <!-- Theme preview -->
+                                    <div class="theme-swatch dark-swatch mt-3" id="themeSwatch"></div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <button type="submit" class="btn btn-primary px-4 shadow-sm" style="border-radius: var(--radius-md);">
+                                        <i class="fas fa-save me-2"></i>Save Theme
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Security Tab -->
+                <div class="tab-pane fade" id="list-api" role="tabpanel" aria-labelledby="list-api-list">
+                    <div class="premium-card">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4">
+                            <h5 class="mb-0 "><i class="fas fa-shield-alt me-2 text-primary"></i> API Authentication & Agent Config</h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <form method="post" action="{% url 'projects:settings' %}" class="ajax-settings-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="settings_type" value="api">
+                                
+                                <div class="mb-4">
+                                    <div class="form-check form-switch mb-4 custom-switch-lg">
+                                        <input class="form-check-input" type="checkbox" id="requireAuth" name="require_auth" {% if api_settings.require_auth %}checked{% endif %} style="transform: scale(1.2); margin-top: 0.3rem;">
+                                        <label class="form-check-label  fw-bold ms-2" for="requireAuth">Require API Authentication</label>
+                                        <div class="form-text text-muted ms-2 mt-1">When enabled, the Desktop Agent and external tools must provide a valid API key to connect.</div>
+                                    </div>
+                                    
+                                    <div class="form-check form-switch mb-4 custom-switch-lg">
+                                        <input class="form-check-input" type="checkbox" id="isGlobal" name="is_global" {% if api_settings.is_global %}checked{% endif %} style="transform: scale(1.2); margin-top: 0.3rem;">
+                                        <label class="form-check-label  fw-bold ms-2" for="isGlobal">Global Slicer Inbox</label>
+                                        <div class="form-text text-muted ms-2 mt-1">When enabled, any slices sent by an agent using your API key will be visible to ALL users on this server.</div>
+                                    </div>
+                                    
+                                    <div class="form-check form-switch mb-4 custom-switch-lg">
+                                        <input class="form-check-input" type="checkbox" id="enableSlicerInbox" name="enable_slicer_inbox" {% if api_settings.enable_slicer_inbox != False %}checked{% endif %} style="transform: scale(1.2); margin-top: 0.3rem;">
+                                        <label class="form-check-label  fw-bold ms-2" for="enableSlicerInbox">Enable Slicer Inbox UI</label>
+                                        <div class="form-text text-muted ms-2 mt-1">When enabled, the Slicer Inbox icon and live notifications will appear in the top navigation bar.</div>
+                                    </div>
+                                    
+                                    <div class="form-check form-switch mb-4 custom-switch-lg">
+                                        <input class="form-check-input" type="checkbox" id="autoCompletePrints" name="auto_complete_prints" {% if api_settings.auto_complete_prints %}checked{% endif %} style="transform: scale(1.2); margin-top: 0.3rem;">
+                                        <label class="form-check-label  fw-bold ms-2" for="autoCompletePrints">Auto-Complete Prints via MQTT</label>
+                                        <div class="form-text text-muted ms-2 mt-1">When enabled, the background MQTT daemon will dynamically increment a Part's completed count when your printer finishes a job.</div>
+                                    </div>
+                                    
+                                    <div class="card bg-darker border-secondary mb-3 p-3" id="apiKeySection" {% if not api_settings.require_auth %}style="display: none;"{% endif %}>
+                                        <label for="apiKey" class="form-label  fw-bold">Global API Key</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-dark border-secondary text-muted"><i class="fas fa-key"></i></span>
+                                            <input type="text" class="form-control font-monospace " id="apiKey" name="api_key" value="{{ api_settings.api_key|default:'' }}" readonly>
+                                            <button class="btn btn-outline-primary" type="button" id="generateApiKey">
+                                                <i class="fas fa-sync-alt me-1"></i> Generate
+                                            </button>
+                                        </div>
+                                        <div class="form-text mt-2 text-warning"><i class="fas fa-info-circle me-1"></i> Copy this key into your Desktop Agent's configuration file.</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <button type="submit" class="btn btn-primary px-4 shadow-sm" style="border-radius: var(--radius-md);">
+                                        <i class="fas fa-save me-2"></i>Save API Settings
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- System Logs Tab -->
+                <div class="tab-pane fade" id="list-system" role="tabpanel" aria-labelledby="list-system-list">
+                    <div class="premium-card mb-4">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-cogs me-2 text-primary"></i> System Configuration</h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <form method="post" action="{% url 'projects:settings' %}" class="ajax-settings-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="settings_type" value="system">
+                                
+                                <div class="mb-4">
+                                    <label for="logLevel" class="form-label fw-bold">System Log Level</label>
+                                    <select class="form-select " id="logLevel" name="log_level">
+                                        <option value="DEBUG" {% if system_settings.log_level == 'DEBUG' %}selected{% endif %}>Debug (Verbose)</option>
+                                        <option value="INFO" {% if system_settings.log_level == 'INFO' or not system_settings.log_level %}selected{% endif %}>Info (Standard)</option>
+                                        <option value="WARNING" {% if system_settings.log_level == 'WARNING' %}selected{% endif %}>Warning</option>
+                                        <option value="ERROR" {% if system_settings.log_level == 'ERROR' %}selected{% endif %}>Error Only</option>
+                                    </select>
+                                    <div class="form-text">Choose the verbosity of the system logs. Debug will show detailed MQTT payloads and processing steps.</div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <button type="submit" class="btn btn-primary px-4 shadow-sm" style="border-radius: var(--radius-md);">
+                                        <i class="fas fa-save me-2"></i>Save Configuration
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="premium-card">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-terminal me-2 text-primary"></i> Live System Logs</h5>
+                            <button class="btn btn-sm btn-outline-info" id="btnRefreshLogs">
+                                <i class="fas fa-sync-alt me-1"></i> Refresh
                             </button>
                         </div>
-                    </form>
+                        <div class="card-body p-0">
+                            <div class="bg-darker p-3" style="border-radius: 0 0 var(--radius-lg) var(--radius-lg); height: 500px; overflow-y: auto;" id="logTerminalContainer">
+                                <pre id="logTerminal" class="font-monospace text-light mb-0" style="font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word;">Loading logs...</pre>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Machines Tab -->
-                <div class="tab-pane fade" id="machines" role="tabpanel" aria-labelledby="machines-tab">
-                    <h5 class="mt-3 mb-3">{% if machine_to_edit %}Edit Machine: {{ machine_to_edit.name }}{% else %}Add New Machine{% endif %}</h5>
-                    <form method="post" action="{% url 'projects:settings' %}" class="mb-4">
-                        {% csrf_token %}
-                        <input type="hidden" name="machine_action" value="{% if machine_to_edit %}edit{% else %}add{% endif %}">
-                        {% if machine_to_edit %}
-                            <input type="hidden" name="machine_id" value="{{ machine_to_edit.id }}">
-                        {% endif %}
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="id_name" class="form-label">{{ machine_form.name.label }}</label>
-                                {{ machine_form.name }}
-                                {% if machine_form.name.errors %}<div class="invalid-feedback d-block">{{ machine_form.name.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="id_technology" class="form-label">{{ machine_form.technology.label }}</label>
-                                {{ machine_form.technology }}
-                                {% if machine_form.technology.errors %}<div class="invalid-feedback d-block">{{ machine_form.technology.errors }}</div>{% endif %}
-                            </div>
+                <div class="tab-pane fade" id="list-machines" role="tabpanel" aria-labelledby="list-machines-list">
+                    
+                    <div class="premium-card mb-4">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4">
+                            <h5 class="mb-0 "><i class="fas fa-plus-circle me-2 text-primary"></i> {% if machine_to_edit %}Edit Machine: {{ machine_to_edit.name }}{% else %}Add New Machine{% endif %}</h5>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="id_maker" class="form-label">{{ machine_form.maker.label }}</label>
-                                {{ machine_form.maker }}
-                                {% if machine_form.maker.errors %}<div class="invalid-feedback d-block">{{ machine_form.maker.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="id_model" class="form-label">{{ machine_form.model.label }}</label>
-                                {{ machine_form.model }}
-                                {% if machine_form.model.errors %}<div class="invalid-feedback d-block">{{ machine_form.model.errors }}</div>{% endif %}
-                            </div>
+                        <div class="card-body p-4">
+                            <!-- We don't use ajax class here, since we want standard reload for the table -->
+                            <form method="post" action="{% url 'projects:settings' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="machine_action" value="{% if machine_to_edit %}edit{% else %}add{% endif %}">
+                                {% if machine_to_edit %}
+                                    <input type="hidden" name="machine_id" value="{{ machine_to_edit.id }}">
+                                {% endif %}
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_name" class="form-label  fw-bold">{{ machine_form.name.label }}</label>
+                                        {% render_field machine_form.name class="form-control " %}
+                                        {% if machine_form.name.errors %}<div class="invalid-feedback d-block">{{ machine_form.name.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_technology" class="form-label  fw-bold">{{ machine_form.technology.label }}</label>
+                                        {% render_field machine_form.technology class="form-select " %}
+                                        {% if machine_form.technology.errors %}<div class="invalid-feedback d-block">{{ machine_form.technology.errors }}</div>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_maker" class="form-label  fw-bold">{{ machine_form.maker.label }}</label>
+                                        {% render_field machine_form.maker class="form-control " %}
+                                        {% if machine_form.maker.errors %}<div class="invalid-feedback d-block">{{ machine_form.maker.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_model" class="form-label  fw-bold">{{ machine_form.model.label }}</label>
+                                        {% render_field machine_form.model class="form-control " %}
+                                        {% if machine_form.model.errors %}<div class="invalid-feedback d-block">{{ machine_form.model.errors }}</div>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="id_print_volume_x" class="form-label  fw-bold">{{ machine_form.print_volume_x.label }}</label>
+                                        {% render_field machine_form.print_volume_x class="form-control " %}
+                                        {% if machine_form.print_volume_x.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_x.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="id_print_volume_y" class="form-label  fw-bold">{{ machine_form.print_volume_y.label }}</label>
+                                        {% render_field machine_form.print_volume_y class="form-control " %}
+                                        {% if machine_form.print_volume_y.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_y.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="id_print_volume_z" class="form-label  fw-bold">{{ machine_form.print_volume_z.label }}</label>
+                                        {% render_field machine_form.print_volume_z class="form-control " %}
+                                        {% if machine_form.print_volume_z.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_z.errors }}</div>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_ip_address" class="form-label  fw-bold">{{ machine_form.ip_address.label }}</label>
+                                        {% render_field machine_form.ip_address class="form-control " placeholder="e.g. 192.168.1.100" %}
+                                        {% if machine_form.ip_address.errors %}<div class="invalid-feedback d-block">{{ machine_form.ip_address.errors }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="id_mqtt_access_code" class="form-label  fw-bold">{{ machine_form.mqtt_access_code.label }}</label>
+                                        {% render_field machine_form.mqtt_access_code class="form-control " %}
+                                        {% if machine_form.mqtt_access_code.errors %}<div class="invalid-feedback d-block">{{ machine_form.mqtt_access_code.errors }}</div>{% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div id="mqttTestAlert" class="alert d-none" role="alert" style="border-radius: 8px;"></div>
+                                        <button type="button" id="btnTestConnection" class="btn btn-outline-info btn-sm" style="border-radius: 8px;">
+                                            <i class="fas fa-network-wired me-1"></i> Test Connection
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-12 mb-3">
+                                        <label for="id_notes" class="form-label  fw-bold">{{ machine_form.notes.label }}</label>
+                                        {% render_field machine_form.notes class="form-control " rows="3" %}
+                                        {% if machine_form.notes.errors %}<div class="invalid-feedback d-block">{{ machine_form.notes.errors }}</div>{% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-2">
+                                    {% if machine_to_edit %}
+                                        <a href="{% url 'projects:settings' %}#list-machines" class="btn btn-outline-secondary px-4 shadow-sm" style="border-radius: var(--radius-md);">Cancel Edit</a>
+                                    {% endif %}
+                                    <button type="submit" class="btn btn-primary px-4 shadow-sm" style="border-radius: var(--radius-md);">
+                                        <i class="fas fa-save me-2"></i>{% if machine_to_edit %}Save Machine{% else %}Add Machine{% endif %}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="id_print_volume_x" class="form-label">{{ machine_form.print_volume_x.label }}</label>
-                                {{ machine_form.print_volume_x }}
-                                {% if machine_form.print_volume_x.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_x.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="id_print_volume_y" class="form-label">{{ machine_form.print_volume_y.label }}</label>
-                                {{ machine_form.print_volume_y }}
-                                {% if machine_form.print_volume_y.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_y.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="id_print_volume_z" class="form-label">{{ machine_form.print_volume_z.label }}</label>
-                                {{ machine_form.print_volume_z }}
-                                {% if machine_form.print_volume_z.errors %}<div class="invalid-feedback d-block">{{ machine_form.print_volume_z.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="id_ip_address" class="form-label">{{ machine_form.ip_address.label }}</label>
-                                {{ machine_form.ip_address }}
-                                {% if machine_form.ip_address.errors %}<div class="invalid-feedback d-block">{{ machine_form.ip_address.errors }}</div>{% endif %}
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="id_mqtt_access_code" class="form-label">{{ machine_form.mqtt_access_code.label }}</label>
-                                {{ machine_form.mqtt_access_code }}
-                                {% if machine_form.mqtt_access_code.errors %}<div class="invalid-feedback d-block">{{ machine_form.mqtt_access_code.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <div id="mqttTestAlert" class="alert d-none" role="alert" style="border-radius: 8px;"></div>
-                                <button type="button" id="btnTestConnection" class="btn btn-outline-info btn-sm" style="border-radius: 8px;">
-                                    <i class="fas fa-network-wired me-1"></i> Test Connection
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-12 mb-3">
-                                <label for="id_notes" class="form-label">{{ machine_form.notes.label }}</label>
-                                {% render_field machine_form.notes class="form-control" %}
-                                {% if machine_form.notes.errors %}<div class="invalid-feedback d-block">{{ machine_form.notes.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            {% if machine_to_edit %}
-                                <a href="{% url 'projects:settings' %}#machines-tab" class="btn btn-outline-secondary">Cancel Edit</a>
-                            {% endif %}
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-2"></i>{% if machine_to_edit %}Save Changes{% else %}Add Machine{% endif %}
-                            </button>
-                        </div>
-                    </form>
+                    </div>
 
-                    <hr>
-                    <h5 class="mt-4 mb-3">Your Machines</h5>
-                    {% if machines %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Maker & Model</th>
-                                        <th>Technology</th>
-                                        <th>Status</th>
-                                        <th>Print Volume (mm)</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for machine in machines %}
-                                        <tr>
-                                            <td>{{ machine.name }}</td>
-                                            <td>{{ machine.maker|default_if_none:"" }} {{ machine.model|default_if_none:"" }}</td>
-                                            <td>{{ machine.get_technology_display }}</td>
-                                            <td>
-                                                {% if machine.ip_address and machine.mqtt_access_code %}
-                                                    {% if machine.is_online %}
-                                                        <span class="badge bg-success" title="Online"><i class="fas fa-circle fa-xs me-1"></i> Connected</span>
-                                                    {% else %}
-                                                        <span class="badge bg-danger" title="Offline"><i class="fas fa-circle fa-xs me-1"></i> Offline</span>
-                                                    {% endif %}
-                                                    <div class="small text-muted mt-1">
-                                                        {% if machine.last_seen %}
-                                                            Last seen: {{ machine.last_seen|timesince }} ago
-                                                        {% else %}
-                                                            Never seen
-                                                        {% endif %}
-                                                    </div>
-                                                {% else %}
-                                                    <span class="badge bg-secondary" title="No IP/Access Code configured">Not Configured</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>{{ machine.print_volume_x }} x {{ machine.print_volume_y }} x {{ machine.print_volume_z }}</td>
-                                            <td>
-                                                <a href="?edit_machine={{ machine.id }}#machines-tab" class="btn btn-sm btn-outline-primary me-1" title="Edit {{ machine.name }}">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <form method="post" action="{% url 'projects:settings' %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete {{ machine.name }}?');">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="machine_action" value="delete">
-                                                    <input type="hidden" name="machine_id" value="{{ machine.id }}">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete {{ machine.name }}">
-                                                        <i class="fas fa-trash-alt"></i>
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                    <div class="premium-card">
+                        <div class="card-header border-bottom border-secondary bg-transparent py-3 px-4">
+                            <h5 class="mb-0 "><i class="fas fa-server me-2 text-primary"></i> Your Registered Machines</h5>
                         </div>
-                    {% else %}
-                        <p class="text-muted">You haven't added any machines yet.</p>
-                    {% endif %}
-                </div> <!-- /#machines -->
+                        <div class="card-body p-0">
+                            {% if machines %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-borderless align-middle mb-0 ">
+                                        <thead class="border-bottom border-secondary bg-darker">
+                                            <tr>
+                                                <th class="ps-4">Name</th>
+                                                <th>Maker & Model</th>
+                                                <th>Status</th>
+                                                <th>Print Volume (mm)</th>
+                                                <th class="pe-4 text-end">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for machine in machines %}
+                                                <tr class="border-bottom border-secondary">
+                                                    <td class="ps-4 fw-bold text-primary">{{ machine.name }}</td>
+                                                    <td>{{ machine.maker|default_if_none:"" }} {{ machine.model|default_if_none:"" }}</td>
+                                                    <td>
+                                                        {% if machine.ip_address and machine.mqtt_access_code %}
+                                                            {% if machine.is_online %}
+                                                                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-50" title="Online"><i class="fas fa-circle fa-xs me-1"></i> Connected</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50" title="Offline"><i class="fas fa-circle fa-xs me-1"></i> Offline</span>
+                                                            {% endif %}
+                                                            <div class="small text-muted mt-1" style="font-size: 0.75rem;">
+                                                                {% if machine.last_seen %}
+                                                                    <i class="far fa-clock me-1"></i>{{ machine.last_seen|timesince }} ago
+                                                                {% else %}
+                                                                    Never seen
+                                                                {% endif %}
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-50" title="No IP/Access Code configured">Not Configured</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td><span class="text-muted"><i class="fas fa-cube me-1"></i>{{ machine.print_volume_x }} × {{ machine.print_volume_y }} × {{ machine.print_volume_z }}</span></td>
+                                                    <td class="pe-4 text-end">
+                                                        <button type="button" class="btn btn-sm btn-outline-success me-1" title="View Traffic" onclick="openMachineTrafficModal({{ machine.id }}, '{{ machine.name|escapejs }}')">
+                                                            <i class="fas fa-network-wired"></i>
+                                                        </button>
+                                                        <a href="?edit_machine={{ machine.id }}#list-machines" class="btn btn-sm btn-outline-info me-1" title="Edit {{ machine.name }}">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                        <form method="post" action="{% url 'projects:settings' %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete {{ machine.name|escapejs }}?');">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="machine_action" value="delete">
+                                                            <input type="hidden" name="machine_id" value="{{ machine.id }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete {{ machine.name }}">
+                                                                <i class="fas fa-trash-alt"></i>
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="p-5 text-center text-muted">
+                                    <i class="fas fa-print fa-3x mb-3 opacity-50"></i>
+                                    <p class="mb-0">You haven't added any machines yet.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div> <!-- /#list-machines -->
+                
             </div>
         </div>
     </div>
 </div>
+
+<!-- Settings Saved Toast -->
+<div class="settings-toast bg-success text-white px-4 py-3" id="settingsToast">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-check-circle fa-lg me-3"></i>
+        <div>
+            <h6 class="mb-0 fw-bold" id="toastTitle">Settings Saved</h6>
+            <small id="toastMessage" class="text-white-50">Your preferences have been updated.</small>
+        </div>
+    </div>
+</div>
+
+<!-- Machine Traffic Modal -->
+<div class="modal fade" id="machineTrafficModal" tabindex="-1" aria-labelledby="machineTrafficModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content bg-dark border border-secondary text-light">
+            <div class="modal-header border-bottom border-secondary bg-darker">
+                <h5 class="modal-title fw-bold" id="machineTrafficModalLabel"><i class="fas fa-network-wired me-2 text-success"></i>Live Traffic: <span id="machineTrafficName"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="bg-darker p-3" style="height: 500px; overflow-y: auto;" id="machineTrafficContainer">
+                    <pre id="machineTrafficLog" class="font-monospace text-light mb-0" style="font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word;">Waiting for traffic...</pre>
+                </div>
+            </div>
+            <div class="modal-footer border-top border-secondary bg-darker">
+                <span class="text-muted small me-auto"><i class="fas fa-info-circle me-1"></i>Ensure System Log Level is set to DEBUG to see raw JSON payloads.</span>
+                <button type="button" class="btn btn-secondary shadow-sm" style="border-radius: var(--radius-md);" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Update theme swatch when selection changes
+        // Theme preview update
         const themePreference = document.getElementById('themePreference');
         const themeSwatch = document.getElementById('themeSwatch');
         
-        // Show the initial swatch
         if (themePreference && themeSwatch) {
-            const selectedOption = themePreference.options[themePreference.selectedIndex];
-            themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
-            
-            // Update swatch when selection changes
-            themePreference.addEventListener('change', function() {
-                const selectedOption = themePreference.options[themePreference.selectedIndex];
-                themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
-                
-                // Apply theme for preview
-                applyTheme(themePreference.value);
-            });
-        }
-        
-        // Handle appearance form submission
-        const appearanceForm = document.getElementById('appearanceForm');
-        if (appearanceForm) {
-            appearanceForm.addEventListener('submit', function() {
-                // Save theme to cookie (will persist for 365 days)
-                setCookie('theme_preference', themePreference.value, 365);
-            });
-        }
-        
-        // Initialize current theme from cookie
-        const currentTheme = getCookie('theme_preference') || 'dark';
-        if (themePreference) {
+            // Initialize current theme from cookie
+            const currentTheme = getCookie('theme_preference') || 'dark';
             for (let i = 0; i < themePreference.options.length; i++) {
                 if (themePreference.options[i].value === currentTheme) {
                     themePreference.selectedIndex = i;
-                    const selectedOption = themePreference.options[themePreference.selectedIndex];
-                    themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
                     break;
                 }
             }
+            
+            // Show initial swatch
+            const selectedOption = themePreference.options[themePreference.selectedIndex];
+            themeSwatch.className = 'theme-swatch ' + selectedOption.dataset.swatch;
+            
+            // Update on change
+            themePreference.addEventListener('change', function() {
+                const opt = themePreference.options[themePreference.selectedIndex];
+                themeSwatch.className = 'theme-swatch ' + opt.dataset.swatch;
+                
+                // Live preview of theme before saving
+                if (typeof applyTheme === 'function') {
+                    applyTheme(themePreference.value);
+                }
+            });
         }
+
+        // Intercept all AJAX settings forms
+        const ajaxForms = document.querySelectorAll('.ajax-settings-form');
+        const settingsToast = document.getElementById('settingsToast');
+        let toastTimeout;
+        
+        function showToast(title, message, isError = false) {
+            settingsToast.className = isError ? 'settings-toast bg-danger text-white px-4 py-3 show' : 'settings-toast bg-success text-white px-4 py-3 show';
+            document.getElementById('toastTitle').innerText = title;
+            document.getElementById('toastMessage').innerText = message;
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                settingsToast.classList.remove('show');
+            }, 3500);
+        }
+
+        ajaxForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+                submitBtn.disabled = true;
+                
+                // If this is the appearance form, also update the cookie
+                if (this.querySelector('[name="settings_type"]') && this.querySelector('[name="settings_type"]').value === 'appearance') {
+                    const themeVal = document.getElementById('themePreference').value;
+                    setCookie('theme_preference', themeVal, 365);
+                }
+
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        showToast('Success!', data.message);
+                    } else {
+                        showToast('Error', data.message || 'Failed to save settings.', true);
+                    }
+                })
+                .catch(err => {
+                    showToast('Network Error', 'Could not reach the server.', true);
+                })
+                .finally(() => {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                });
+            });
+        });
+
+        // Initialize hash tab logic
+        const hash = window.location.hash;
+        if (hash) {
+            const listTab = document.querySelector(`a[href="${hash}"]`);
+            if (listTab) {
+                const tab = new bootstrap.Tab(listTab);
+                tab.show();
+            }
+        }
+
         // Handle API Security toggle
         const requireAuth = document.getElementById('requireAuth');
         const apiKeySection = document.getElementById('apiKeySection');
@@ -457,7 +617,7 @@
             const key = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
             apiKeyInput.value = 'mf_' + key;
         }
-        
+
         // MQTT Test Connection
         const btnTestConnection = document.getElementById('btnTestConnection');
         if (btnTestConnection) {
@@ -513,6 +673,148 @@
                 });
             });
         }
+        
+        // System Logs Tab Logic
+        const btnRefreshLogs = document.getElementById('btnRefreshLogs');
+        const logTerminal = document.getElementById('logTerminal');
+        const logTerminalContainer = document.getElementById('logTerminalContainer');
+        const systemTabTrigger = document.getElementById('list-system-list');
+        let logsInterval;
+        
+        function fetchLogs() {
+            if (!logTerminal) return;
+            
+            const isScrolledToBottom = logTerminalContainer.scrollHeight - logTerminalContainer.clientHeight <= logTerminalContainer.scrollTop + 50;
+            
+            fetch('/api/logs/system/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Apply rudimentary syntax highlighting
+                        let formattedLogs = data.logs
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/(ERROR)/g, '<span class="text-danger fw-bold">$1</span>')
+                            .replace(/(WARNING)/g, '<span class="text-warning fw-bold">$1</span>')
+                            .replace(/(INFO)/g, '<span class="text-info">$1</span>')
+                            .replace(/(DEBUG)/g, '<span class="text-muted">$1</span>');
+                            
+                        logTerminal.innerHTML = formattedLogs || '<span class="text-muted">No logs available.</span>';
+                        
+                        // Auto scroll to bottom if we were already at the bottom
+                        if (isScrolledToBottom) {
+                            logTerminalContainer.scrollTop = logTerminalContainer.scrollHeight;
+                        }
+                    } else {
+                        logTerminal.innerHTML = `<span class="text-danger">Failed to load logs: ${data.message}</span>`;
+                    }
+                })
+                .catch(err => {
+                    logTerminal.innerHTML = `<span class="text-danger">Failed to connect to server.</span>`;
+                });
+        }
+        
+        if (btnRefreshLogs) {
+            btnRefreshLogs.addEventListener('click', function() {
+                const icon = this.querySelector('i');
+                icon.classList.add('fa-spin');
+                fetchLogs();
+                setTimeout(() => icon.classList.remove('fa-spin'), 1000);
+            });
+        }
+        
+        if (systemTabTrigger) {
+            systemTabTrigger.addEventListener('shown.bs.tab', function (event) {
+                fetchLogs();
+                // Scroll to bottom on initial load
+                setTimeout(() => {
+                    if(logTerminalContainer) {
+                        logTerminalContainer.scrollTop = logTerminalContainer.scrollHeight;
+                    }
+                }, 100);
+                
+                // Set interval to poll every 5 seconds when tab is active
+                logsInterval = setInterval(fetchLogs, 5000);
+            });
+            
+            systemTabTrigger.addEventListener('hidden.bs.tab', function (event) {
+                // Clear polling when leaving tab
+                if (logsInterval) {
+                    clearInterval(logsInterval);
+                }
+            });
+            
+            // If already on the system tab at page load
+            if (systemTabTrigger.classList.contains('active')) {
+                fetchLogs();
+                logsInterval = setInterval(fetchLogs, 5000);
+            }
+        }
+        
+        // Machine Traffic Modal Logic
+        let machineTrafficInterval;
+        let currentMachineId = null;
+        const machineTrafficModalEl = document.getElementById('machineTrafficModal');
+        let machineTrafficModal;
+        if (machineTrafficModalEl) {
+            machineTrafficModal = new bootstrap.Modal(machineTrafficModalEl);
+        }
+        
+        const machineTrafficLog = document.getElementById('machineTrafficLog');
+        const machineTrafficContainer = document.getElementById('machineTrafficContainer');
+        const machineTrafficName = document.getElementById('machineTrafficName');
+
+        window.openMachineTrafficModal = function(machineId, machineName) {
+            currentMachineId = machineId;
+            if(machineTrafficName) machineTrafficName.innerText = machineName;
+            if(machineTrafficLog) machineTrafficLog.innerHTML = '<span class="text-muted">Loading traffic...</span>';
+            if(machineTrafficModal) machineTrafficModal.show();
+            
+            fetchMachineTraffic();
+            machineTrafficInterval = setInterval(fetchMachineTraffic, 3000);
+        };
+
+        function fetchMachineTraffic() {
+            if (!currentMachineId || !machineTrafficLog) return;
+            
+            const isScrolledToBottom = machineTrafficContainer.scrollHeight - machineTrafficContainer.clientHeight <= machineTrafficContainer.scrollTop + 50;
+            
+            fetch(`/api/logs/machine/${currentMachineId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        let formattedLogs = data.logs
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/(ERROR)/g, '<span class="text-danger fw-bold">$1</span>')
+                            .replace(/(WARNING)/g, '<span class="text-warning fw-bold">$1</span>')
+                            .replace(/(INFO)/g, '<span class="text-info">$1</span>')
+                            .replace(/(DEBUG)/g, '<span class="text-muted">$1</span>')
+                            .replace(/(\[Machine \d+\])/g, '<span class="text-success">$1</span>');
+                            
+                        machineTrafficLog.innerHTML = formattedLogs || '<span class="text-muted">No traffic recorded for this machine yet. Is the System Log Level set to DEBUG?</span>';
+                        
+                        if (isScrolledToBottom && machineTrafficContainer) {
+                            machineTrafficContainer.scrollTop = machineTrafficContainer.scrollHeight;
+                        }
+                    } else {
+                        machineTrafficLog.innerHTML = `<span class="text-danger">Failed to load logs: ${data.message}</span>`;
+                    }
+                })
+                .catch(err => {
+                    // Do nothing on fetch error to avoid flicker
+                });
+        }
+
+        if (machineTrafficModalEl) {
+            machineTrafficModalEl.addEventListener('hidden.bs.modal', function () {
+                if (machineTrafficInterval) {
+                    clearInterval(machineTrafficInterval);
+                }
+                currentMachineId = null;
+            });
+        }
+        
     });
 </script>
-{% endblock %} 
+{% endblock %}

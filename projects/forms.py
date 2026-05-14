@@ -220,4 +220,20 @@ class MachineForm(forms.ModelForm):
             'print_volume_z': 'Print Volume Z (mm)',
             'ip_address': 'Printer IP Address',
             'mqtt_access_code': 'MQTT Access Code',
-        } 
+        }
+
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+
+class FirstSetupForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username", "email")
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.is_staff = True
+        user.is_superuser = True
+        if commit:
+            user.save()
+        return user

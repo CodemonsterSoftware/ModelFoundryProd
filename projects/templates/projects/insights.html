@@ -1,0 +1,831 @@
+{% extends 'projects/base.html' %}
+{% load static %}
+
+{% block title %}Insights - ModelFoundry{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Flatten premium cards specifically for the insights dashboard */
+    .premium-card {
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        padding: 1.5rem !important;
+        box-shadow: none !important;
+    }
+    .premium-card:hover {
+        transform: none !important;
+        box-shadow: none !important;
+        border-color: rgba(255, 255, 255, 0.15) !important;
+    }
+    .premium-card::before {
+        display: none !important;
+    }
+
+    .stat-badge {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        background: var(--bg-grey);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-dark);
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.5rem;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    /* Heatmap Styles */
+    .heatmap-container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 10px;
+    }
+    .heatmap-months {
+        display: flex;
+        margin-left: 30px; /* Offset for day labels */
+        margin-bottom: 5px;
+        height: 15px; /* Fix for absolute positioned text */
+    }
+    .heatmap-month {
+        width: 14px; /* Matches column width + gap */
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-align: left;
+        position: relative;
+    }
+    .heatmap-month span {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+    .heatmap-body {
+        display: flex;
+    }
+    .heatmap-days {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 25px;
+        min-width: 25px;
+        margin-right: 5px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        line-height: 11px;
+    }
+    .heatmap-days span {
+        height: 11px;
+        margin-bottom: 3px;
+    }
+    .heatmap-grid {
+        display: flex;
+        gap: 3px;
+    }
+    .heatmap-col {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .heatmap-cell {
+        width: 11px;
+        height: 11px;
+        border-radius: 2px;
+        background-color: var(--bg-grey); /* Level 0 - matches dark theme better */
+    }
+    .heatmap-cell[data-level="1"] { background-color: rgba(59, 130, 246, 0.4); } /* Blue variants */
+    .heatmap-cell[data-level="2"] { background-color: rgba(59, 130, 246, 0.6); }
+    .heatmap-cell[data-level="3"] { background-color: rgba(59, 130, 246, 0.8); }
+    .heatmap-cell[data-level="4"] { background-color: rgba(59, 130, 246, 1); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid premium-index-wrapper px-4 mt-4">
+    <!-- Hero Section -->
+    <div class="premium-hero animate-enter" style="animation-delay: 0ms;">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="fs-2 hero-title mb-1 fw-bold">Library Statistics</h1>
+                <p class="text-muted mb-0 small">Insights into your projects, materials, and printing history.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-pills mb-4 gap-2 animate-enter" id="insights-tabs" role="tablist" style="animation-delay: 50ms;">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active px-4 py-2 fw-bold" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview" type="button" role="tab">Overview</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link px-4 py-2 fw-bold" id="fleet-tab" data-bs-toggle="pill" data-bs-target="#fleet" type="button" role="tab">Fleet & Activity</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link px-4 py-2 fw-bold" id="library-tab" data-bs-toggle="pill" data-bs-target="#library" type="button" role="tab">Library & Finances</button>
+        </li>
+    </ul>
+
+    <div class="tab-content pb-5" id="insights-tabContent">
+        <!-- 1. OVERVIEW TAB -->
+        <div class="tab-pane fade show active" id="overview" role="tabpanel">
+            <!-- Top Stats & Library Status side-by-side Bento -->
+            <div class="row g-3 animate-enter" style="animation-delay: 100ms;">
+                <div class="col-lg-8">
+                    <!-- Top Stats Mini Grid -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3 col-6">
+                            <div class="premium-card text-center py-3 h-100 d-flex flex-column justify-content-center">
+                                <div class="text-muted small text-uppercase fw-bold mb-2">
+                                    <i class="fas fa-cube me-1"></i> Projects
+                                </div>
+                                <div class="stat-badge fs-4">{{ total_projects }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="premium-card text-center py-3 h-100 d-flex flex-column justify-content-center">
+                                <div class="text-muted small text-uppercase fw-bold mb-2">
+                                    <i class="fas fa-shapes me-1"></i> Parts
+                                </div>
+                                <div class="stat-badge fs-4">{{ total_parts }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="premium-card text-center py-3 h-100 d-flex flex-column justify-content-center">
+                                <div class="text-muted small text-uppercase fw-bold mb-2">
+                                    <i class="fas fa-layer-group me-1"></i> Materials
+                                </div>
+                                <div class="stat-badge fs-4">{{ total_materials }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <div class="premium-card text-center py-3 h-100 d-flex flex-column justify-content-center">
+                                <div class="text-muted small text-uppercase fw-bold mb-2">
+                                    <i class="fas fa-print me-1"></i> Printers
+                                </div>
+                                <div class="stat-badge fs-4">{{ total_machines }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Completion Metrics -->
+                    <div class="premium-card">
+                        <div class="row align-items-center">
+                            <div class="col-md-4 border-end border-secondary">
+                                <h6 class="fw-bold mb-1"><i class="fas fa-check-circle text-success me-2"></i>Completion Rate</h6>
+                                <h3 class="fw-bold text-success mb-2">{{ completion_rate|floatformat:1 }}%</h3>
+                                <div class="progress" style="height: 6px; background-color: var(--bg-grey);">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ completion_rate|floatformat:0 }}%;"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 border-end border-secondary text-center">
+                                <div class="text-muted small text-uppercase mb-1">Unprinted Backlog</div>
+                                <h3 class="fw-bold text-danger mb-0">{{ total_unprinted }} parts</h3>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="text-muted small text-uppercase mb-1">Total Print Time</div>
+                                <h4 class="fw-bold text-warning mb-0">{{ total_print_time_str }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <!-- Project Status Doughnut -->
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-tasks text-primary me-2"></i>Project Status</h6>
+                        <div class="chart-container mt-2" style="height: 180px;">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pile of Shame Dense Tables -->
+            <div class="row g-3 mt-1 animate-enter" style="animation-delay: 150ms;">
+                <div class="col-md-6">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-ghost text-muted me-2"></i>Most Neglected Projects</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless table-hover align-middle mb-0 text-light">
+                                <tbody>
+                                    {% for p in most_neglected %}
+                                    <tr>
+                                        <td><a href="{% url 'projects:project_detail' p.id %}" class="text-decoration-none text-light fw-bold">{{ p.name }}</a></td>
+                                        <td class="text-end"><span class="badge bg-secondary">Created {{ p.created_at|date:"M j, Y" }}</span></td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td class="text-muted text-center py-3">No neglected projects!</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-bolt text-warning me-2"></i>Fastest Completions</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless table-hover align-middle mb-0 text-light">
+                                <tbody>
+                                    {% for p in fastest_completions %}
+                                    <tr>
+                                        <td><a href="{% url 'projects:project_detail' p.id %}" class="text-decoration-none text-light fw-bold">{{ p.name }}</a></td>
+                                        <td class="text-end"><span class="badge bg-warning text-dark"><i class="fas fa-star me-1"></i>100%</span></td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td class="text-muted text-center py-3">No completed projects yet.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Biggest Projects Dense Line -->
+            <div class="row g-3 mt-1 animate-enter" style="animation-delay: 200ms;">
+                <div class="col-12">
+                    <div class="premium-card">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-trophy text-warning me-2"></i>Library Highlights</h6>
+                        <div class="d-flex flex-wrap gap-4">
+                            {% if biggest_project_parts %}
+                            <div class="flex-fill border-end border-secondary pe-3">
+                                <div class="text-muted small text-uppercase mb-1">Most Parts</div>
+                                <div><a href="{% url 'projects:project_detail' biggest_project_parts.id %}" class="text-decoration-none text-info fw-bold">{{ biggest_project_parts.name }}</a> <span class="badge bg-primary ms-1">{{ biggest_project_parts.part_count }} parts</span></div>
+                            </div>
+                            {% endif %}
+                            {% if biggest_project_volume %}
+                            <div class="flex-fill border-end border-secondary pe-3">
+                                <div class="text-muted small text-uppercase mb-1">Largest Volume</div>
+                                <div><a href="{% url 'projects:project_detail' biggest_project_volume.id %}" class="text-decoration-none text-info fw-bold">{{ biggest_project_volume.name }}</a> <span class="badge bg-success ms-1">{{ biggest_project_volume.calculated_volume|floatformat:0 }} cm³</span></div>
+                            </div>
+                            {% endif %}
+                            {% if biggest_project_cost %}
+                            <div class="flex-fill border-end border-secondary pe-3">
+                                <div class="text-muted small text-uppercase mb-1">Most Expensive</div>
+                                <div><a href="{% url 'projects:project_detail' biggest_project_cost.id %}" class="text-decoration-none text-info fw-bold">{{ biggest_project_cost.name }}</a> <span class="badge bg-danger ms-1">${{ biggest_project_cost.total_cost|floatformat:2 }}</span></div>
+                            </div>
+                            {% endif %}
+                            {% if longest_part %}
+                            <div class="flex-fill">
+                                <div class="text-muted small text-uppercase mb-1">Longest Print</div>
+                                <div><span class="text-warning fw-bold" title="{{ longest_part.name }}">{{ longest_part.name|truncatechars:20 }}</span> <span class="small text-muted ms-1">{{ longest_part_time_str }}</span></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Library Growth Chart -->
+            <div class="row g-3 mt-1 animate-enter" style="animation-delay: 250ms;">
+                <div class="col-12">
+                    <div class="premium-card">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-line text-primary me-2"></i>Library Growth (Last 6 Months)</h6>
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="libraryGrowthChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. FLEET & ACTIVITY TAB -->
+        <div class="tab-pane fade" id="fleet" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-print text-info me-2"></i>Printer Workhorses</h6>
+                        <div class="chart-container mt-2" style="height: 200px;">
+                            <canvas id="workhorseChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-chart-line text-success me-2"></i>Fleet Performance</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="premium-card text-center py-3 h-100" style="background-color: var(--bg-dark);">
+                                    <div class="text-muted small text-uppercase mb-1">Print Success Rate</div>
+                                    <h3 class="fw-bold text-success mb-0">{{ global_success_rate|floatformat:1 }}%</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="premium-card text-center py-3 h-100" style="background-color: var(--bg-dark);">
+                                    <div class="text-muted small text-uppercase mb-1">Busiest Printing Day</div>
+                                    <h3 class="fw-bold text-info mb-0">{{ busiest_day }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="premium-card text-center py-3 h-100" style="background-color: var(--bg-dark);">
+                                    <div class="text-muted small text-uppercase mb-1">Peak Printing Hour</div>
+                                    <h3 class="fw-bold text-warning mb-0">{{ busiest_time }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-3 mt-1">
+                <div class="col-lg-8">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-calendar-alt text-info me-2"></i>Printing Timeline (30 Days)</h6>
+                        <div class="chart-container mt-2" style="height: 250px;">
+                            <canvas id="timelineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-th text-primary me-2"></i>Activity Heatmap</h6>
+                        <p class="text-muted small mb-3">Last 6 Months</p>
+                        <!-- Heatmap code (compacted) -->
+                        <div class="heatmap-container mx-auto" style="max-width: 100%;">
+                            <div class="heatmap-body">
+                                <div class="heatmap-days small text-muted">
+                                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                                </div>
+                                <div class="heatmap-grid" style="gap: 2px;">
+                                    {% for week in heatmap_grid %}
+                                    <div class="heatmap-col" style="gap: 2px;">
+                                        {% for day in week %}
+                                            {% if day %}
+                                            <div class="heatmap-cell" data-level="{{ day.level }}" title="{{ day.count }} prints on {{ day.date }}" style="width: 10px; height: 10px;"></div>
+                                            {% else %}
+                                            <div class="heatmap-cell" style="background-color: transparent; width: 10px; height: 10px;"></div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. LIBRARY & MATERIALS TAB -->
+        <div class="tab-pane fade" id="library" role="tabpanel">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-tags text-primary me-2"></i>Top Categories</h6>
+                        <div class="d-flex justify-content-between mb-3 border-bottom border-secondary pb-2">
+                            <span class="small text-muted">Top: <strong class="text-primary">{{ top_tag.name|default:"None" }}</strong></span>
+                            <span class="small text-muted">Coverage: <strong>{{ tag_coverage|floatformat:1 }}%</strong></span>
+                            <span class="small text-muted">Total: <strong>{{ tag_labels|length }}</strong></span>
+                        </div>
+                        <div class="chart-container" style="height: 220px;">
+                            <canvas id="tagChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-users text-info me-2"></i>Top Creators</h6>
+                        <div class="d-flex justify-content-between mb-3 border-bottom border-secondary pb-2">
+                            <span class="small text-muted">Top: <strong class="text-info">{{ top_creator.name|default:"None" }}</strong></span>
+                            <span class="small text-muted">Coverage: <strong>{{ top_5_coverage|floatformat:1 }}%</strong></span>
+                            <span class="small text-muted">Total: <strong>{{ total_creators }}</strong></span>
+                        </div>
+                        <div class="chart-container" style="height: 220px;">
+                            <canvas id="creatorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-palette text-danger me-2"></i>Colors Used</h6>
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="colorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-chart-bar text-primary me-2"></i>Filament Types</h6>
+                        <div class="d-flex justify-content-between mb-2 small text-muted">
+                            <span>Top: <strong>{{ most_used_type.0 }}</strong></span>
+                            <span>Avg: <strong>{{ avg_type_usage|floatformat:0 }}g</strong></span>
+                        </div>
+                        <div class="chart-container" style="height: 180px;">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-tags text-success me-2"></i>Brands</h6>
+                        <div class="d-flex justify-content-between mb-2 small text-muted">
+                            <span>Top: <strong>{{ top_brand.0 }}</strong></span>
+                            <span>Avg: <strong>{{ avg_brand_usage|floatformat:0 }}g</strong></span>
+                        </div>
+                        <div class="chart-container" style="height: 180px;">
+                            <canvas id="brandChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Merged Financials & Hardware Section -->
+            <div class="row g-3 mt-1 animate-enter" style="animation-delay: 200ms;">
+                <div class="col-lg-8">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-4"><i class="fas fa-dollar-sign text-success me-2"></i>Financial Breakdown</h6>
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <div class="p-3 border rounded d-flex justify-content-between align-items-center" style="border-color: rgba(255,255,255,0.08) !important; background: rgba(255,255,255,0.02); border-left: 3px solid var(--bs-danger) !important;">
+                                    <div>
+                                        <div class="text-muted small text-uppercase mb-1">Outstanding Hardware Orders</div>
+                                        <div class="text-muted small">{{ outstanding_orders_count }} items pending</div>
+                                    </div>
+                                    <h3 class="fw-bold text-danger mb-0">${{ outstanding_orders_value|floatformat:2 }}</h3>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <div class="p-3 border rounded h-100" style="border-color: rgba(255,255,255,0.08) !important;">
+                                    <div class="text-muted small text-uppercase mb-1">Total Library Value</div>
+                                    <h4 class="fw-bold text-success mb-0">${{ total_library_value|floatformat:2 }}</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <div class="p-3 border rounded h-100" style="border-color: rgba(255,255,255,0.08) !important;">
+                                    <div class="text-muted small text-uppercase mb-1">Avg Project Cost</div>
+                                    <h4 class="fw-bold text-info mb-0">${{ avg_project_cost|floatformat:2 }}</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <div class="p-3 border rounded h-100" style="border-color: rgba(255,255,255,0.08) !important;">
+                                    <div class="text-muted small text-uppercase mb-1">Hardware / BOM Value</div>
+                                    <h4 class="fw-bold text-warning mb-0">${{ total_purchased_cost|floatformat:2 }}</h4>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <div class="p-3 border rounded h-100" style="border-color: rgba(255,255,255,0.08) !important;">
+                                    <div class="text-muted small text-uppercase mb-1">Printed Parts Value</div>
+                                    <h4 class="fw-bold text-primary mb-0">${{ total_printed_cost|floatformat:2 }}</h4>
+                                    <div class="small text-muted">{{ total_filament_used_g|floatformat:0 }}g used</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <div class="p-3 border rounded h-100" style="border-color: rgba(255,255,255,0.08) !important;">
+                                    <div class="text-muted small text-uppercase mb-1">Cheapest Material</div>
+                                    <h6 class="fw-bold text-success mb-0 text-truncate" title="{{ cheapest_material.name|default:'None' }}">{{ cheapest_material.name|default:"None" }}</h6>
+                                    <div class="small text-muted">${{ cheapest_material.cost_per_kg|floatformat:2|default:"0.00" }} / kg</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-6">
+                                <div class="p-3 border rounded h-100" style="border-color: rgba(255,255,255,0.08) !important;">
+                                    <div class="text-muted small text-uppercase mb-1">Most Premium Material</div>
+                                    <h6 class="fw-bold text-danger mb-0 text-truncate" title="{{ most_expensive_material.name|default:'None' }}">{{ most_expensive_material.name|default:"None" }}</h6>
+                                    <div class="small text-muted">${{ most_expensive_material.cost_per_kg|floatformat:2|default:"0.00" }} / kg</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="premium-card h-100">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-tools text-secondary me-2"></i>Top Hardware (BOM)</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless table-hover align-middle mb-0 text-light">
+                                <thead>
+                                    <tr>
+                                        <th class="text-muted small text-uppercase">Part Name</th>
+                                        <th class="text-muted small text-uppercase text-end">Quantity</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for h in top_hardware %}
+                                    <tr>
+                                        <td class="fw-bold">{{ h.name }}</td>
+                                        <td class="text-end"><span class="badge bg-secondary">{{ h.total_qty }}</span></td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="2" class="text-muted text-center py-3">No hardware logged yet.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Material Burn Rate Chart -->
+            <div class="row g-3 mt-1 animate-enter" style="animation-delay: 250ms;">
+                <div class="col-12">
+                    <div class="premium-card">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-fire text-danger me-2"></i>Material Burn Rate (Last 6 Months)</h6>
+                        <div class="chart-container" style="height: 250px;">
+                            <canvas id="burnRateChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Shared Chart Options
+    Chart.defaults.color = '#a0a0a0';
+    Chart.defaults.font.family = "'Inter', 'Segoe UI', sans-serif";
+    
+    const horizontalBarOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                grid: { color: '#334155', drawBorder: false }
+            },
+            y: {
+                grid: { display: false, drawBorder: false }
+            }
+        }
+    };
+
+    // Filament Types Chart
+    const typeLabels = JSON.parse('{{ type_labels|safe }}');
+    const typeData = JSON.parse('{{ type_data|safe }}');
+    if(typeLabels.length > 0) {
+        new Chart(document.getElementById('typeChart'), {
+            type: 'bar',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    label: 'Usage (g)',
+                    data: typeData,
+                    backgroundColor: '#8b5cf6',
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: horizontalBarOptions
+        });
+    }
+
+    // Brands Chart
+    const brandLabels = JSON.parse('{{ brand_labels|safe }}');
+    const brandData = JSON.parse('{{ brand_data|safe }}');
+    if(brandLabels.length > 0) {
+        new Chart(document.getElementById('brandChart'), {
+            type: 'bar',
+            data: {
+                labels: brandLabels,
+                datasets: [{
+                    label: 'Usage (g)',
+                    data: brandData,
+                    backgroundColor: '#10b981',
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: horizontalBarOptions
+        });
+    }
+
+    // New Analytics Charts
+    const monthLabels = JSON.parse('{{ month_labels|safe }}');
+    const libraryGrowthData = JSON.parse('{{ library_growth_data|safe }}');
+    const burnRateDatasets = JSON.parse('{{ burn_rate_datasets|safe }}');
+
+    if(monthLabels.length > 0) {
+        // Library Growth Chart (Bar)
+        new Chart(document.getElementById('libraryGrowthChart'), {
+            type: 'bar',
+            data: {
+                labels: monthLabels,
+                datasets: [{
+                    label: 'New Projects',
+                    data: libraryGrowthData,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4,
+                    barPercentage: 0.5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#334155', drawBorder: false }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false, drawBorder: false } }
+                }
+            }
+        });
+
+        // Material Burn Rate Chart (Line)
+        new Chart(document.getElementById('burnRateChart'), {
+            type: 'line',
+            data: {
+                labels: monthLabels,
+                datasets: burnRateDatasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'circle' } },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#334155', drawBorder: false } },
+                    x: { grid: { display: false, drawBorder: false } }
+                }
+            }
+        });
+    }
+
+    // Status Chart
+    const statusLabels = JSON.parse('{{ status_labels|safe }}');
+    const statusData = JSON.parse('{{ status_data|safe }}');
+    if(statusLabels.length > 0) {
+        new Chart(document.getElementById('statusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: statusLabels,
+                datasets: [{
+                    data: statusData,
+                    backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { padding: 20, usePointStyle: true, pointStyle: 'circle' }
+                    }
+                }
+            }
+        });
+    }
+
+    // Workhorse Chart
+    const workhorseLabels = JSON.parse('{{ workhorse_labels|safe }}');
+    const workhorseData = JSON.parse('{{ workhorse_counts|safe }}');
+    if(workhorseLabels.length > 0) {
+        new Chart(document.getElementById('workhorseChart'), {
+            type: 'pie',
+            data: {
+                labels: workhorseLabels,
+                datasets: [{
+                    data: workhorseData,
+                    backgroundColor: ['#8b5cf6', '#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#64748b'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { padding: 20, usePointStyle: true, pointStyle: 'circle' }
+                    }
+                }
+            }
+        });
+    }
+
+    // Color Chart
+    const colorLabels = JSON.parse('{{ color_labels|safe }}');
+    const colorData = JSON.parse('{{ color_data|safe }}');
+    if(colorLabels.length > 0) {
+        // Map common color names to actual hex codes for the pie slices
+        const colorMap = {
+            'black': '#000000', 'white': '#ffffff', 'red': '#ef4444', 
+            'blue': '#3b82f6', 'green': '#10b981', 'yellow': '#eab308', 
+            'purple': '#a855f7', 'orange': '#f97316', 'grey': '#9ca3af',
+            'gray': '#9ca3af', 'pink': '#ec4899', 'brown': '#78350f'
+        };
+        const bgColors = colorLabels.map(label => colorMap[label.toLowerCase()] || '#64748b');
+
+        new Chart(document.getElementById('colorChart'), {
+            type: 'pie',
+            data: {
+                labels: colorLabels,
+                datasets: [{
+                    data: colorData,
+                    backgroundColor: bgColors,
+                    borderWidth: 1,
+                    borderColor: '#1e293b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { padding: 20, usePointStyle: true, pointStyle: 'circle' }
+                    }
+                }
+            }
+        });
+    }
+
+    // Tags Chart
+    const tagLabels = JSON.parse('{{ tag_labels|safe }}');
+    const tagData = JSON.parse('{{ tag_data|safe }}');
+    if(tagLabels.length > 0) {
+        new Chart(document.getElementById('tagChart'), {
+            type: 'bar',
+            data: {
+                labels: tagLabels,
+                datasets: [{
+                    label: 'Projects',
+                    data: tagData,
+                    backgroundColor: '#0ea5e9', // Light Blue
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: horizontalBarOptions
+        });
+    }
+
+    // Creators Chart
+    const designerLabels = JSON.parse('{{ designer_labels|safe }}');
+    const designerData = JSON.parse('{{ designer_data|safe }}');
+    if(designerLabels.length > 0) {
+        new Chart(document.getElementById('creatorChart'), {
+            type: 'bar',
+            data: {
+                labels: designerLabels,
+                datasets: [{
+                    label: 'Projects',
+                    data: designerData,
+                    backgroundColor: '#6366f1', // Indigo
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: horizontalBarOptions
+        });
+    }
+
+    // Timeline Chart
+    const timelineLabels = JSON.parse('{{ timeline_labels|safe }}');
+    const timelineData = JSON.parse('{{ timeline_data|safe }}');
+    if(timelineLabels.length > 0) {
+        new Chart(document.getElementById('timelineChart'), {
+            type: 'bar',
+            data: {
+                labels: timelineLabels,
+                datasets: [{
+                    label: 'Completed Prints',
+                    data: timelineData,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4,
+                    barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#334155', drawBorder: false },
+                        ticks: { stepSize: 1 }
+                    },
+                    x: {
+                        grid: { display: false, drawBorder: false }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

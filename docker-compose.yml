@@ -50,19 +50,25 @@ services:
     image: codemonstersoftware/modelfoundry-blender:latest
     volumes:
       - media_volume:/app/media
+      - ./media/scripts:/app/media/scripts
     ports:
       - "8081:8081"
     networks:
       - app_network
       
   mqtt_listener:
-    build: .
+    image: codemonstersoftware/modelfoundry:latest
     command: python manage.py run_mqtt_listener
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - logs_volume:/app/logs
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/modelfoundry
+      - PYTHONUNBUFFERED=1
+      - DOCKER_CONTAINER=true
+      - SECRET_KEY=your-secret-key-here
     networks:
       - app_network
 
