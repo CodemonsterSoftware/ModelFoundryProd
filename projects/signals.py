@@ -15,6 +15,9 @@ def generate_part_thumbnail(sender, instance, created, **kwargs):
     Signal receiver to generate a thumbnail when a Part is saved with an STL but no thumbnail.
     """
     if instance.stl_file and not instance.thumbnail:
+        # Bulk uploads set _skip_thumbnail=True to defer to the background pipeline
+        if getattr(instance, '_skip_thumbnail', False):
+            return
         # Check if we are already generating to prevent infinite loop if save() is called inside
         if getattr(instance, '_is_generating_thumbnail', False):
             return

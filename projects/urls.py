@@ -31,6 +31,7 @@ urlpatterns = [
     path('part/<int:part_id>/update-progress/', login_required(views.update_part_progress), name='update_part_progress'),
     path('purchased-part/<int:part_id>/update-status/', login_required(views.update_purchased_part_status), name='update_purchased_part_status'),
     path('project/<int:project_id>/add-parts/', login_required(views.add_multiple_parts), name='add_multiple_parts'),
+    path('api/upload-progress/<str:task_id>/', login_required(views.upload_progress), name='upload_progress'),
     path('project/<int:project_id>/bulk-edit-parts/', login_required(views.bulk_edit_parts), name='bulk_edit_parts'),
     path('project/<int:project_id>/bulk-delete-parts/', login_required(views.bulk_delete_parts), name='bulk_delete_parts'),
     path('project/<int:project_id>/bulk-complete-parts/', login_required(views.bulk_complete_parts), name='bulk_complete_parts'),

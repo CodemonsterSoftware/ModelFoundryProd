@@ -4,7 +4,7 @@ from django.db.models import Sum
 from django.contrib.auth.models import User
 import os
 import numpy as np
-import trimesh
+
 from decimal import Decimal, InvalidOperation
 from django.conf import settings
 from imagekit.models import ImageSpecField
@@ -256,28 +256,28 @@ class Part(models.Model):
             return None
 
     def calculate_volume(self):
-        """Calculate the volume of the 3D file in cubic millimeters."""
+        """Calculate the volume of the 3D file in cubic millimeters.
+        
+        Uses numpy-stl for STL files (fast vectorized path) and falls
+        back to trimesh for other formats (OBJ, etc.).
+        """
         if not self.stl_file:
             print(f"No 3D file for part {self.name}")
             return None
             
         try:
-            # Get the absolute path of the file
             file_path = self.stl_file.path
             print(f"Calculating volume for {self.name} using file: {file_path}")
             
-            # Check if file exists
             if not os.path.exists(file_path):
                 print(f"File not found at path: {file_path}")
                 return None
-                
-            # Read the 3D file using trimesh
-            mesh_data = trimesh.load(file_path, force='mesh')
+
+            from projects.volume import compute_volume
+            volume_mm3 = compute_volume(file_path)
             
-            # Convert to cubic millimeters (assuming the mesh is in millimeters)
-            volume_mm3 = abs(mesh_data.volume)
-            
-            print(f"Volume calculated for {self.name}: {volume_mm3} mm³")
+            if volume_mm3 is not None:
+                print(f"Volume calculated for {self.name}: {volume_mm3} mm³")
             return volume_mm3
             
         except Exception as e:
@@ -286,7 +286,10 @@ class Part(models.Model):
 
     def save(self, *args, **kwargs):
         # Calculate volume before saving if there's an STL file
-        if self.stl_file and (not self.volume or self._state.adding):
+        # _skip_volume flag allows bulk uploads to defer volume calc
+        # to a background ProcessPoolExecutor for parallelism
+        skip_volume = getattr(self, '_skip_volume', False)
+        if not skip_volume and self.stl_file and (not self.volume or self._state.adding):
             print(f"Calculating volume for part {self.name}")
             self.volume = self.calculate_volume()
         super().save(*args, **kwargs)

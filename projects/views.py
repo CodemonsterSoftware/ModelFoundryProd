@@ -568,18 +568,22 @@ def add_multiple_parts(request, project_id):
                     part.group = group
                     part.save()
             
-            # Handle file uploads and volume calculations
+            # Handle file uploads — thumbnails + volumes are deferred to
+            # a background pipeline with progress tracking
             files = request.FILES.getlist('files')
             processing_start_time = time.time()
-            total_files = len(files)
             processed_files = 0
+            pipeline_tasks = []  # (part_id, file_path) for background processing
             
             for i, file in enumerate(files):
                 if i < len(created_parts):
                     part = created_parts[i]
-                    # Save the file to the part (this triggers volume calculation)
+                    # Skip synchronous volume + thumbnail — background pipeline handles both
+                    part._skip_volume = True
+                    part._skip_thumbnail = True
                     file_start_time = time.time()
                     part.stl_file.save(file.name, file, save=True)
+                    pipeline_tasks.append((part.id, part.stl_file.path))
                     
                     # 3MF Explosion Logic
                     if file.name.lower().endswith('.3mf'):
@@ -611,7 +615,11 @@ def add_multiple_parts(request, project_id):
                                                 group=part.group,
                                                 parent=part
                                             )
+                                            # Skip both for children too
+                                            child_part._skip_volume = True
+                                            child_part._skip_thumbnail = True
                                             child_part.stl_file.save(child_filename, File(f), save=True)
+                                            pipeline_tasks.append((child_part.id, child_part.stl_file.path))
                                             processed_files += 1
                                             
                                     os.unlink(temp_obj.name)
@@ -622,13 +630,27 @@ def add_multiple_parts(request, project_id):
                     file_process_time = time.time() - file_start_time
                     processed_files += 1
                     
-                    # Log processing time for estimation (optional)
-                    logger.debug(f"Processed {part.name} in {file_process_time:.2f}s")
+                    logger.debug(f"Processed {part.name} in {file_process_time:.2f}s (thumbnails + volumes deferred)")
             
             total_processing_time = time.time() - processing_start_time
             
+            # Create progress task and dispatch background pipeline
+            task_id = None
+            if pipeline_tasks:
+                from projects.volume import process_parts_background, generate_task_id
+                from projects import progress
+                
+                task_id = generate_task_id()
+                progress.create_task(task_id, len(pipeline_tasks))
+                # Mark upload phase as complete (files are saved)
+                progress.update_task(task_id, phase='upload', completed=len(pipeline_tasks),
+                                     status='Files saved')
+                process_parts_background(task_id, pipeline_tasks)
+            
             return JsonResponse({
                 'status': 'success',
+                'task_id': task_id,
+                'total_parts': len(pipeline_tasks),
                 'processing_time': total_processing_time,
                 'files_processed': processed_files
             })
@@ -647,6 +669,18 @@ def add_multiple_parts(request, project_id):
         'materials': materials,
         'material_types': material_types
     })
+
+
+@login_required
+def upload_progress(request, task_id):
+    """Polling endpoint for upload progress. Called by frontend every ~500ms."""
+    from projects import progress
+    
+    task = progress.get_task(task_id)
+    if task is None:
+        return JsonResponse({'status': 'not_found', 'done': True, 'percent': 100})
+    
+    return JsonResponse(task)
 
 
 

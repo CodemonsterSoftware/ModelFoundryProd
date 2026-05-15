@@ -1,16 +1,19 @@
-# ModelFoundry v2.0
+# ModelFoundry v2.1
 
 <img width="1486" height="813" alt="image" src="https://github.com/user-attachments/assets/8bd36c10-a5c7-4eb7-b946-628161b3ad59" />
 
+ModelFoundry is a premium, self-hosted Django web application for managing, visualizing, and tracking 3D printing projects. It provides a comprehensive Bill of Materials (BOM), real-time cost estimation, and a modular ecosystem for 3D utilities — all wrapped in a modern glassmorphic UI.
 
-ModelFoundry is a premium, Django-based web application designed to help users manage, visualize, and track their 3D printing projects. Version 2.0 introduces a massive architectural overhaul featuring a highly modular 3D utility ecosystem, immersive media galleries, and a more polished "Bento Box" glassmorphic UI.
+## What's New in v2.1?
 
-## What's New in v2.0?
-
-- **The Forge Module Ecosystem:** We've decoupled our 3D utilities into standalone, dynamic GitHub repositories. Modules like the Grid Slicer, Etcher, and Converter can now be installed and run locally via isolated Docker virtual environments. This allows you to add modules and functionality you want without dragging along the ones you don't
-- **Premium Glassmorphic UI:** A complete design overhaul utilizing modern "Bento Box" grid layouts, dynamic theming (Midnight Blue, Sunset Ember, Modern Mocha), and responsive `backdrop-filter` effects.
-- **Immersive Media:** Hero layouts now feature full-bleed, edge-to-edge `SplideJS` carousels with seamless gradient fades and `GLightbox` integration for cinematic project and assembly viewing.
-- **Advanced Bulk Actions:** Parts tables have been upgraded with tactile stepper trackers, live BOM (Bill of Materials) calculations, and scoped bulk Edit/Complete/Delete operations.
+- **Three-Phase Background Processing Pipeline:** Bulk part uploads now process files through a non-blocking pipeline — Upload → Thumbnail Rendering → Volume Calculation — with a real-time stepper UI showing per-part progress for each phase. Volume calculations leverage `numpy-stl` and `ProcessPoolExecutor` for multi-core parallelism.
+- **Insights Dashboard:** A new analytics page with interactive Chart.js visualizations including financial breakdowns, material burn rate tracking by filament type, and project summary metrics (biggest volume, most expensive).
+- **Slicer Inbox & Desktop Agent:** A companion desktop agent monitors your slicer output directories and automatically syncs print metadata (filament usage, print time) to ModelFoundry via API. An inbox view lets you assign or dismiss incoming slices.
+- **MQTT Printer Integration:** Connect Bambu Lab printers via MQTT for real-time machine status monitoring, including online/offline detection and last-seen timestamps.
+- **Open Filament Database (OFD) Integration:** Add materials from the community filament database with cascading brand → type → variant filtering and auto-populated material properties.
+- **First-Login Onboarding Wizard:** New installations launch a guided setup wizard to create the first account, reducing friction for self-hosted deployments.
+- **Dynamic Theming:** Choose from multiple themes (Midnight Blue, Sunset Ember, Modern Mocha) with persistent per-user preferences.
+- **Settings & Diagnostics:** A unified settings page with theme selection, machine management, and live system/machine log viewers for debugging.
 
 ---
 
@@ -18,40 +21,65 @@ ModelFoundry is a premium, Django-based web application designed to help users m
 
 ### Project Management
 - Create and organize large 3D printing projects to get a comprehensive Bill of Materials and cost estimate before you print.
-- Export and import projects for backup or sharing (now fully syncing designer metadata).
+- Export and import projects for backup or sharing (fully syncing designer metadata and tags).
+- Three-step project creation wizard: Create → Add Parts → Upload Instructions.
 <img width="1459" height="185" alt="image" src="https://github.com/user-attachments/assets/ce381ed0-1eee-472a-8158-5afe016b6daa" />
 
 
 ### Advanced Part Tracking
-- Add, organize, and group 3D printed parts.
+- Add, organize, and group 3D printed parts with support for STL, 3MF, OBJ, and STEP files.
+- Automatic 3MF explosion: multi-body 3MF files are parsed into individual sub-parts.
 - Track completion status using interactive "one-tap" progress steppers.
 - Real-time BOM calculations (costs and volumes) automatically updated in the UI.
 - Integrated 3D STL viewer with quick "Forge Actions" dropdowns.
+- Blender-powered thumbnail rendering via a dedicated background sidecar service.
 <img width="1472" height="692" alt="image" src="https://github.com/user-attachments/assets/7905634a-d832-41c2-98a5-da255e4db840" />
 
 
+### Bulk Upload with Live Progress
+- Upload multiple parts at once with a three-phase progress stepper:
+  - **Phase 1 — Upload Files (0-33%):** Real-time byte-level progress via XHR events.
+  - **Phase 2 — Generate Thumbnails (34-66%):** Per-part progress as the Blender sidecar renders each thumbnail. Gracefully skipped if Blender is offline.
+  - **Phase 3 — Calculate Volumes (67-100%):** Multi-core parallel computation using `numpy-stl` and `ProcessPoolExecutor`.
+- Progress is tracked server-side and polled by the frontend every 500ms for a responsive, accurate UI.
+
 ### The Forge Ecosystem
-- Install standalone 3D utilities directly from GitHub via our new `manifest.json` architecture.
+- Install standalone 3D utilities directly from GitHub via our `manifest.json` architecture.
 - Run compute-heavy tasks safely in isolated virtual environments managed by Docker.
+- Available modules:
+  - **Grid Slicer** — Split large models into printable grid sections with automatic connector generation.
+  - **Rune Etcher** — Engrave text and patterns onto 3D model surfaces.
+  - **Sizer** — Scale models to exact target dimensions.
 <img width="1482" height="805" alt="image" src="https://github.com/user-attachments/assets/e00e125b-15a4-4f71-85b4-43a1cd5f3df9" />
 
 
 ### Dynamic Material & Designer Management
 - Create material profiles tracking cost, density, and color.
-- Create designer profiles, filtering projects by creator.
+- Import materials from the Open Filament Database with cascading brand/type/variant filters.
+- Create designer profiles with links to MyMiniFactory, Patreon, Cults3D, and personal websites.
 - Instantly search projects and designers via real-time global search.
 
 ### Interactive Assembly Instructions
 - Build step-by-step assembly guides with embedded photos and videos.
-- Cinematic viewing experience via `GLightbox` with custom neon-flicker hover effects.
+- Cinematic viewing experience via `GLightbox` with custom hover effects.
 <img width="1459" height="568" alt="image" src="https://github.com/user-attachments/assets/2a8ba44f-57b0-4a52-bad6-ccf08b2ee758" />
 
+
+### Insights Dashboard
+- Financial breakdown of costs across all projects.
+- Material burn rate charts tracking consumption by filament type over time.
+- Summary metrics: biggest volume, most expensive project, total parts tracked.
+
+### Printer & Slicer Integration
+- **MQTT Monitoring:** Connect Bambu Lab printers for real-time online/offline status.
+- **Slicer Inbox:** Desktop agent watches your slicer output folder and syncs print metadata to ModelFoundry via API.
+- **Machine Logs:** View real-time MQTT logs per machine directly from the settings page.
 
 ---
 
 ## Installation & Deployment
 
-**ModelFoundry v2.0 requires Docker Compose as the preferred and officially supported deployment method.** Due to the complex, multi-service architecture (which includes the core Django app, a PostgreSQL database, and a dedicated background Blender geometry processing service), running the app manually via python is only recommended for advanced module development.
+**ModelFoundry requires Docker Compose as the preferred and officially supported deployment method.** The multi-service architecture includes the core Django app, a PostgreSQL database, and a dedicated Blender geometry processing sidecar.
 
 ### Quick Start (Docker Compose)
 
@@ -65,14 +93,20 @@ cd ModelFoundry
 ```bash
 docker compose up --build -d
 ```
-*Note: This command will automatically spin up the Web App, PostgreSQL database, and Blender background service.*
+*This automatically spins up the Web App, PostgreSQL database, and Blender background service.*
 
-3. Create your admin account (while the containers are running):
-```bash
-docker compose exec web python manage.py createsuperuser
-```
+3. Access ModelFoundry at `http://localhost` and follow the first-login setup wizard to create your account.
 
-That's it! Access ModelFoundry at `http://localhost`.
+That's it!
+
+---
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `DEMO_BANNER_TEXT` | *(empty)* | If set, displays a dismissible banner at the top of every page with the specified text. Useful for demo instances. |
+| `DJANGO_SECRET_KEY` | auto-generated | Django secret key for production deployments. |
 
 ---
 
@@ -112,38 +146,27 @@ python manage.py runserver
 
 2. **Stop the containers (data is safe - volumes persist):**
    ```bash
-   docker-compose down
+   docker compose down
    ```
 
-3. **Rebuild the images:**
+3. **Rebuild and start (migrations run automatically):**
    ```bash
-   docker-compose build
+   docker compose up --build -d
    ```
 
-4. **Start the services (migrations run automatically):**
+4. **Verify everything is working:**
    ```bash
-   docker-compose up -d
-   ```
-
-5. **Verify everything is working:**
-   ```bash
-   docker-compose logs -f web
+   docker compose logs -f web
    ```
 
 
 #### Data Backup (Recommended Before Upgrades):
 
-Before upgrading, consider backing up your data:
-
 ```bash
-# Backup database (creates a SQL dump file)
-docker-compose exec db pg_dump -U postgres modelfoundry > backup_$(date +%Y%m%d_%H%M%S).sql
+# Backup database
+docker compose exec db pg_dump -U postgres modelfoundry > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# List your volumes to find the exact names (project name prefix may vary)
-docker volume ls | grep postgres_data
-
-# Backup database volume (replace 'modelfoundry' with your actual project name if different)
-# The volume name format is: <project_name>_postgres_data
+# Backup database volume
 docker run --rm \
   -v modelfoundry_postgres_data:/data \
   -v $(pwd):/backup \
@@ -156,27 +179,38 @@ docker run --rm \
   alpine tar czf /backup/media_backup_$(date +%Y%m%d_%H%M%S).tar.gz /data
 ```
 
-## Project Structure
+## Architecture
 
 ```
 ModelFoundry/
-├── modelfoundry/         # Main project configuration
-├── forge/                # Forge Module Framework
-│   ├── modules/          # Standalone module repositories
-│   └── module_registry.py # Dynamic module loader
-├── projects/             # Main application (Project Management)
-│   ├── migrations/       # Database migrations
-│   ├── static/           # Static files (CSS, JS, images)
-│   ├── templates/        # HTML templates
-│   ├── models.py         # Database models
-│   ├── views.py          # View functions
-│   ├── urls.py           # URL routing
-│   └── forms.py          # Form definitions
-├── blender_service/      # Background 3D geometry processing service
-├── logs/                 # Application logs (automatically created)
-├── requirements.txt      # Project dependencies
-└── manage.py             # Django management script
+├── modelfoundry/             # Django project configuration & settings
+├── projects/                 # Core application
+│   ├── models.py             # Data models (Project, Part, Material, Machine, etc.)
+│   ├── views.py              # View functions & API endpoints
+│   ├── signals.py            # Post-save hooks (thumbnail generation)
+│   ├── volume.py             # Background processing pipeline (thumbnails + volumes)
+│   ├── progress.py           # In-memory progress tracking for uploads
+│   ├── templates/            # HTML templates
+│   ├── static/               # CSS, JS, images
+│   └── management/           # Custom management commands (MQTT listener)
+├── forge/                    # Forge Module Framework
+│   ├── modules/              # Installed module repositories
+│   ├── module_registry.py    # Dynamic module discovery & loading
+│   └── services/             # Service clients (BlenderClient)
+├── blender_service/          # Headless Blender sidecar (thumbnail rendering)
+├── mqtt/                     # MQTT printer integration
+├── docker-compose.yml        # Production service orchestration
+├── requirements.txt          # Python dependencies
+└── manage.py                 # Django management script
 ```
+
+## Technology Stack
+
+- **Backend:** Django 5.x, PostgreSQL, Gunicorn
+- **Frontend:** Bootstrap 5, jQuery, Chart.js, SplideJS, GLightbox, THREE.js
+- **3D Processing:** numpy-stl, trimesh, Blender (headless sidecar)
+- **Infrastructure:** Docker Compose, MQTT (Bambu Lab integration)
+- **Image Processing:** django-imagekit
 
 ## Contributing
 
@@ -189,13 +223,3 @@ ModelFoundry/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Django framework
-- Bootstrap & Tailwind-inspired Layouts
-- SplideJS & GLightbox for Media
-- Font Awesome for icons
-- THREE.js / STL library for 3D file handling
-- OpenFilamentCollective for the OpenFilamentDatabase
-- django-imagekit for responsive image processing
